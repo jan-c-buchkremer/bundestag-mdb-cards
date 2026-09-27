@@ -62,7 +62,9 @@ function mandateLines() {
 function contextBox() {
   const parts = [];
   if (member && C.mandate && C.mandate.to) {
-    parts.push(`<div class="context left"><b>Aus dem Bundestag ausgeschieden am ${longDate(C.mandate.to)}.</b><div class="note">Die Angaben unten reichen bis zu diesem Tag.</div></div>`);
+    const later = [...new Set(C.reden.concat(C.befragung).filter(s => s.date > C.mandate.to && s.role).map(s => s.role))];
+    const note = later.length ? `Abstimmungen und Ausschüsse enden an diesem Tag. Spätere Reden stammen aus einem anderen Amt: ${later.map(esc).join(', ')}.` : 'Abstimmungen und Ausschüsse enden an diesem Tag.';
+    parts.push(`<div class="context left"><b>Aus dem Bundestag ausgeschieden am ${longDate(C.mandate.to)}.</b><div class="note">${note}</div></div>`);
   }
   if (member && !C.in_stammdaten) {
     parts.push(`<div class="context left"><b>Neu im Bundestag.</b><div class="note">Die Stammdaten des Bundestages (${esc(META.stammdaten.doc)}) führen dieses Mandat noch nicht; Wahlkreis, Ausschüsse und Lebensdaten fehlen deshalb vorerst. Die Mitgliedschaft ergibt sich aus den Abstimmungslisten.</div></div>`);
@@ -135,7 +137,7 @@ function renderCard() {
 
 // ---------------------------------------------------------------- layer 2: tabs
 const TABS = [
-  ['reden', 'Reden', () => C.reden.length + C.fragen.length + C.befragung.length, renderReden],
+  ['reden', 'Reden', () => C.reden.length, renderReden],
   ...(member ? [['abstimmungen', 'Abstimmungen', () => C.votes.length, renderVotes], ['ausschuesse', 'Ausschüsse & Funktionen', () => C.committees.length + C.offices.length, renderMemberships]] : []),
   ['quellen', 'Quellen', () => '', renderSources],
 ];

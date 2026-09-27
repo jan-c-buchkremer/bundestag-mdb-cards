@@ -11,6 +11,7 @@ a:hover { text-decoration: underline; }
 button, input, select { font: inherit; }
 
 header { height: 52px; display: flex; align-items: center; gap: 16px; padding: 0 22px; background: var(--card); border-bottom: 1px solid var(--line); }
+header .home, header .ext { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 header .home { font-size: 15px; font-weight: 600; color: inherit; letter-spacing: -.01em; }
 header .spacer { flex: 1; }
 header .ext { color: var(--muted); font-size: 13px; }
@@ -95,7 +96,9 @@ nav.tabs a .n { color: var(--faint); font-weight: 400; margin-left: 4px; font-si
 .sources { padding-left: 18px; font-size: 13.5px; }
 
 @media (max-width: 640px) {
-  header { padding: 0 16px; }
+  header { padding: 0 16px; gap: 10px; }
+  header .home { font-size: 14px; }
+  header .ext { font-size: 12.5px; flex: none; }
   main { padding: 16px 12px 48px; }
   .card { padding: 18px 16px 16px; border-radius: 12px; }
   .card h1 { font-size: 21px; }

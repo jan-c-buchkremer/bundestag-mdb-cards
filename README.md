@@ -12,7 +12,7 @@ are logged in [`docs/decisions.md`](docs/decisions.md).
 ```sh
 uv sync
 BDF_DB=/path/to/bundestag.sqlite uv run cards build   # writes data/out/: one page and JSON per card, index.html
-python -m http.server -d data/out                      # then open http://localhost:8000
+python3 -m http.server -d data/out                     # then open http://localhost:8000
 uv run pytest && uv run ruff check .
 ```
 

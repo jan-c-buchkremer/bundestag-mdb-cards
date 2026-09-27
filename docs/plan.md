@@ -208,7 +208,7 @@ The foundation rule stays: **facts with provenance go into the foundation; aggre
 | Zwischenfrage / Kurzintervention flag as a column (today the landscape derives it) | foundation | Im Plenum; removes duplicate logic |
 | Page numbers from `druckseitennummer` markers | foundation | deep links into the PDF |
 | Photos: Wikidata P18 → Wikimedia Commons file + licence, or Bundestag photos (licence to check) | foundation (as a fetch source) | card |
-| Office periods (minister, state secretary, Präsidium) | foundation, from Stammdaten `INSTITUTIONEN` or DIP person roles | role-aware context line |
+| Office periods (minister, state secretary, Präsidium) | already in the store as Stammdaten memberships (kind `other`), used by the MVP | role-aware context line |
 | PLZ → Wahlkreis | foundation (new source) | postcode search (D8) |
 | WP-wide topic per speech with a person id | landscape (export) or here | topic fingerprint (idea 3) |
 | Percentiles, deviation lists, similarity, timelines | here | layer 1 and 2 |
@@ -270,7 +270,7 @@ duplicating it here would drift.
 (a) The 635 WP 21 MdBs, including those who left. (b) Also non-MdB speakers (ministers without mandate). (c) Also
 former members of earlier Wahlperioden.
 *Recommendation: (a).* A minister without mandate has no votes and no documents; a slim "Regierungsmitglied" card later.
-**Entscheidung:** (a) + (b): the 635 WP 21 MdBs, including those who left, plus non-MdB speakers. On 2026-09-27 the store has 14 of them with 296 speeches (federal ministers and Staatsminister without mandate, Länder representatives). Their cards show office and speeches only: no votes, no documents, and no birth data, which the store does not have for them. (2026-09-27)
+**Entscheidung:** (a) + (b): the 635 WP 21 MdBs, including those who left, plus non-MdB speakers. On 2026-09-27 the store has 14 of them with 296 speeches (federal ministers and Staatsminister without mandate, Länder representatives). Their cards show office and speeches only: no votes, no documents, and no birth data, which the store does not have for them. (2026-09-27) *Built:* the final split is 639 member cards (including 4 Nachrücker found only in the vote lists) and 14 speaker cards; see `decisions.md`.
 
 **D10 — Look.**
 (a) Reuse the landscape's visual language: Inter, light theme, fraction colours, card and bar-chart components.
@@ -292,7 +292,7 @@ former members of earlier Wahlperioden.
 | 0 | Repository, this plan | pushed ✓ |
 | 1 | Decide D1–D11 here | every decision has an Entscheidung line and an entry in `decisions.md` ✓ |
 | 2 | Foundation extensions from D4, first two items | new tables/columns with provenance, tests on fixtures |
-| 3 | MVP: build, card, Reden, Abstimmungen, Ausschüsse, index | all 635 member pages and the non-MdB speaker pages build; spot-check 10 cards against bundestag.de |
+| 3 | MVP: build, card, Reden, Abstimmungen, Ausschüsse, index (built on branch `mvp`, spot-check open) | all 635 member pages and the non-MdB speaker pages build; spot-check 10 cards against bundestag.de |
 | 4 | Drucksachen, Im Plenum, Laufbahn, Quellen, exports | — |
 | 5 | Container, compose service in `/srv/apps/bundestag`, Pages publish, `update.sh` hook | the daily timer rebuilds and publishes the cards |
 | 6 | Topics (D3 b), photos, similar members, network | — |

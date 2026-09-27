@@ -20,7 +20,10 @@ def main(argv: list[str] | None = None) -> None:
     cards, meta = data.cards(conn)
     kinds = Counter(c["kind"] for c in cards)
     print(f"{kinds['member']} member cards, {kinds['speaker']} speaker cards; {meta['votes']} roll-call votes")
-    build.write_site(cards, meta, args.out)
+    wks = data.constituencies(conn)
+    if not wks:
+        print("no election tables in the store: cards without vote shares and list positions")
+    build.write_site(cards, meta, args.out, wks)
     print(f"wrote {len(cards)} pages to {args.out}")
 
 

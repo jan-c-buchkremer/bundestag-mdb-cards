@@ -43,17 +43,18 @@ def render_card(c: dict, meta: dict) -> str:
     )
 
 
-def render_index(cards: list[dict], meta: dict) -> str:
+def render_index(cards: list[dict], meta: dict, constituencies: list[dict]) -> str:
     rows = [index_row(c) for c in cards]
-    return (HERE / "index.html").read_text(encoding="utf-8").replace("__DATA__", _json({"cards": rows, "meta": meta}))
+    payload = {"cards": rows, "meta": meta, "constituencies": constituencies}
+    return (HERE / "index.html").read_text(encoding="utf-8").replace("__DATA__", _json(payload))
 
 
-def write_site(cards: list[dict], meta: dict, out: Path) -> None:
+def write_site(cards: list[dict], meta: dict, out: Path, constituencies: list[dict] | None = None) -> None:
     meta = {**meta, "built": dt.date.today().isoformat()}
     out.mkdir(parents=True, exist_ok=True)
     for c in cards:
         (out / f"{c['id']}.html").write_text(render_card(c, meta), encoding="utf-8")
         (out / f"{c['id']}.json").write_text(json.dumps(c, ensure_ascii=False, indent=1), encoding="utf-8")
-    (out / "index.html").write_text(render_index(cards, meta), encoding="utf-8")
+    (out / "index.html").write_text(render_index(cards, meta, constituencies or []), encoding="utf-8")
     for name in ASSETS:
         shutil.copyfile(HERE / name, out / name)

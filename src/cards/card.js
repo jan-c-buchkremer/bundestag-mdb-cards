@@ -6,6 +6,11 @@ const REPO = 'https://github.com/jan-c-buchkremer/bundestag-mdb-cards';
 const FRACTION_COLORS = { 'CDU/CSU': '--cdu', 'SPD': '--spd', 'AfD': '--afd', 'BÜNDNIS 90/DIE GRÜNEN': '--gru', 'Die Linke': '--lin', 'fraktionslos': '--frl' };
 const STATES = { BW: 'Baden-Württemberg', BY: 'Bayern', BE: 'Berlin', BB: 'Brandenburg', HB: 'Bremen', HH: 'Hamburg', HE: 'Hessen', MV: 'Mecklenburg-Vorpommern',
   NI: 'Niedersachsen', NW: 'Nordrhein-Westfalen', RP: 'Rheinland-Pfalz', SL: 'Saarland', SN: 'Sachsen', ST: 'Sachsen-Anhalt', SH: 'Schleswig-Holstein', TH: 'Thüringen' };
+// Land codes of the Stammdaten before WP 18, incl. Länder of the early Wahlperioden; "*" markers stay empty
+const OLD_STATES = { BAY: 'Bayern', BLN: 'Berlin', BLW: 'Berlin (West)', BRA: 'Brandenburg', BRE: 'Bremen', BWG: 'Baden-Württemberg', HBG: 'Hamburg',
+  HES: 'Hessen', MBV: 'Mecklenburg-Vorpommern', NDS: 'Niedersachsen', NRW: 'Nordrhein-Westfalen', RPF: 'Rheinland-Pfalz', SAA: 'Sachsen-Anhalt',
+  SAC: 'Sachsen', SLD: 'Saarland', SWH: 'Schleswig-Holstein', 'THÜ': 'Thüringen', BAD: 'Baden', WBB: 'Württemberg-Baden', WBH: 'Württemberg-Hohenzollern' };
+const stateName = s => STATES[s] || OLD_STATES[s] || '';
 const MONTHS = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
 const VOTE = { yes: 'Ja', no: 'Nein', abstain: 'Enthaltung', absent: 'nicht abgestimmt', invalid: 'ungültig' };
 const VOTE_COLORS = { yes: '#4c9a5f', no: '#d0485a', abstain: '#c9a72c', absent: '#d4d4d0' };
@@ -54,14 +59,24 @@ function topSubjects(ds, k = 3) {
 }
 
 // ---------------------------------------------------------------- layer 1: the card
+// how the member was elected in 2025, from the Bundeswahlleiterin's files
+const pct = x => x.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' %';
+function electionLine(e) {
+  const wk = e.number ? `Wahlkreis ${e.number} · ${esc(e.constituency || '')}` : '';
+  if (e.via === 'constituency') return `direkt gewählt im ${wk}${e.percent != null ? ` mit ${pct(e.percent)} der Erststimmen` : ''}`;
+  const list = `über Platz ${e.list_position} der Landesliste ${STATES[e.list_state] || esc(e.list_state)}`;
+  return wk ? `${list} · im ${wk}${e.percent != null ? `: ${pct(e.percent)} der Erststimmen` : ''}` : list;
+}
+
 function mandateLines() {
   const m = C.mandate, lines = [];
   if (!member) {
     lines.push(`${esc(C.role || 'Rednerin oder Redner im Plenum')} · kein Mitglied des Bundestages`);
     return lines;
   }
-  if (m && m.type === 'Direktwahl') lines.push(`direkt gewählt im Wahlkreis ${m.number} · ${esc(m.constituency)} (${STATES[m.state] || m.state})`);
-  else if (m) lines.push(`über die Landesliste ${STATES[m.state] || m.state}${m.number ? ` · Wahlkreiskandidatur in ${m.number} ${esc(m.constituency)}` : ''}`);
+  if (C.election) lines.push(electionLine(C.election));
+  else if (m && m.type === 'Direktwahl') lines.push(`direkt gewählt im Wahlkreis ${m.number} · ${esc(m.constituency)} (${STATES[m.state] || m.state})`);
+  else if (m) lines.push(`über die Landesliste ${STATES[m.state] || m.state}${m.from > META.sittings.from ? `, nachgerückt am ${longDate(m.from)}` : ''}${m.number ? ` · Wahlkreiskandidatur in ${m.number} ${esc(m.constituency)}` : ''}`);
   else lines.push(`Mitglied spätestens seit ${longDate(C.first_vote)} (laut Abstimmungslisten)`);
   const earlier = C.periods.filter(p => p < META.wp).length;
   const since = earlier ? `zum ${earlier + 1}. Mal im Bundestag (erstmals ${C.since.slice(0, 4)})` : 'zum ersten Mal im Bundestag';
@@ -278,11 +293,11 @@ function renderDocuments(el) {
 
 function renderCareer(el) {
   const where = m => m.type === 'Direktwahl' ? `direkt gewählt im Wahlkreis ${m.number} · ${esc(m.constituency)}`
-    : m.type === 'Landesliste' ? `Landesliste ${STATES[m.state] || esc(m.state || '')}${m.number ? ` · Wahlkreiskandidatur in ${m.number} ${esc(m.constituency)}` : ''}`
+    : m.type === 'Landesliste' ? `Landesliste ${esc(stateName(m.state))}${m.number ? ` · Wahlkreiskandidatur in ${m.number} ${esc(m.constituency)}` : ''}`
     : m.type === 'Volkskammer' ? 'von der Volkskammer entsandt' : esc(m.type || '');
   const gaps = [];
   for (let i = 1; i < C.career.length; i++) if (C.career[i].wp - C.career[i - 1].wp > 1) gaps.push(`zwischen der ${C.career[i - 1].wp}. und der ${C.career[i].wp}. Wahlperiode`);
-  const rows = C.career.slice().reverse().map(m => `<div class="row"><div class="t">${m.wp}. Wahlperiode<div class="sub">${where(m)}</div></div><div class="d">${period(m.from, m.to)}</div></div>`);
+  const rows = C.career.slice().reverse().map(m => `<div class="row"><div class="t">${m.wp}. Wahlperiode<div class="sub">${m.wp === META.wp && C.election ? electionLine(C.election) + (C.election.via === 'constituency' && C.election.list_position ? `; abgesichert auf Platz ${C.election.list_position} der Landesliste ${STATES[C.election.list_state] || esc(C.election.list_state)}` : '') : where(m)}</div></div><div class="d">${period(m.from, m.to)}</div></div>`);
   el.innerHTML = `
     <p class="explain">Alle Mandate seit der ersten Wahlperiode laut Stammdaten des Bundestages (${esc(META.stammdaten.doc)}).</p>
     ${gaps.length ? `<p class="explain">Nicht im Bundestag ${gaps.join(', ')}.</p>` : ''}
@@ -299,6 +314,7 @@ function renderSources(el) {
       <li>Plenarprotokolle der ${META.wp}. Wahlperiode, ${META.sittings.n} Sitzungen vom ${shortDate(META.sittings.from)} bis ${shortDate(META.sittings.to)}; jede Rede verlinkt auf ihr Protokoll. © Deutscher Bundestag</li>
       ${member ? `<li>Listen der namentlichen Abstimmungen (XLSX und PDF), je Abstimmung verlinkt. © Deutscher Bundestag</li>` : ''}
       ${member && hasDip ? `<li>DIP, Dokumentations- und Informationssystem für Parlamentsmaterialien: Drucksachen, Urheber und Sachgebiete (${META.dip.n} Drucksachen vom ${shortDate(META.dip.from)} bis ${shortDate(META.dip.to)}). © Deutscher Bundestag/Bundesrat – DIP</li>` : ''}
+      ${member && META.election.length ? `<li>Bundestagswahl 2025: ${META.election.map(s => `<a href="${esc(s.url)}">${esc(s.doc)}</a>`).join(', ')}. © Die Bundeswahlleiterin, Wiesbaden 2025, <a href="https://www.govdata.de/dl-de/by-2-0">dl-de/by-2-0</a></li>` : ''}
       ${C.wikidata ? `<li>Wikidata: <a href="https://www.wikidata.org/wiki/${esc(C.wikidata)}">${esc(C.wikidata)}</a> (CC0 1.0)</li>` : ''}
       ${C.aw_id ? `<li>abgeordnetenwatch.de: <a href="https://www.abgeordnetenwatch.de/api/v2/politicians/${esc(C.aw_id)}">Datensatz ${esc(C.aw_id)}</a> (CC0 1.0)</li>` : ''}
       <li>Alle Angaben dieser Seite als <a href="${esc(C.id)}.json">JSON</a>.</li>
@@ -333,4 +349,4 @@ window.addEventListener('hashchange', () => {
 
 renderCard();
 renderTabs();
-document.getElementById('foot').innerHTML = `Daten: Deutscher Bundestag${C.aw_id ? ', abgeordnetenwatch.de (CC0 1.0)' : ''}. Code: <a href="${REPO}">bundestag-mdb-cards</a> (MIT). Keine Rangliste, keine Bewertung: Zahlen stehen immer mit ihrem Zusammenhang.`;
+document.getElementById('foot').innerHTML = `Daten: Deutscher Bundestag${member && META.election.length ? ', Die Bundeswahlleiterin' : ''}${C.aw_id ? ', abgeordnetenwatch.de (CC0 1.0)' : ''}. Code: <a href="${REPO}">bundestag-mdb-cards</a> (MIT). Keine Rangliste, keine Bewertung: Zahlen stehen immer mit ihrem Zusammenhang.`;

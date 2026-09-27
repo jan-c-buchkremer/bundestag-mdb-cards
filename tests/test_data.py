@@ -110,3 +110,29 @@ def test_short_contributions_are_not_reden(conn):
     assert cards["3"]["reden"] == []  # under 500 characters, as in the landscape
     assert [(k["id"], k["on_map"]) for k in cards["3"]["kurz"]] == [("ID3", False)]
     assert all(r["on_map"] for r in cards["2"]["reden"])
+
+
+def test_election_2025(conn):
+    cards, meta = by_id(conn)
+    assert cards["1"]["election"] == {
+        "via": "constituency", "party": "SPD", "number": 14, "constituency": "Rostock", "percent": 38.2,
+        "list_state": "MV", "list_position": 2,
+    }  # fmt: skip
+    berg = cards["2"]["election"]  # a list member's own share is the party's Erststimme result where they stood
+    assert (berg["via"], berg["list_position"], berg["number"], berg["percent"]) == ("list", 3, 242, 30.5)
+    assert cards["3"]["election"] is None  # Nachrücker are not in the file
+    assert [s["doc"] for s in meta["election"]] == [
+        "Bundeswahlleiterin, BTW 2025 Gewählte (Stand 2025-03-12)",
+        "Bundeswahlleiterin, BTW 2025 Ergebnisse nach Wahlkreisen (Stand 2025-03-14)",
+    ]
+    wks = {w["number"]: w for w in data.constituencies(conn)}
+    assert (wks[58]["seat_party"], wks[58]["first_party"], wks[58]["first_percent"]) == (None, "AfD", 33.3)
+    assert wks[14]["turnout"] == 80.0
+
+
+def test_store_without_election_tables(conn):
+    for t in ("election_candidacy", "constituency_result", "constituency"):
+        conn.execute(f"DROP TABLE {t}")
+    cards, meta = by_id(conn)
+    assert cards["1"]["election"] is None and meta["election"] == []
+    assert data.constituencies(conn) == []

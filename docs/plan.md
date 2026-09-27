@@ -292,7 +292,7 @@ former members of earlier Wahlperioden.
 | 0 | Repository, this plan | pushed ✓ |
 | 1 | Decide D1–D11 here | every decision has an Entscheidung line and an entry in `decisions.md` ✓ |
 | 2 | Foundation extensions from D4, first two items | new tables/columns with provenance, tests on fixtures |
-| 3 | MVP: build, card, Reden, Abstimmungen, Ausschüsse, index (built on branch `mvp`, spot-check open) | all 635 member pages and the non-MdB speaker pages build; spot-check 10 cards against bundestag.de |
-| 4 | Drucksachen, Im Plenum, Laufbahn, Quellen, exports | — |
-| 5 | Container, compose service in `/srv/apps/bundestag`, Pages publish, `update.sh` hook | the daily timer rebuilds and publishes the cards |
+| 3 | MVP: build, card, Reden, Abstimmungen, Ausschüsse, index (built on branch `mvp`; spot-check done against abgeordnetenwatch, see `decisions.md`) | all 635 member pages and the non-MdB speaker pages build; spot-check 10 cards against bundestag.de |
+| 4 | Drucksachen, Im Plenum, Laufbahn, Quellen, exports | Drucksachen, Laufbahn, Quellen, exports built; Im Plenum waits for structured interjections (D4 item 3) |
+| 5 | Container, compose service in `/srv/apps/bundestag`, Pages publish, `update.sh` hook (image and CI built; the rest in `docs/deploy.md`) | the daily timer rebuilds and publishes the cards |
 | 6 | Topics (D3 b), photos, similar members, network | — |

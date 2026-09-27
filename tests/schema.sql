@@ -127,3 +127,33 @@ CREATE TABLE vorgang (
     source_url TEXT NOT NULL, source_document_id TEXT NOT NULL, retrieved_at TEXT NOT NULL
 );
 
+CREATE TABLE drucksache (
+    id TEXT PRIMARY KEY,                -- DIP id
+    number TEXT NOT NULL,               -- "21/7300"
+    wahlperiode INTEGER NOT NULL,
+    type TEXT,                          -- drucksachetyp
+    title TEXT NOT NULL,
+    date TEXT NOT NULL,
+    pdf_url TEXT,
+    publisher TEXT,                     -- herausgeber: BT | BR
+    originators TEXT NOT NULL,          -- JSON array of urheber titles
+    author_count INTEGER,
+    source_url TEXT NOT NULL, source_document_id TEXT NOT NULL, retrieved_at TEXT NOT NULL
+);
+
+CREATE TABLE drucksache_author (
+    id TEXT PRIMARY KEY,                -- "<drucksache_id>/<dip_person_id>"
+    drucksache_id TEXT NOT NULL REFERENCES drucksache(id),
+    dip_person_id TEXT NOT NULL,
+    person_id TEXT REFERENCES person(id),
+    name TEXT NOT NULL,
+    activity_type TEXT,                 -- aktivitaetsart, e.g. "Antrag", "Kleine Anfrage"
+    source_url TEXT NOT NULL, source_document_id TEXT NOT NULL, retrieved_at TEXT NOT NULL
+);
+
+CREATE TABLE vorgang_drucksache (
+    vorgang_id TEXT NOT NULL REFERENCES vorgang(id),
+    drucksache_id TEXT NOT NULL REFERENCES drucksache(id),
+    PRIMARY KEY (vorgang_id, drucksache_id)
+);
+

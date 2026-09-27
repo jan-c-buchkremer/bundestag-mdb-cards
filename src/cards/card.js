@@ -41,6 +41,17 @@ const withLine = votesCast.filter(v => v.line);
 const deviations = C.votes.filter(v => v.deviates);
 const questions = C.befragung.filter(b => !b.role), answers = C.befragung.filter(b => b.role);
 const byDateDesc = (a, b) => (b.date + b.id).localeCompare(a.date + a.id);
+const ACTIVITY = { 'Antrag': ['Antrag', 'Anträge'], 'Kleine Anfrage': ['Kleine Anfrage', 'Kleine Anfragen'], 'Entschließungsantrag': ['Entschließungsantrag', 'Entschließungsanträge'],
+  'Änderungsantrag': ['Änderungsantrag', 'Änderungsanträge'], 'Gesetzentwurf': ['Gesetzentwurf', 'Gesetzentwürfe'], 'Frage': ['schriftliche Frage', 'schriftliche Fragen'] };
+const SMALL_GROUP = 10;  // up to this many names a Drucksache is a small group's, not the whole fraction's
+const documents = C.authored.filter(d => d.activity !== 'Frage'), writtenQuestions = C.authored.filter(d => d.activity === 'Frage');
+const hasDip = META.dip.n > 0;
+const dipSpan = () => hasDip ? `Drucksachen aus DIP vom ${longDate(META.dip.from)} bis ${longDate(META.dip.to)}` : 'Noch keine Drucksachen aus DIP geladen';
+function topSubjects(ds, k = 3) {
+  const count = new Map();
+  for (const d of ds) for (const s of d.subjects) count.set(s, (count.get(s) || 0) + 1);
+  return [...count].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'de')).slice(0, k).map(x => x[0]);
+}
 
 // ---------------------------------------------------------------- layer 1: the card
 function mandateLines() {
@@ -89,7 +100,9 @@ function committeeLine() {
   if (!cs.length) return '';
   const rank = c => /Vorsitz/.test(c.role) ? 0 : /Obfrau|Obmann/.test(c.role) ? 1 : /Ordentlich/.test(c.role) ? 2 : 3;
   const label = c => /Stellvertretende[rs]? Vorsitz/.test(c.role) ? 'stv. Vorsitz' : /Vorsitz/.test(c.role) ? 'Vorsitz' : /Obfrau|Obmann/.test(c.role) ? c.role : /Stellvertretendes/.test(c.role) ? 'stv. Mitglied' : '';
-  const items = cs.slice().sort((a, b) => rank(a) - rank(b)).map(c => `${esc(c.short)}${label(c) ? ` <span class="faint">(${label(c)})</span>` : ''}`);
+  const best = new Map();  // one line per committee, with the highest role (Obmann and member rows both exist)
+  for (const c of cs) if (!best.has(c.short) || rank(c) < rank(best.get(c.short))) best.set(c.short, c);
+  const items = [...best.values()].sort((a, b) => rank(a) - rank(b)).map(c => `${esc(c.short)}${label(c) ? ` <span class="faint">(${label(c)})</span>` : ''}`);
   return `<div class="committees"><span class="k">Ausschüsse</span>${items.join(' · ')}</div>`;
 }
 
@@ -103,6 +116,18 @@ function facts() {
   if (questions.length) li.push(`Hat in der <a href="#reden-befragung">Regierungsbefragung <b>${plural(questions.length, 'Frage', 'Fragen')}</b> gestellt</a>.`);
   const zf = C.fragen.filter(f => f.kind === 'zwischenfrage').length, ki = C.fragen.length - zf;
   if (C.fragen.length) li.push(`Hat <a href="#reden-fragen">${[zf && `<b>${plural(zf, 'Zwischenfrage', 'Zwischenfragen')}</b>`, ki && `<b>${plural(ki, 'Kurzintervention', 'Kurzinterventionen')}</b>`].filter(Boolean).join(' und ')}</a> in Reden anderer gestellt.`);
+  if (member && META.dip.complete) {
+    const hint = `<span class="hint">${dipSpan()}. Fraktionsanträge tragen oft die Namen der ganzen Fraktion; die Zahl der Namen steht bei jeder Drucksache.</span>`;
+    if (documents.length) {
+      const byType = Object.keys(ACTIVITY).filter(a => a !== 'Frage').map(a => [a, documents.filter(d => d.activity === a).length]).filter(x => x[1]);
+      const small = documents.filter(d => d.authors && d.authors <= SMALL_GROUP).length;
+      const list = byType.map(([a, k]) => `<b>${plural(k, ...ACTIVITY[a])}</b>`);
+      li.push(`Hat <a href="#drucksachen">${list.length > 1 ? list.slice(0, -1).join(', ') + ' und ' + list.at(-1) : list[0]}</a> mitgezeichnet${small ? `, davon ${n(small)} mit höchstens ${SMALL_GROUP} Namen` : ''}.${hint}`);
+    } else if (!govOffice) li.push(`Steht auf keinem Antrag, keiner Anfrage und keinem Gesetzentwurf als Urheber.${hint}`);
+    if (writtenQuestions.length) li.push(`Hat <a href="#drucksachen-fragen"><b>${plural(writtenQuestions.length, ...ACTIVITY.Frage)}</b> an die Bundesregierung gestellt</a>.`);
+    const topics = topSubjects(C.authored);
+    if (topics.length) li.push(`Häufigste Sachgebiete der eigenen Drucksachen: <a href="#drucksachen">${topics.map(esc).join(', ')}</a>.<span class="hint">Sachgebiete vergibt der Bundestag selbst (DIP).</span>`);
+  }
   if (member && C.votes.length) {
     const hint = `<span class="hint">${META.votes} namentliche Abstimmungen seit ${longDate(META.sittings.from)}. Die meisten Beschlüsse fallen per Handzeichen und werden nur je Fraktion festgehalten.</span>`;
     if (C.fraction === 'fraktionslos' || !withLine.length) li.push(`Hat bei <a href="#abstimmungen"><b>${plural(votesCast.length, 'namentlichen Abstimmung', 'namentlichen Abstimmungen')}</b> eine Stimme abgegeben</a>; als fraktionsloses Mitglied ohne Fraktionslinie.${hint}`);
@@ -138,7 +163,12 @@ function renderCard() {
 // ---------------------------------------------------------------- layer 2: tabs
 const TABS = [
   ['reden', 'Reden', () => C.reden.length, renderReden],
-  ...(member ? [['abstimmungen', 'Abstimmungen', () => C.votes.length, renderVotes], ['ausschuesse', 'Ausschüsse & Funktionen', () => C.committees.length + C.offices.length, renderMemberships]] : []),
+  ...(member ? [
+    ['abstimmungen', 'Abstimmungen', () => C.votes.length, renderVotes],
+    ['drucksachen', 'Drucksachen', () => C.authored.length, renderDocuments],
+    ['ausschuesse', 'Ausschüsse & Funktionen', () => C.committees.length + C.offices.length, renderMemberships],
+    ['laufbahn', 'Laufbahn', () => C.career.length, renderCareer],
+  ] : []),
   ['quellen', 'Quellen', () => '', renderSources],
 ];
 
@@ -221,6 +251,40 @@ function renderMemberships(el) {
     ${!C.offices.length && !C.fractions.length && !C.committees.length && !C.other.length ? '<div class="rows"><div class="empty">Keine Einträge in den Stammdaten.</div></div>' : ''}`;
 }
 
+function renderDocuments(el) {
+  const only = el.dataset.only === '1';
+  const row = d => `<div class="row"><div class="d">${shortDate(d.date)}</div>
+    <div class="t">${esc(d.title)}<div class="sub">${[esc(d.activity === 'Frage' ? 'Schriftliche Frage' : d.activity), `Drs. ${esc(d.number)}`,
+      d.activity !== 'Frage' && d.authors ? (d.authors === 1 ? 'allein gezeichnet' : `eine von ${n(d.authors)} Namen`) : '',
+      d.subjects.length && esc(d.subjects.join(', '))].filter(Boolean).join(' · ')}</div></div>
+    <div class="l">${d.pdf ? `<a href="${esc(d.pdf)}" title="${esc(d.cite)}">PDF</a>` : ''}</div></div>`;
+  const docs = documents.filter(d => !only || (d.authors && d.authors <= SMALL_GROUP)).sort(byDateDesc);
+  const small = documents.filter(d => d.authors && d.authors <= SMALL_GROUP).length;
+  el.innerHTML = `
+    <p class="explain">${dipSpan()}. Eine Drucksache zählt hier, wenn DIP diese Person als Urheber führt (Antrag, Kleine Anfrage, Entschließungs- und Änderungsantrag, Gesetzentwurf, schriftliche Frage). Fraktionsanträge tragen oft die Namen der ganzen Fraktion; die Zahl der Namen zeigt, ob eine Drucksache von wenigen oder von allen stammt.</p>
+    ${META.dip.complete ? '' : '<p class="explain"><b>Noch unvollständig:</b> Die Drucksachen aus DIP werden gerade für die ganze Wahlperiode nachgeladen. Bis dahin fehlen Monate; deshalb nennt die Karte oben noch keine Zahlen.</p>'}
+    <h2 id="drucksachen-eigene">Anträge, Anfragen, Gesetzentwürfe <span class="n">${n(docs.length)}</span></h2>
+    ${documents.length ? `<div class="tools"><label><input type="checkbox"${only ? ' checked' : ''}> nur Drucksachen mit höchstens ${SMALL_GROUP} Namen (${n(small)})</label></div>` : ''}
+    ${list(docs.map(row), 'Keine Drucksachen.')}
+    ${writtenQuestions.length ? `<h2 id="drucksachen-fragen">Schriftliche Fragen <span class="n">${n(writtenQuestions.length)}</span></h2><p class="explain">Schriftliche Fragen erscheinen gesammelt in einer Drucksache je Woche; der Link führt zu dieser Sammlung.</p>${list(writtenQuestions.slice().sort(byDateDesc).map(row), '')}` : ''}
+    ${C.reported.length ? `<h2 id="drucksachen-berichte">Berichterstattung <span class="n">${n(C.reported.length)}</span></h2><p class="explain">Als Berichterstatterin oder Berichterstatter eines Ausschusses auf einer Beschlussempfehlung genannt. Das ist eine Aufgabe im Ausschuss, keine Urheberschaft.</p>${list(C.reported.slice().sort(byDateDesc).map(row), '')}` : ''}`;
+  el.querySelector('input')?.addEventListener('change', e => { el.dataset.only = e.target.checked ? '1' : ''; renderDocuments(el); });
+}
+
+function renderCareer(el) {
+  const where = m => m.type === 'Direktwahl' ? `direkt gewählt im Wahlkreis ${m.number} · ${esc(m.constituency)}`
+    : m.type === 'Landesliste' ? `Landesliste ${STATES[m.state] || esc(m.state || '')}${m.number ? ` · Wahlkreiskandidatur in ${m.number} ${esc(m.constituency)}` : ''}`
+    : m.type === 'Volkskammer' ? 'von der Volkskammer entsandt' : esc(m.type || '');
+  const gaps = [];
+  for (let i = 1; i < C.career.length; i++) if (C.career[i].wp - C.career[i - 1].wp > 1) gaps.push(`zwischen der ${C.career[i - 1].wp}. und der ${C.career[i].wp}. Wahlperiode`);
+  const rows = C.career.slice().reverse().map(m => `<div class="row"><div class="t">${m.wp}. Wahlperiode<div class="sub">${where(m)}</div></div><div class="d">${period(m.from, m.to)}</div></div>`);
+  el.innerHTML = `
+    <p class="explain">Alle Mandate seit der ersten Wahlperiode laut Stammdaten des Bundestages (${esc(META.stammdaten.doc)}).</p>
+    ${gaps.length ? `<p class="explain">Nicht im Bundestag ${gaps.join(', ')}.</p>` : ''}
+    ${C.in_stammdaten ? '' : `<p class="explain">Das aktuelle Mandat fehlt in diesem Stand der Stammdaten; Mitglied spätestens seit ${longDate(C.first_vote)}.</p>`}
+    <div class="rows memb">${rows.join('') || '<div class="empty">Keine Mandate in den Stammdaten.</div>'}</div>`;
+}
+
 function renderSources(el) {
   const s = META.stammdaten;
   const issue = `${REPO}/issues/new?title=${encodeURIComponent(`Fehler auf der Karte von ${C.name} (${C.id})`)}`;
@@ -229,6 +293,7 @@ function renderSources(el) {
       ${member ? `<li><a href="${esc(s.url)}">Stammdaten aller Abgeordneten</a> (${esc(s.doc)}, abgerufen ${shortDate(s.retrieved)}): Person, Mandat, Wahlperioden, Ausschüsse und Ämter. © Deutscher Bundestag</li>` : ''}
       <li>Plenarprotokolle der ${META.wp}. Wahlperiode, ${META.sittings.n} Sitzungen vom ${shortDate(META.sittings.from)} bis ${shortDate(META.sittings.to)}; jede Rede verlinkt auf ihr Protokoll. © Deutscher Bundestag</li>
       ${member ? `<li>Listen der namentlichen Abstimmungen (XLSX und PDF), je Abstimmung verlinkt. © Deutscher Bundestag</li>` : ''}
+      ${member && hasDip ? `<li>DIP, Dokumentations- und Informationssystem für Parlamentsmaterialien: Drucksachen, Urheber und Sachgebiete (${META.dip.n} Drucksachen vom ${shortDate(META.dip.from)} bis ${shortDate(META.dip.to)}). © Deutscher Bundestag/Bundesrat – DIP</li>` : ''}
       ${C.wikidata ? `<li>Wikidata: <a href="https://www.wikidata.org/wiki/${esc(C.wikidata)}">${esc(C.wikidata)}</a> (CC0 1.0)</li>` : ''}
       ${C.aw_id ? `<li>abgeordnetenwatch.de: <a href="https://www.abgeordnetenwatch.de/api/v2/politicians/${esc(C.aw_id)}">Datensatz ${esc(C.aw_id)}</a> (CC0 1.0)</li>` : ''}
       <li>Alle Angaben dieser Seite als <a href="${esc(C.id)}.json">JSON</a>.</li>

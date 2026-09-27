@@ -139,4 +139,29 @@ def conn():
             vote_row(3, "6", "Yvonne", "SPD", "absent", "21/88/2"),
         ],
     )
+    dip = ("https://search.dip.bundestag.de/api/v1/drucksache/1", "BT-Drs. 21/1", "2026-09-27")
+    c.executemany(
+        "INSERT INTO drucksache VALUES (?,?,21,?,?,?,?,'BT',?,?,?,?,?)",
+        [
+            ("d1", "21/100", "Antrag", "Mieten", "2026-07-06", "https://x/100.pdf", '["Fraktion SPD"]', 3, *dip),
+            ("d2", "21/200", "Kleine Anfrage", "Pflege", "2026-07-07", "https://x/2.pdf", '["SPD"]', 120, *dip),
+            ("d3", "21/300", "Beschlussempfehlung und Bericht", "Pflege", "2026-07-08", None, "[]", 0, *dip),
+            ("d4", "21/400", "Antwort", "Antwort auf 21/200", "2026-07-09", None, '["Bundesregierung"]', 0, *dip),
+        ],
+    )  # fmt: skip
+    c.executemany(
+        "INSERT INTO drucksache_author VALUES (?,?,?,?,?,?,?,?,?)",
+        [
+            ("d1/a", "d1", "a", "1", "Anna Adler, MdB, SPD", "Antrag", *dip),
+            ("d2/a", "d2", "a", "1", "Anna Adler, MdB, SPD", "Kleine Anfrage", *dip),
+            ("d3/a", "d3", "a", "1", "Anna Adler, MdB, SPD", "Berichterstattung", *dip),
+            ("d4/b", "d4", "b", "2", "Bernd Berg", "Antwort", *dip),
+            ("d1/z", "d1", "z", None, "Jemand Unbekannt", "Antrag", *dip),
+        ],
+    )
+    c.executemany(
+        "INSERT INTO vorgang VALUES (?,21,'Antrag',?,NULL,?,'[]',?,?,?)",
+        [("v1", "Mieten", '["Wohnen", "Recht"]', *dip), ("v2", "Pflege", '["Gesundheit"]', *dip)],
+    )
+    c.executemany("INSERT INTO vorgang_drucksache VALUES (?,?)", [("v1", "d1"), ("v2", "d1"), ("v2", "d2")])
     return c

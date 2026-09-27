@@ -75,3 +75,31 @@ def test_offices_committees_and_index(conn):
     assert data.index_row(cards["4"])["first_term"] is False  # WP 20 before
     assert data.index_row(cards["2"])["office"] == "Parlamentarischer Staatssekretär"
     assert cards["1"]["since"] == "2006-10-01"
+
+
+def test_drucksachen_authorship_and_subjects(conn):
+    cards, meta = by_id(conn)
+    adler = cards["1"]
+    assert [(d["number"], d["activity"], d["authors"]) for d in adler["authored"]] == [
+        ("21/100", "Antrag", 3),
+        ("21/200", "Kleine Anfrage", 120),
+    ]
+    assert adler["authored"][0]["subjects"] == ["Gesundheit", "Recht", "Wohnen"]  # union over both Vorgänge
+    assert [d["number"] for d in adler["reported"]] == ["21/300"]  # a rapporteur, not an author
+    assert cards["2"]["authored"] == [] and cards["2"]["reported"] == []  # a government answer is neither
+    assert meta["dip"] == {"from": "2026-07-06", "to": "2026-07-09", "n": 4, "complete": True}
+
+
+def test_career(conn):
+    cards, _ = by_id(conn)
+    assert [(m["wp"], m["type"]) for m in cards["1"]["career"]] == [
+        (19, "Direktwahl"),
+        (20, "Direktwahl"),
+        (21, "Direktwahl"),
+    ]
+
+
+def test_dip_complete_needs_every_sitting_month(conn):
+    assert data.dip_complete(conn) is True  # one sitting month (2026-07), DIP has it
+    conn.execute("INSERT INTO sitting VALUES ('21/90', 21, 90, '2026-09-10', NULL, NULL, 'x', 'x', 'x', 'x', 'x')")
+    assert data.dip_complete(conn) is False

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import sqlite3
@@ -182,6 +183,47 @@ def votes(conn: sqlite3.Connection) -> tuple[dict[str, list[dict]], int]:
     return out, len({r["vote_id"] for r in rows})
 
 
+# ---------------------------------------------------------------- Drucksachen
+
+# as in the foundation's `query drucksachen`: activities that make someone an author; "Frage" is a Schriftliche Frage
+AUTHORSHIP = ("Antrag", "Kleine Anfrage", "Entschließungsantrag", "Änderungsantrag", "Gesetzentwurf", "Frage")
+RAPPORTEUR = "Berichterstattung"
+
+_SQL_DRUCKSACHE = """
+SELECT da.person_id, da.activity_type, d.id, d.number, d.type, d.title, d.date, d.pdf_url, d.author_count,
+       d.originators, d.source_document_id, group_concat(v.subjects, '\x1f') AS subjects
+FROM drucksache_author da
+JOIN drucksache d ON d.id = da.drucksache_id
+LEFT JOIN vorgang_drucksache vd ON vd.drucksache_id = d.id
+LEFT JOIN vorgang v ON v.id = vd.vorgang_id
+WHERE da.person_id IS NOT NULL AND d.wahlperiode = ?
+GROUP BY da.id
+ORDER BY d.date, d.number
+"""
+
+
+def drucksachen(conn: sqlite3.Connection) -> dict[str, dict[str, list]]:
+    """Per person: `authored` Drucksachen (incl. Schriftliche Fragen) and `reported` ones (Berichterstattung),
+    each with the Bundestag's own subject index (DIP sachgebiet) of its Vorgänge."""
+    out: dict[str, dict[str, list]] = defaultdict(lambda: {"authored": [], "reported": []})
+    for r in conn.execute(_SQL_DRUCKSACHE, (WP,)):
+        if r["activity_type"] in AUTHORSHIP:
+            key = "authored"
+        elif r["activity_type"] == RAPPORTEUR:
+            key = "reported"
+        else:
+            continue  # e.g. "Antwort": the government answering, not the member's document
+        subjects = sorted({s for part in (r["subjects"] or "").split("\x1f") if part for s in json.loads(part)})
+        out[r["person_id"]][key].append(
+            {
+                "id": r["id"], "number": r["number"], "type": r["type"], "activity": r["activity_type"],
+                "title": r["title"], "date": r["date"], "pdf": r["pdf_url"], "authors": r["author_count"],
+                "originators": json.loads(r["originators"]), "subjects": subjects, "cite": r["source_document_id"],
+            }
+        )  # fmt: skip
+    return out
+
+
 # ---------------------------------------------------------------- persons
 
 
@@ -195,6 +237,7 @@ def cards(conn: sqlite3.Connection) -> tuple[list[dict], dict]:
     Members: everyone with a WP 21 mandate, plus members who vote but are not yet in the Stammdaten (moved up
     after the snapshot). Speakers: everyone else who spoke in a WP 21 sitting (D9)."""
     by_person = speeches(conn)
+    docs = drucksachen(conn)
     vote_rows, n_votes = votes(conn)
     mandates: dict[str, list[sqlite3.Row]] = defaultdict(list)
     for r in conn.execute("SELECT * FROM mandate ORDER BY wahlperiode"):
@@ -249,6 +292,12 @@ def cards(conn: sqlite3.Connection) -> tuple[list[dict], dict]:
                 "other": [_dated(m) for m in ms if m["kind"] == "other" and not OFFICE.search(m["role"] or "")],
                 "reden": sp["reden"], "fragen": sp["fragen"], "befragung": sp["befragung"],
                 "votes": vote_rows.get(pid, []),
+                **docs.get(pid, {"authored": [], "reported": []}),
+                "career": [
+                    {"wp": m["wahlperiode"], "from": m["from_date"], "to": m["to_date"], "type": m["mandate_type"],
+                     "number": m["constituency_number"], "constituency": m["constituency_name"], "state": m["state"]}
+                    for m in mandates[pid]
+                ],
                 "aw_id": p["aw_politician_id"], "wikidata": p["wikidata_qid"],
             }
         )  # fmt: skip
@@ -261,12 +310,24 @@ def meta(conn: sqlite3.Connection, n_votes: int) -> dict:
         (WP,),
     ).fetchone()
     span = conn.execute("SELECT min(date), max(date), count(*) FROM sitting WHERE wahlperiode = ?", (WP,)).fetchone()
+    dip = conn.execute("SELECT min(date), max(date), count(*) FROM drucksache WHERE wahlperiode = ?", (WP,)).fetchone()
     return {
         "wp": WP,
         "stammdaten": {"url": stamm["source_url"], "doc": stamm["source_document_id"], "retrieved": stamm["retrieved"]},
         "sittings": {"from": span[0], "to": span[1], "n": span[2]},
         "votes": n_votes,
+        "dip": {"from": dip[0], "to": dip[1], "n": dip[2], "complete": dip_complete(conn)},
     }
+
+
+def dip_complete(conn: sqlite3.Connection) -> bool:
+    """True when DIP has Drucksachen in every month that had a sitting. The card only states counts then; an
+    interrupted backfill leaves gaps that `bdf update` never fills (it fetches from the latest file on)."""
+    sat = {r[0] for r in conn.execute("SELECT DISTINCT substr(date, 1, 7) FROM sitting WHERE wahlperiode = ?", (WP,))}
+    dip = {
+        r[0] for r in conn.execute("SELECT DISTINCT substr(date, 1, 7) FROM drucksache WHERE wahlperiode = ?", (WP,))
+    }
+    return bool(sat) and sat <= dip
 
 
 def index_row(c: dict) -> dict:

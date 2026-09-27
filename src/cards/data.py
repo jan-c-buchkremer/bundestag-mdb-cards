@@ -20,7 +20,7 @@ _COMMITTEE_PREFIX = re.compile(r"^Ausschuss (für |des |der )?")
 PARTY_TO_FRACTION = {"CDU": "CDU/CSU", "CSU": "CDU/CSU", "DIE LINKE.": "Die Linke"}
 NO_FRACTION = "fraktionslos"
 VOTE_CHOICES = ("yes", "no", "abstain")
-MAP_MIN_CHARS = 500  # the landscape drops shorter speeches (its MIN_CHARS), so only longer ones can link to the map
+MIN_CHARS = 500  # as the landscape: shorter units are procedural remarks, oaths and one-liners, not Reden
 
 
 def connect() -> sqlite3.Connection:
@@ -74,8 +74,8 @@ def _paragraph_stats(conn: sqlite3.Connection) -> tuple[Counter, dict[str, str]]
 
 
 def speeches(conn: sqlite3.Connection) -> dict[str, dict[str, list]]:
-    """Per person: `reden` held, `fragen` (Zwischenfragen and Kurzinterventionen) put to others, and `befragung`
-    turns in the Regierungsbefragung.
+    """Per person: `reden` held (at least MIN_CHARS, as in the landscape), `kurz` shorter contributions, `fragen`
+    (Zwischenfragen and Kurzinterventionen) put to others, and `befragung` turns in the Regierungsbefragung.
 
     A rede split at interruptions (`ID…`, `ID…-2`, …) belongs to the person of its first part; parts by anyone
     else are that person's Zwischenfrage or Kurzintervention (the chair's words before it decide which)."""
@@ -84,7 +84,7 @@ def speeches(conn: sqlite3.Connection) -> dict[str, dict[str, list]]:
     for r in conn.execute(_SQL_SPEECH, (WP,)):
         rede[re.sub(r"-\d+$", "", r["id"])].append(r)
 
-    out: dict[str, dict[str, list]] = defaultdict(lambda: {"reden": [], "fragen": [], "befragung": []})
+    out: dict[str, dict[str, list]] = defaultdict(lambda: {"reden": [], "kurz": [], "fragen": [], "befragung": []})
     for parts in rede.values():
         first = parts[0]
         where = {
@@ -96,7 +96,7 @@ def speeches(conn: sqlite3.Connection) -> dict[str, dict[str, list]]:
             for p in parts:
                 out[p["person_id"]]["befragung"].append(
                     {"id": p["id"], **where, "words": len(p["text"].split()), "role": p["speaker_role"],
-                     "on_map": len(p["text"]) >= MAP_MIN_CHARS}
+                     "on_map": len(p["text"]) >= MIN_CHARS}
                 )  # fmt: skip
             continue
 
@@ -120,11 +120,11 @@ def speeches(conn: sqlite3.Connection) -> dict[str, dict[str, list]]:
                     )  # fmt: skip
                 since_main = 0
             prev = p
-        out[main]["reden"].append(
+        long = len("\n\n".join(p["text"] for p in own)) >= MIN_CHARS  # re-joined like the landscape's speeches
+        out[main]["reden" if long else "kurz"].append(
             {
-                "id": first["id"], **where, "role": first["speaker_role"], "fraction": _fraction(first),
+                "id": first["id"], **where, "role": first["speaker_role"], "fraction": _fraction(first), "on_map": long,
                 "words": sum(len(p["text"].split()) for p in own),
-                "on_map": len("\n\n".join(p["text"] for p in own)) >= MAP_MIN_CHARS,
                 "applause": sum(applause[p["id"]] for p in own),
                 "interruptions": [{k: v for k, v in i.items() if k != "id"} for i in interruptions],
             }
@@ -262,7 +262,7 @@ def cards(conn: sqlite3.Connection) -> tuple[list[dict], dict]:
             fraction = vote_rows[pid][-1]["fraction"]
         else:
             fraction = None
-        sp = by_person.get(pid, {"reden": [], "fragen": [], "befragung": []})
+        sp = by_person.get(pid, {"reden": [], "kurz": [], "fragen": [], "befragung": []})
         roles = [r["role"] for r in sp["reden"] + sp["befragung"] if r["role"]]
         out.append(
             {
@@ -290,7 +290,7 @@ def cards(conn: sqlite3.Connection) -> tuple[list[dict], dict]:
                     {**_dated(m), "short": committee_short(m["name"])} for m in ms if m["kind"] == "committee"
                 ],
                 "other": [_dated(m) for m in ms if m["kind"] == "other" and not OFFICE.search(m["role"] or "")],
-                "reden": sp["reden"], "fragen": sp["fragen"], "befragung": sp["befragung"],
+                "reden": sp["reden"], "kurz": sp["kurz"], "fragen": sp["fragen"], "befragung": sp["befragung"],
                 "votes": vote_rows.get(pid, []),
                 **docs.get(pid, {"authored": [], "reported": []}),
                 "career": [

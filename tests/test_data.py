@@ -103,3 +103,10 @@ def test_dip_complete_needs_every_sitting_month(conn):
     assert data.dip_complete(conn) is True  # one sitting month (2026-07), DIP has it
     conn.execute("INSERT INTO sitting VALUES ('21/90', 21, 90, '2026-09-10', NULL, NULL, 'x', 'x', 'x', 'x', 'x')")
     assert data.dip_complete(conn) is False
+
+
+def test_short_contributions_are_not_reden(conn):
+    cards, _ = by_id(conn)
+    assert cards["3"]["reden"] == []  # under 500 characters, as in the landscape
+    assert [(k["id"], k["on_map"]) for k in cards["3"]["kurz"]] == [("ID3", False)]
+    assert all(r["on_map"] for r in cards["2"]["reden"])

@@ -73,7 +73,7 @@ function mandateLines() {
 function contextBox() {
   const parts = [];
   if (member && C.mandate && C.mandate.to) {
-    const later = [...new Set(C.reden.concat(C.befragung).filter(s => s.date > C.mandate.to && s.role).map(s => s.role))];
+    const later = [...new Set(C.reden.concat(C.kurz, C.befragung).filter(s => s.date > C.mandate.to && s.role).map(s => s.role))];
     const note = later.length ? `Abstimmungen und Ausschüsse enden an diesem Tag. Spätere Reden stammen aus einem anderen Amt: ${later.map(esc).join(', ')}.` : 'Abstimmungen und Ausschüsse enden an diesem Tag.';
     parts.push(`<div class="context left"><b>Aus dem Bundestag ausgeschieden am ${longDate(C.mandate.to)}.</b><div class="note">${note}</div></div>`);
   }
@@ -194,14 +194,19 @@ function renderReden(el) {
     <div class="row"><div class="d">${shortDate(f.date)}</div>
       <div class="t">${f.kind === 'kurzintervention' ? 'Kurzintervention' : 'Zwischenfrage'} an <a href="${esc(f.speaker)}.html">${esc(f.speaker_name)}</a><div class="sub">${esc(f.title)}</div></div>
       <div class="l">${pdfLink(f)}</div></div>`);
+  const kurz = C.kurz.filter(match).sort(byDateDesc).map(s => `
+    <div class="row"><div class="d">${shortDate(s.date)}</div>
+      <div class="t">${esc(s.title)}<div class="sub">${[s.role && esc(s.role), plural(s.words, 'Wort', 'Wörter')].filter(Boolean).join(' · ')}</div></div>
+      <div class="l">${pdfLink(s)}</div></div>`);
   const bef = C.befragung.filter(match).sort(byDateDesc).map(b => `
     <div class="row"><div class="d">${shortDate(b.date)}</div>
       <div class="t">${b.role ? `Antwort als ${esc(b.role)}` : 'Frage an die Bundesregierung'}<div class="sub">${plural(b.words, 'Wort', 'Wörter')}</div></div>
       <div class="l">${mapLink(b)}${pdfLink(b)}</div></div>`);
   el.innerHTML = `
     <div class="tools"><input type="search" placeholder="Reden durchsuchen: Tagesordnungspunkt, Datum …" value="${esc(el.dataset.q || '')}"></div>
-    <p class="explain">Eine Rede ist ein Redebeitrag zu einem Tagesordnungspunkt, so wie ihn das Plenarprotokoll führt; Zwischenfragen anderer gehören zur Rede, in der sie gestellt wurden. Die Länge ist in Wörtern angegeben, die Redezeit steht nicht im Protokoll. „Karte“ öffnet die Rede in der Themenlandschaft ihrer Sitzungswoche.</p>
+    <p class="explain">Eine Rede ist ein Redebeitrag zu einem Tagesordnungspunkt, so wie ihn das Plenarprotokoll führt, mit mindestens 500 Zeichen; Zwischenfragen anderer gehören zur Rede, in der sie gestellt wurden. Die Länge ist in Wörtern angegeben, die Redezeit steht nicht im Protokoll. „Karte“ öffnet die Rede in der Themenlandschaft ihrer Sitzungswoche.</p>
     <h2 id="reden-reden">Reden <span class="n">${n(reden.length)}</span></h2>${list(reden, 'Keine Reden.')}
+    ${C.kurz.length ? `<h2 id="reden-kurz">Kurze Wortbeiträge <span class="n">${n(kurz.length)}</span></h2><p class="explain">Beiträge unter 500 Zeichen, etwa ein Amtseid, eine Erklärung zur Abstimmung in einem Satz oder ein Hinweis zur Geschäftsordnung. Sie zählen nicht als Rede, so wie in der Themenlandschaft.</p>${list(kurz, 'Keine Treffer.')}` : ''}
     ${C.fragen.length ? `<h2 id="reden-fragen">Zwischenfragen und Kurzinterventionen <span class="n">${n(fragen.length)}</span></h2>${list(fragen, 'Keine Treffer.')}` : ''}
     ${C.befragung.length ? `<h2 id="reden-befragung">Regierungsbefragung <span class="n">${n(bef.length)}</span></h2><p class="explain">In der Regierungsbefragung ist jede Frage und jede Antwort ein eigener Beitrag im Protokoll; sie zählen deshalb nicht als Reden.</p>${list(bef, 'Keine Treffer.')}` : ''}`;
   const input = el.querySelector('input');

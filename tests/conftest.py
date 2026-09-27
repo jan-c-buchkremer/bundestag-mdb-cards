@@ -100,6 +100,14 @@ def conn():
             speech("ID1-6", 9, "1", "Anna Adler (SPD)", "Das stimmt so nicht.", fraction="SPD"),
             speech("ID1-7", 10, "2", "Dr. Bernd Berg (CDU/CSU)", "Doch.", fraction="CDU/CSU"),
             speech("ID2", 11, "9", "Stefanie Hubig, Bundesministerin", LONG, role="Bundesministerin"),
+            speech(
+                "ID3",
+                12,
+                "3",
+                "Clara Cohn (Die Linke)",
+                "Ich schwöre es, so wahr mir Gott helfe.",
+                fraction="Die Linke",
+            ),
         ],
     )
     c.executemany(

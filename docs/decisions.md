@@ -5,3 +5,27 @@ One line per decision, newest last. Date, decision, reason.
 - 2026-09-27 — Separate public repository `bundestag-mdb-cards`, a sibling of the foundation and the landscape. The foundation stays UI-free; public like the siblings so the pages can be served from GitHub Pages.
 - 2026-09-27 — Two layers for two audiences: a plain card for citizens on top, a detail view for journalists and researchers underneath. The same facts serve both; only the depth differs.
 - 2026-09-27 — No code before the open decisions in `plan.md` are settled.
+- 2026-09-27 — D1: static site built in Python, published on GitHub Pages, rebuilt daily after `bdf update`. Same path as the landscape, no running service.
+- 2026-09-27 — D2: MVP is the card plus Reden, Abstimmungen and Ausschüsse. They need no foundation extension; Drucksachen follows once DIP is ingested.
+- 2026-09-27 — D3: topics on the MVP card from DIP `sachgebiet` only; speech topics later from a landscape export. The landscape owns topic modelling.
+- 2026-09-27 — D4: foundation extensions in this order: abgeordnetenwatch electoral data and statistics, office periods, structured interjections, photos, page numbers.
+- 2026-09-27 — D5: Bundestag portrait photos, subject to a licence check before any is published; the decision is reopened if reuse is not allowed.
+- 2026-09-27 — D6: no comparisons on the card; percentiles within the own fraction in the detail layer. The card should not invite ranking.
+- 2026-09-27 — D7: German UI, English code and docs, as in the sibling repos.
+- 2026-09-27 — D8: constituency list and map first, postcode search later. Postcodes are ambiguous.
+- 2026-09-27 — D9: cards for the 635 WP 21 MdBs and for non-MdB speakers (ministers without mandate, Länder representatives), the latter with office and speeches only.
+- 2026-09-27 — D10: reuse the landscape's visual language, so the two apps look related.
+- 2026-09-27 — D11: full birth date and place, as published in the Stammdaten.
+- 2026-09-27 — Pages are rendered in the browser from JSON inlined into each page (as in the landscape), with one shared `card.js` and `cards.css`; Python writes only `<title>`, the meta description and a `<noscript>` line. Each card's JSON is also written next to its page as the export.
+- 2026-09-27 — Who gets which card: members are everyone with a WP 21 mandate plus everyone in a WP 21 vote list (Nachrücker after the Stammdaten snapshot 2026-04-29; two of them appear as `is_mdb = 0` in the store). Speakers are everyone else who spoke in a WP 21 sitting, including former MdBs such as a minister without a current mandate. 639 member cards and 14 speaker cards on 2026-09-27.
+- 2026-09-27 — A Rede is one `rede` id of the protocol, owned by the person of its first part; parts by other people inside it are their Zwischenfragen or Kurzinterventionen (the chair's words in the preceding part's last six paragraphs decide which, as in the landscape). One question over two parts ("Gestatten Sie …? – Bitte.") counts once when the main speaker said fewer than 30 words in between.
+- 2026-09-27 — Regierungsbefragung turns are not Reden: there every question and every answer is its own `rede`, 3,047 of them in WP 21. They are counted separately, as questions (no speaker role) and answers (with a government role).
+- 2026-09-27 — Speech length is given in words; the protocol has no speaking time, and estimating minutes would add a number the source does not contain.
+- 2026-09-27 — A fraction's line on a roll-call vote is its most common yes/no/abstain vote among its rows (absent excluded); a tie has no line, fraktionslos members have none. A deviation is an own yes/no/abstain vote against an existing line. The rows of all 71 votes add up to the official totals.
+- 2026-09-27 — The role-aware context line uses the Stammdaten memberships, which already carry ministers, Parlamentarische Staatssekretäre, Präsidium and fraction leadership with dates; D4 item 2 (office periods) is therefore not needed for the MVP.
+- 2026-09-27 — The card uses no gendered pronouns; sentences start with the verb ("Hat 20 Reden …"), the name stands above them.
+- 2026-09-27 — Agenda item titles use the landscape's `short_title`, copied into `titles.py`, so a speech carries the same title on both sites.
+- 2026-09-27 — Phase 3 spot-check against abgeordnetenwatch.de (independent of the Stammdaten), 10 random members with an aw id: fraction, direct vs. list mandate and Wahlkreis agree for all 10. The only difference is the Stammdaten's abbreviated name of Wahlkreis 60 ("BRB a.d.Havel– …"). It also confirms that a list member's Wahlkreis in the Stammdaten is where they stood as a candidate, which the card states.
+- 2026-09-27 — The card states Drucksachen counts only when DIP has Drucksachen in every month with a sitting; until then the tab shows what is loaded with an "incomplete" note. A partial backfill would otherwise read as "no Anträge".
+- 2026-09-27 — Container image and CI as in the landscape (stdlib only, 187 MB); CI builds and pushes on `main` only. The compose service, `update.sh` line and Pages publishing are written down in `docs/deploy.md` but not applied: they need a merge, a push and changes in `infra`.
+- 2026-09-27 — A Rede needs at least 500 characters (re-joined per speaker), the landscape's MIN_CHARS. Shorter contributions (113 in WP 21: oaths, one-sentence statements) are listed in the Reden tab as "Kurze Wortbeiträge" and not counted. Every Rede now also exists on the landscape map.

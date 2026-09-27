@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Abgeordnete des Bundestages</title>
+<meta name="description" content="Eine Karte für jedes Mitglied des 21. Deutschen Bundestages: Reden, namentliche Abstimmungen und Ausschüsse, jede Angabe mit Quelle.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="cards.css">
+<style>
+h1 { font-size: 26px; font-weight: 600; letter-spacing: -.02em; margin: 8px 0 6px; }
+.lead { color: var(--muted); max-width: 660px; margin: 0 0 22px; }
+.segmented { display: inline-grid; grid-auto-flow: column; gap: 3px; background: #ecece8; border-radius: 9px; padding: 3px; margin-bottom: 14px; }
+.segmented button { border: 0; background: transparent; border-radius: 7px; padding: 5px 14px; font-size: 13px; color: var(--muted); cursor: pointer; }
+.segmented button.on { background: var(--card); color: var(--text); font-weight: 500; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+.filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+.filters input[type=search] { flex: 1 1 260px; min-width: 0; background: var(--card); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; font-size: 13.5px; }
+.filters select { background: var(--card); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; font-size: 13px; max-width: 100%; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--card); color: var(--text); border-radius: 999px; padding: 3px 11px 3px 9px; font-size: 12.5px; cursor: pointer; }
+.chip:hover { border-color: #cdcdc8; }
+.chip.on { border-color: var(--accent); background: var(--accent-soft); }
+.chip .n { color: var(--faint); font-size: 11.5px; }
+.count { color: var(--muted); font-size: 12.5px; margin: 4px 0 8px; }
+.people .row { grid-template-columns: 1fr auto; align-items: center; }
+.people .row a.name { font-weight: 500; color: var(--text); }
+.people .row a.name:hover { color: var(--accent); }
+.people .row .tags { display: flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end; }
+.wk .row { grid-template-columns: 44px 1fr; }
+.wk .row .nr { color: var(--faint); font-variant-numeric: tabular-nums; font-size: 12.5px; padding-top: 1px; }
+.wk .who { margin-top: 3px; display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; }
+.wk .who a { display: inline-flex; align-items: center; gap: 6px; color: var(--text); }
+.wk .who a:hover { color: var(--accent); }
+.wk .who .k { color: var(--faint); font-size: 12px; }
+</style>
+</head>
+<body>
+<header>
+  <a class="home" href="index.html">Abgeordnete des Bundestages</a>
+  <span class="spacer"></span>
+  <a class="ext" href="https://jan-c-buchkremer.github.io/bundestag-topic-landscape/">Themenlandschaft ↗</a>
+</header>
+<main>
+  <h1>Abgeordnete des 21. Bundestages</h1>
+  <p class="lead" id="lead"></p>
+  <div class="segmented" id="views"><button data-v="personen" class="on">Abgeordnete</button><button data-v="wahlkreise">Wahlkreise</button></div>
+  <div class="filters">
+    <input type="search" id="q" placeholder="Name, Wahlkreis oder Ausschuss …" autocomplete="off">
+    <select id="state"><option value="">alle Länder</option></select>
+    <select id="type"><option value="">Direkt- und Listenmandate</option><option value="Direktwahl">direkt gewählt</option><option value="Landesliste">über die Landesliste</option></select>
+    <select id="committee"><option value="">alle Ausschüsse</option></select>
+  </div>
+  <div class="chips" id="chips"></div>
+  <div class="count" id="count"></div>
+  <div id="list"></div>
+  <footer>Daten: Deutscher Bundestag (Stammdaten, Plenarprotokolle, namentliche Abstimmungen), abgeordnetenwatch.de (CC0 1.0), gesammelt mit <a href="https://github.com/jan-c-buchkremer/bundestag-data-foundation">bundestag-data-foundation</a>. Code: <a href="https://github.com/jan-c-buchkremer/bundestag-mdb-cards">bundestag-mdb-cards</a> (MIT). Die Liste ist alphabetisch; es gibt bewusst keine Rangliste.</footer>
+</main>
+<script>
+'use strict';
+const DATA = __DATA__;
+const { cards: CARDS, meta: META } = DATA;
+const FRACTIONS = ['CDU/CSU', 'AfD', 'SPD', 'BÜNDNIS 90/DIE GRÜNEN', 'Die Linke', 'fraktionslos'];
+const FRACTION_COLORS = { 'CDU/CSU': '--cdu', 'SPD': '--spd', 'AfD': '--afd', 'BÜNDNIS 90/DIE GRÜNEN': '--gru', 'Die Linke': '--lin', 'fraktionslos': '--frl' };
+const STATES = { BW: 'Baden-Württemberg', BY: 'Bayern', BE: 'Berlin', BB: 'Brandenburg', HB: 'Bremen', HH: 'Hamburg', HE: 'Hessen', MV: 'Mecklenburg-Vorpommern',
+  NI: 'Niedersachsen', NW: 'Nordrhein-Westfalen', RP: 'Rheinland-Pfalz', SL: 'Saarland', SN: 'Sachsen', ST: 'Sachsen-Anhalt', SH: 'Schleswig-Holstein', TH: 'Thüringen' };
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const color = f => FRACTION_COLORS[f] ? css(FRACTION_COLORS[f]) : css('--reg');
+const shortDate = d => `${d.slice(8, 10)}.${d.slice(5, 7)}.${d.slice(0, 4)}`;
+const norm = s => String(s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+const $ = id => document.getElementById(id);
+
+const members = CARDS.filter(c => c.kind === 'member');
+const speakers = CARDS.filter(c => c.kind === 'speaker');
+const current = members.filter(c => !c.left);
+$('lead').textContent = `Eine Karte für jedes der ${members.length} Mitglieder der 21. Wahlperiode (${current.length} davon heute im Bundestag) und für ${speakers.length} Rednerinnen und Redner ohne Mandat. Jede Karte zeigt Reden, namentliche Abstimmungen und Ausschüsse, jede Angabe mit Quelle. Stand: Plenarprotokolle bis ${shortDate(META.sittings.to)}, Stammdaten ${META.stammdaten.doc.split(' ').pop()}.`;
+
+const state = { view: 'personen', q: '', state: '', type: '', committee: '', fractions: new Set(), flags: new Set() };
+const FLAGS = { first: ['erstmals im Bundestag', c => c.first_term], office: ['mit Amt', c => !!c.office], left: ['ausgeschieden', c => !!c.left], speaker: ['ohne Mandat', c => c.kind === 'speaker'] };
+
+for (const s of Object.keys(STATES).sort((a, b) => STATES[a].localeCompare(STATES[b]))) $('state').insertAdjacentHTML('beforeend', `<option value="${s}">${STATES[s]}</option>`);
+for (const c of [...new Set(CARDS.flatMap(c => c.committees))].sort((a, b) => a.localeCompare(b, 'de'))) $('committee').insertAdjacentHTML('beforeend', `<option>${esc(c)}</option>`);
+
+function haystack(c) { return norm([c.name, c.constituency, c.number, c.role, c.office, STATES[c.state], ...c.committees].join(' ')); }
+const HAY = new Map(CARDS.map(c => [c.id, haystack(c)]));
+
+function matches(c, skip) {
+  const words = norm(state.q).split(/\s+/).filter(Boolean);
+  if (words.some(w => !HAY.get(c.id).includes(w))) return false;
+  if (state.state && c.state !== state.state) return false;
+  if (state.type && c.type !== state.type) return false;
+  if (state.committee && !c.committees.includes(state.committee)) return false;
+  if (skip !== 'fraction' && state.fractions.size && !state.fractions.has(c.fraction || 'fraktionslos')) return false;
+  for (const f of state.flags) if (skip !== f && !FLAGS[f][1](c)) return false;
+  if (!state.flags.has('left') && c.left && skip !== 'left') return false;  // former members only on request
+  if (!state.flags.has('speaker') && c.kind === 'speaker' && skip !== 'speaker') return false;
+  return true;
+}
+
+function renderChips() {
+  const fr = FRACTIONS.map(f => {
+    const k = CARDS.filter(c => c.kind === 'member' && (c.fraction || 'fraktionslos') === f && matches(c, 'fraction')).length;
+    return `<button class="chip${state.fractions.has(f) ? ' on' : ''}" data-f="${esc(f)}"><span class="dot" style="background:${color(f)}"></span>${esc(f)} <span class="n">${k}</span></button>`;
+  });
+  const flags = Object.entries(FLAGS).map(([k, [label, test]]) => {
+    const n = CARDS.filter(c => test(c) && matches(c, k)).length;
+    return `<button class="chip${state.flags.has(k) ? ' on' : ''}" data-flag="${k}">${label} <span class="n">${n}</span></button>`;
+  });
+  $('chips').innerHTML = fr.join('') + flags.join('');
+}
+
+function personRow(c) {
+  const where = c.kind === 'speaker' ? esc(c.role || 'ohne Mandat')
+    : c.type === 'Direktwahl' ? `Wahlkreis ${c.number} · ${esc(c.constituency)}`
+    : c.type ? `Landesliste ${STATES[c.state] || c.state}` : 'neu, noch nicht in den Stammdaten';
+  const tags = [
+    c.office && `<span class="tag">${esc(c.office)}</span>`,
+    c.first_term && '<span class="tag">erstmals</span>',
+    c.left && `<span class="tag warn">ausgeschieden ${shortDate(c.left)}</span>`,
+  ].filter(Boolean).join('');
+  return `<div class="row"><div class="t"><a class="name" href="${esc(c.id)}.html">${esc(c.name)}</a><div class="sub"><span class="dot" style="background:${c.kind === 'speaker' ? css('--reg') : color(c.fraction || 'fraktionslos')};width:7px;height:7px;margin-right:6px"></span>${c.kind === 'member' ? esc(c.fraction || 'fraktionslos') + ' · ' : ''}${where}</div></div><div class="tags">${tags}</div></div>`;
+}
+
+function renderPeople() {
+  const shown = CARDS.filter(c => matches(c)).sort((a, b) => a.last.localeCompare(b.last, 'de') || a.name.localeCompare(b.name, 'de'));
+  $('count').textContent = `${shown.length} ${shown.length === 1 ? 'Karte' : 'Karten'}`;
+  $('list').innerHTML = shown.length ? `<div class="rows people">${shown.map(personRow).join('')}</div>` : '<div class="rows"><div class="empty">Keine Treffer.</div></div>';
+}
+
+function renderWahlkreise() {
+  const byNr = new Map();
+  for (const c of members) {
+    if (!c.number) continue;
+    const w = byNr.get(c.number) || byNr.set(c.number, { nr: c.number, name: c.constituency, state: c.state, direct: [], list: [] }).get(c.number);
+    (c.type === 'Direktwahl' ? w.direct : w.list).push(c);
+  }
+  const words = norm(state.q).split(/\s+/).filter(Boolean);
+  const shown = [...byNr.values()].sort((a, b) => a.nr - b.nr).filter(w => {
+    if (state.state && w.state !== state.state) return false;
+    const hay = norm([w.nr, w.name, STATES[w.state], ...w.direct.map(c => c.name), ...w.list.map(c => c.name)].join(' '));
+    return words.every(x => hay.includes(x));
+  });
+  const person = c => `<a href="${esc(c.id)}.html"><span class="dot" style="background:${color(c.fraction || 'fraktionslos')};width:7px;height:7px"></span>${esc(c.name)}${c.left ? ' <span class="faint">(ausgeschieden)</span>' : ''}</a>`;
+  $('count').textContent = `${shown.length} von ${byNr.size} Wahlkreisen`;
+  $('list').innerHTML = `<p class="explain">Zu jedem Wahlkreis: wer ihn direkt gewonnen hat, und wer dort kandidiert hat und über die Landesliste in den Bundestag kam. Seit der Wahlrechtsreform 2023 erhält nicht jeder Wahlkreissieger ein Mandat; dann hat der Wahlkreis kein direkt gewähltes Mitglied.</p>
+    <div class="rows wk">${shown.map(w => `<div class="row"><div class="nr">${w.nr}</div><div class="t">${esc(w.name)} <span class="faint">· ${STATES[w.state] || w.state}</span>
+      <div class="who">${w.direct.length ? `<span class="k">direkt</span>${w.direct.map(person).join('')}` : '<span class="k">kein direkt gewähltes Mitglied</span>'}${w.list.length ? `<span class="k">über die Liste</span>${w.list.map(person).join('')}` : ''}</div></div></div>`).join('')}</div>`;
+}
+
+function render() {
+  const people = state.view === 'personen';
+  for (const id of ['type', 'committee', 'chips']) $(id).style.display = people ? '' : 'none';
+  $('q').placeholder = people ? 'Name, Wahlkreis oder Ausschuss …' : 'Wahlkreis, Nummer, Ort oder Name …';
+  document.querySelectorAll('#views button').forEach(b => b.classList.toggle('on', b.dataset.v === state.view));
+  if (people) { renderChips(); renderPeople(); } else renderWahlkreise();
+  const h = new URLSearchParams();
+  if (state.view !== 'personen') h.set('ansicht', state.view);
+  for (const k of ['q', 'state', 'type', 'committee']) if (state[k]) h.set(k, state[k]);
+  if (state.fractions.size) h.set('fraktion', [...state.fractions].join('|'));
+  if (state.flags.size) h.set('nur', [...state.flags].join('|'));
+  history.replaceState(null, '', h.size ? '#' + h : location.pathname);
+}
+
+const h = new URLSearchParams(location.hash.slice(1));
+state.view = h.get('ansicht') || 'personen';
+for (const k of ['q', 'state', 'type', 'committee']) { state[k] = h.get(k) || ''; $(k).value = state[k]; }
+(h.get('fraktion') || '').split('|').filter(Boolean).forEach(f => state.fractions.add(f));
+(h.get('nur') || '').split('|').filter(k => k in FLAGS).forEach(f => state.flags.add(f));
+
+$('q').oninput = e => { state.q = e.target.value; render(); };
+for (const k of ['state', 'type', 'committee']) $(k).onchange = e => { state[k] = e.target.value; render(); };
+$('views').onclick = e => { const b = e.target.closest('button'); if (b) { state.view = b.dataset.v; render(); } };
+$('chips').onclick = e => {
+  const b = e.target.closest('.chip');
+  if (!b) return;
+  const [set, v] = b.dataset.f ? [state.fractions, b.dataset.f] : [state.flags, b.dataset.flag];
+  set.has(v) ? set.delete(v) : set.add(v);
+  render();
+};
+render();
+</script>
+</body>
+</html>

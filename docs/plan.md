@@ -1,6 +1,6 @@
 # Plan: an info card for every MdB
 
-Status: **concept, open for decisions.** Sections 1–8 describe what is possible; section 9 lists the decisions
+Status: **concept, decisions taken 2026-09-27** (section 9). Sections 1–8 describe what is possible; section 9 lists the decisions
 we take together before any code is written, each with options and a recommendation. Decided points move to
 `decisions.md` and get marked here.
 
@@ -192,7 +192,7 @@ These decide whether the cards are trustworthy; each has a concrete consequence 
 | Kleine Anfragen are an opposition instrument; coalition members file few. | Never compare across government/opposition without saying so. |
 | Name matching errors (4 unmatched vote rows, Nachrücker missing from Stammdaten). | Show the foundation's match status; a "Fehler melden" link per card. |
 | Photos: licences differ per image; some members have none. | Licence line under each photo; a neutral placeholder, not a silhouette that suggests something. |
-| Personal data: birth date and place are public in the Stammdaten but add little. | Show year of birth only on the card (D9 open for full date). |
+| Personal data: birth date and place are public in the Stammdaten. | Full date and place are shown (D11); nothing beyond the Stammdaten and abgeordnetenwatch. |
 | Topic labels from clustering can be wrong or unfortunate. | Prefer DIP `sachgebiet` on the card; cluster labels only in the detail view. |
 
 ---
@@ -208,7 +208,7 @@ The foundation rule stays: **facts with provenance go into the foundation; aggre
 | Zwischenfrage / Kurzintervention flag as a column (today the landscape derives it) | foundation | Im Plenum; removes duplicate logic |
 | Page numbers from `druckseitennummer` markers | foundation | deep links into the PDF |
 | Photos: Wikidata P18 → Wikimedia Commons file + licence, or Bundestag photos (licence to check) | foundation (as a fetch source) | card |
-| Office periods (minister, state secretary, Präsidium) | foundation, from Stammdaten `INSTITUTIONEN` or DIP person roles | role-aware context line |
+| Office periods (minister, state secretary, Präsidium) | already in the store as Stammdaten memberships (kind `other`), used by the MVP | role-aware context line |
 | PLZ → Wahlkreis | foundation (new source) | postcode search (D8) |
 | WP-wide topic per speech with a person id | landscape (export) or here | topic fingerprint (idea 3) |
 | Percentiles, deviation lists, similarity, timelines | here | layer 1 and 2 |
@@ -225,13 +225,13 @@ to GitHub Pages like the landscape, rebuilt daily after `bdf update`. (b) Small 
 querying the store live.
 *Recommendation: (a).* Same deployment path as the landscape, no running service, pages keep working if the
 server is down. 635 pages at ~100–300 KB is well within Pages limits.
-Entscheidung: —
+**Entscheidung:** (a) static site, Python build, GitHub Pages, rebuilt daily after `bdf update`. (2026-09-27)
 
 **D2 — MVP scope.**
 (a) Card + Reden + Abstimmungen + Ausschüsse first, the rest in later phases. (b) Everything at once.
 *Recommendation: (a).* Those three need no foundation extension beyond what exists; Drucksachen follows as soon as
 the DIP backfill is ingested.
-Entscheidung: —
+**Entscheidung:** (a) card + Reden + Abstimmungen + Ausschüsse first; Drucksachen once the DIP backfill is ingested. (2026-09-27)
 
 **D3 — Topics.**
 (a) Reuse the landscape's embedding cache and compute a WP-wide clustering here (the landscape's per-week clusters
@@ -239,49 +239,49 @@ are not comparable across weeks). (b) The landscape exports a WP-wide topic per 
 (c) Only DIP `sachgebiet`, no speech topics.
 *Recommendation: (c) for the MVP card, (b) afterwards.* The landscape owns embeddings and topic modelling;
 duplicating it here would drift.
-Entscheidung: —
+**Entscheidung:** (c) DIP `sachgebiet` only for the MVP, (b) a landscape export afterwards. (2026-09-27)
 
 **D4 — Foundation extensions, order.**
 *Recommendation:* 1. abgeordnetenwatch electoral data and statistics (small, raw files already there),
 2. office periods (role-aware line), 3. structured interjections (largest, unlocks "Im Plenum"), 4. photos,
 5. page numbers.
-Entscheidung: —
+**Entscheidung:** order as recommended; item 4 means Bundestag photos (D5). (2026-09-27)
 
 **D5 — Photos.**
 (a) Wikidata/Commons with licence line. (b) Bundestag portrait photos, if the licence allows reuse. (c) No photos in the MVP.
 *Recommendation: (c) for the MVP, then (a).* Photos are the most visible and the most legally fiddly part.
-Entscheidung: —
+**Entscheidung:** (b) Bundestag portrait photos. Their reuse licence is checked before any photo is published; if it does not allow reuse, this decision is reopened. (2026-09-27)
 
 **D6 — Comparisons on the card.**
 (a) None, absolute sentences only. (b) Percentile within the own fraction. (c) Percentile across the Bundestag.
 *Recommendation: (a) on the card, (b) in the detail layer.* Layer 1 should not invite ranking.
-Entscheidung: —
+**Entscheidung:** (a) no comparisons on the card, (b) percentiles within the own fraction in the detail layer. (2026-09-27)
 
 **D7 — Language.**
 *Recommendation:* German UI (as in the landscape), English code and docs (as in all three repos).
-Entscheidung: —
+**Entscheidung:** German UI, English code and docs. (2026-09-27)
 
 **D8 — Postcode search.**
 (a) Yes, with a new Bundeswahlleiterin source. (b) Constituency list and map only.
 *Recommendation: (b) first, (a) later.* Constituency is exact; postcodes are ambiguous.
-Entscheidung: —
+**Entscheidung:** (b) constituency list and map first, postcode search later. (2026-09-27)
 
 **D9 — Who gets a card.**
 (a) The 635 WP 21 MdBs, including those who left. (b) Also non-MdB speakers (ministers without mandate). (c) Also
 former members of earlier Wahlperioden.
 *Recommendation: (a).* A minister without mandate has no votes and no documents; a slim "Regierungsmitglied" card later.
-Entscheidung: —
+**Entscheidung:** (a) + (b): the 635 WP 21 MdBs, including those who left, plus non-MdB speakers. On 2026-09-27 the store has 14 of them with 296 speeches (federal ministers and Staatsminister without mandate, Länder representatives). Their cards show office and speeches only: no votes, no documents, and no birth data, which the store does not have for them. (2026-09-27) *Built:* the final split is 639 member cards (including 4 Nachrücker found only in the vote lists) and 14 speaker cards; see `decisions.md`.
 
 **D10 — Look.**
 (a) Reuse the landscape's visual language: Inter, light theme, fraction colours, card and bar-chart components.
 (b) Something new.
 *Recommendation: (a).* The two apps link to each other; they should look related.
-Entscheidung: —
+**Entscheidung:** (a) reuse the landscape's visual language. (2026-09-27)
 
 **D11 — Birth date on the card.**
 (a) Year of birth. (b) Full date and place. (c) Age only.
 *Recommendation: (a).*
-Entscheidung: —
+**Entscheidung:** (b) full birth date and place (in the store for all MdBs except 2 missing places). (2026-09-27)
 
 ---
 
@@ -290,9 +290,9 @@ Entscheidung: —
 | Phase | Content | Done when |
 |---|---|---|
 | 0 | Repository, this plan | pushed ✓ |
-| 1 | Decide D1–D11 here | every decision has an Entscheidung line and an entry in `decisions.md` |
+| 1 | Decide D1–D11 here | every decision has an Entscheidung line and an entry in `decisions.md` ✓ |
 | 2 | Foundation extensions from D4, first two items | new tables/columns with provenance, tests on fixtures |
-| 3 | MVP: build, card, Reden, Abstimmungen, Ausschüsse, index | all 635 pages build; spot-check 10 cards against bundestag.de |
-| 4 | Drucksachen, Im Plenum, Laufbahn, Quellen, exports | — |
-| 5 | Container, compose service in `/srv/apps/bundestag`, Pages publish, `update.sh` hook | the daily timer rebuilds and publishes the cards |
+| 3 | MVP: build, card, Reden, Abstimmungen, Ausschüsse, index (built on branch `mvp`; spot-check done against abgeordnetenwatch, see `decisions.md`) | all 635 member pages and the non-MdB speaker pages build; spot-check 10 cards against bundestag.de |
+| 4 | Drucksachen, Im Plenum, Laufbahn, Quellen, exports | Drucksachen, Laufbahn, Quellen, exports built; Im Plenum waits for structured interjections (D4 item 3) |
+| 5 | Container, compose service in `/srv/apps/bundestag`, Pages publish, `update.sh` hook (image and CI built; the rest in `docs/deploy.md`) | the daily timer rebuilds and publishes the cards |
 | 6 | Topics (D3 b), photos, similar members, network | — |

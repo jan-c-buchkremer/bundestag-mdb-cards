@@ -1,4 +1,8 @@
-# Deploy (phase 5, not yet applied)
+# Deploy (phase 5)
+
+State on 2026-09-27: the MVP is merged, CI publishes `ghcr.io/jan-c-buchkremer/bundestag-mdb-cards:main` (public,
+pulls without login), and a deploy key `~/.ssh/bundestag-cards-pages` on server-jan is registered with write access
+on this repo. Still to do by hand on the server: the three steps under *Apply* at the end.
 
 The cards run like the landscape: an image from CI, a compose service next to `bdf` and `landscape` in
 `/srv/apps/bundestag` (source: `infra/apps/bundestag`; batch jobs run with `docker compose run`, no long-running service), rebuilt by the daily `update.sh` after `bdf update`, and
@@ -48,3 +52,40 @@ Open before this goes live:
 - GitHub Pages enabled on the `gh-pages` branch;
 - `infra/apps/bundestag` has drifted from the live directory (live `update.sh` differs, `publish.sh` exists only
   live); bring the repo up to date before adding the cards there.
+
+## Apply
+
+1. `/srv/apps/bundestag/publish-cards.sh` (chmod +x):
+
+```sh
+#!/bin/sh
+# Publish the MdB cards to GitHub Pages (jan-c-buchkremer.github.io/bundestag-mdb-cards).
+# Same pattern as publish.sh: one fresh force-pushed gh-pages commit per run. The cards need card.js, cards.css
+# and the per-card JSON exports next to the pages.
+# Auth: deploy key ~/.ssh/bundestag-cards-pages with write access to that one repo.
+set -eu
+cd "$(dirname "$0")"
+key="$HOME/.ssh/bundestag-cards-pages"
+repo="git@github.com:jan-c-buchkremer/bundestag-mdb-cards.git"
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+cp data/cards/out/*.html data/cards/out/*.json data/cards/out/card.js data/cards/out/cards.css "$tmp"/
+touch "$tmp/.nojekyll"
+git -C "$tmp" init -q -b gh-pages
+git -C "$tmp" add -A
+git -C "$tmp" commit -q -m "Pages build $(date -u +%Y-%m-%dT%H:%MZ)"
+GIT_SSH_COMMAND="ssh -i $key -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new" \
+  git -C "$tmp" push -q -f "$repo" gh-pages
+```
+
+2. Add the `cards` service above to `compose.yml` and the `cards` line above to `update.sh`, after the landscape line.
+
+3. Run once, then switch Pages on:
+
+```sh
+cd /srv/apps/bundestag
+docker compose pull -q cards && docker compose run --rm -T cards build && ./publish-cards.sh
+gh api -X POST repos/jan-c-buchkremer/bundestag-mdb-cards/pages -f 'source[branch]=gh-pages' -f 'source[path]=/'
+```
+
+Then mirror the same changes into `infra/apps/bundestag`.

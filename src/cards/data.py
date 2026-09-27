@@ -224,6 +224,82 @@ def drucksachen(conn: sqlite3.Connection) -> dict[str, dict[str, list]]:
     return out
 
 
+# ---------------------------------------------------------------- election (Bundeswahlleiterin)
+
+ELECTION = "btw25"  # the election that formed WP 21
+
+
+def has_table(conn: sqlite3.Connection, name: str) -> bool:
+    return conn.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (name,)).fetchone() is not None
+
+
+def _first_votes(conn: sqlite3.Connection) -> dict[tuple[int, str], float]:
+    """Erststimme share per (Wahlkreis, party): a candidate's own result, since each party runs one candidate."""
+    return {
+        (r["constituency_number"], r["party"]): r["percent"]
+        for r in conn.execute(
+            "SELECT constituency_number, party, percent FROM constituency_result WHERE election = ? AND vote = 1",
+            (ELECTION,),
+        )
+    }
+
+
+def elections(conn: sqlite3.Connection) -> dict[str, dict]:
+    """Per person: how they were elected in 2025, with Wahlkreis, first-vote share and list position.
+    Empty when the store has no election tables yet (foundation before the Bundeswahlleiterin source)."""
+    if not has_table(conn, "election_candidacy"):
+        return {}
+    shares = _first_votes(conn)
+    names = {
+        r["number"]: r["name"]
+        for r in conn.execute("SELECT number, name FROM constituency WHERE election = ?", (ELECTION,))
+    }
+    out = {}
+    for r in conn.execute("SELECT * FROM election_candidacy WHERE election = ? AND person_id IS NOT NULL", (ELECTION,)):
+        wk = r["constituency_number"]
+        out[r["person_id"]] = {
+            "via": r["elected_via"], "party": r["party"],
+            "number": wk, "constituency": names.get(wk),
+            "percent": r["first_vote_percent"] if r["first_vote_percent"] is not None else shares.get((wk, r["party"])),
+            "list_state": r["list_state"], "list_position": r["list_position"],
+        }  # fmt: skip
+    return out
+
+
+def constituencies(conn: sqlite3.Connection) -> list[dict]:
+    """Every Wahlkreis with the party that got the seat (None: the winner had no Zweitstimmendeckung),
+    the strongest party by first votes, and turnout."""
+    if not has_table(conn, "constituency"):
+        return []
+    top: dict[int, tuple[str, float]] = {}
+    for (wk, party), pct in _first_votes(conn).items():
+        if pct is not None and (wk not in top or pct > top[wk][1]):
+            top[wk] = (party, pct)
+    none = (None, None)
+    return [
+        {
+            "number": r["number"], "name": r["name"], "state": r["state"], "seat_party": r["seat_party"],
+            "first_party": top.get(r["number"], none)[0], "first_percent": top.get(r["number"], none)[1],
+            "turnout": round(100 * r["voters"] / r["electorate"], 1) if r["voters"] and r["electorate"] else None,
+        }
+        for r in conn.execute("SELECT * FROM constituency WHERE election = ? ORDER BY number", (ELECTION,))
+    ]  # fmt: skip
+
+
+def election_sources(conn: sqlite3.Connection) -> list[dict]:
+    if not has_table(conn, "constituency"):
+        return []
+    return [
+        {"url": r["source_url"], "doc": r["source_document_id"], "retrieved": r["retrieved"]}
+        for t in ("election_candidacy", "constituency")
+        for r in conn.execute(
+            f"SELECT source_url, source_document_id, max(retrieved_at) AS retrieved FROM {t} WHERE election = ?",
+            (ELECTION,),
+        )
+        if r["source_url"]
+    ]
+
+
 # ---------------------------------------------------------------- persons
 
 
@@ -238,6 +314,7 @@ def cards(conn: sqlite3.Connection) -> tuple[list[dict], dict]:
     after the snapshot). Speakers: everyone else who spoke in a WP 21 sitting (D9)."""
     by_person = speeches(conn)
     docs = drucksachen(conn)
+    elected = elections(conn)
     vote_rows, n_votes = votes(conn)
     mandates: dict[str, list[sqlite3.Row]] = defaultdict(list)
     for r in conn.execute("SELECT * FROM mandate ORDER BY wahlperiode"):
@@ -280,6 +357,7 @@ def cards(conn: sqlite3.Connection) -> tuple[list[dict], dict]:
                     "from": wp21["from_date"], "to": wp21["to_date"],
                 },
                 "in_stammdaten": wp21 is not None,
+                "election": elected.get(pid),
                 "first_vote": vote_rows[pid][0]["date"] if vote_rows.get(pid) else None,
                 "periods": [m["wahlperiode"] for m in mandates[pid]],
                 "since": mandates[pid][0]["from_date"] if mandates[pid] else None,
@@ -317,6 +395,7 @@ def meta(conn: sqlite3.Connection, n_votes: int) -> dict:
         "sittings": {"from": span[0], "to": span[1], "n": span[2]},
         "votes": n_votes,
         "dip": {"from": dip[0], "to": dip[1], "n": dip[2], "complete": dip_complete(conn)},
+        "election": election_sources(conn),
     }
 
 

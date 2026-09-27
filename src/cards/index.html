@@ -59,7 +59,8 @@ h1 { font-size: 26px; font-weight: 600; letter-spacing: -.02em; margin: 8px 0 6p
 <script>
 'use strict';
 const DATA = __DATA__;
-const { cards: CARDS, meta: META } = DATA;
+const { cards: CARDS, meta: META, constituencies: WAHLKREISE } = DATA;
+const pct = x => x.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' %';
 const FRACTIONS = ['CDU/CSU', 'AfD', 'SPD', 'BÜNDNIS 90/DIE GRÜNEN', 'Die Linke', 'fraktionslos'];
 const FRACTION_COLORS = { 'CDU/CSU': '--cdu', 'SPD': '--spd', 'AfD': '--afd', 'BÜNDNIS 90/DIE GRÜNEN': '--gru', 'Die Linke': '--lin', 'fraktionslos': '--frl' };
 const STATES = { BW: 'Baden-Württemberg', BY: 'Bayern', BE: 'Berlin', BB: 'Brandenburg', HB: 'Bremen', HH: 'Hamburg', HE: 'Hessen', MV: 'Mecklenburg-Vorpommern',
@@ -130,6 +131,8 @@ function renderPeople() {
 
 function renderWahlkreise() {
   const byNr = new Map();
+  // official list of all 299 Wahlkreise when the store has the election tables, else those named in the Stammdaten
+  for (const w of WAHLKREISE) byNr.set(w.number, { nr: w.number, name: w.name, state: w.state, direct: [], list: [], official: w });
   for (const c of members) {
     if (!c.number) continue;
     const w = byNr.get(c.number) || byNr.set(c.number, { nr: c.number, name: c.constituency, state: c.state, direct: [], list: [] }).get(c.number);
@@ -143,9 +146,15 @@ function renderWahlkreise() {
   });
   const person = c => `<a href="${esc(c.id)}.html"><span class="dot" style="background:${color(c.fraction || 'fraktionslos')};width:7px;height:7px"></span>${esc(c.name)}${c.left ? ' <span class="faint">(ausgeschieden)</span>' : ''}</a>`;
   $('count').textContent = `${shown.length} von ${byNr.size} Wahlkreisen`;
-  $('list').innerHTML = `<p class="explain">Zu jedem Wahlkreis: wer ihn direkt gewonnen hat, und wer dort kandidiert hat und über die Landesliste in den Bundestag kam. Seit der Wahlrechtsreform 2023 erhält nicht jeder Wahlkreissieger ein Mandat; dann hat der Wahlkreis kein direkt gewähltes Mitglied.</p>
-    <div class="rows wk">${shown.map(w => `<div class="row"><div class="nr">${w.nr}</div><div class="t">${esc(w.name)} <span class="faint">· ${STATES[w.state] || w.state}</span>
-      <div class="who">${w.direct.length ? `<span class="k">direkt</span>${w.direct.map(person).join('')}` : '<span class="k">kein direkt gewähltes Mitglied</span>'}${w.list.length ? `<span class="k">über die Liste</span>${w.list.map(person).join('')}` : ''}</div></div></div>`).join('')}</div>`;
+  const noSeat = w => {
+    const o = w.official;
+    if (!o || o.seat_party) return '<span class="k">kein direkt gewähltes Mitglied</span>';
+    return `<span class="k">kein direktes Mandat: die meisten Erststimmen (${esc(o.first_party)}, ${pct(o.first_percent)}) waren nicht durch Zweitstimmen gedeckt</span>`;
+  };
+  const official = WAHLKREISE.length > 0;
+  $('list').innerHTML = `<p class="explain">Zu jedem Wahlkreis: wer ihn direkt gewonnen hat, und wer dort kandidiert hat und über die Landesliste in den Bundestag kam. Seit der Wahlrechtsreform 2023 erhält ein Wahlkreissieger nur einen Sitz, wenn die Zweitstimmen seiner Partei im Land dafür reichen (Zweitstimmendeckung)${official ? `; ${WAHLKREISE.filter(w => !w.seat_party).length} Wahlkreise haben deshalb kein direkt gewähltes Mitglied. Ergebnisse: Die Bundeswahlleiterin, Bundestagswahl 2025` : ''}.</p>
+    <div class="rows wk">${shown.map(w => `<div class="row"><div class="nr">${w.nr}</div><div class="t">${esc(w.name)} <span class="faint">· ${STATES[w.state] || w.state}${w.official?.turnout ? ` · Wahlbeteiligung ${pct(w.official.turnout)}` : ''}</span>
+      <div class="who">${w.direct.length ? `<span class="k">direkt</span>${w.direct.map(person).join('')}` : noSeat(w)}${w.list.length ? `<span class="k">über die Liste</span>${w.list.map(person).join('')}` : ''}</div></div></div>`).join('')}</div>`;
 }
 
 function render() {

@@ -1,5 +1,5 @@
 -- The foundation store's tables that the cards read, dumped from the live store (bundestag-data-foundation
--- src/bdf/db.py). Refresh when the foundation schema changes.
+-- src/bdf/db.py; the election tables from PR #3). Refresh when the foundation schema changes.
 
 CREATE TABLE person (
     id TEXT PRIMARY KEY,                -- Bundestag MdB id (MDB/ID == redner/@id)
@@ -155,5 +155,46 @@ CREATE TABLE vorgang_drucksache (
     vorgang_id TEXT NOT NULL REFERENCES vorgang(id),
     drucksache_id TEXT NOT NULL REFERENCES drucksache(id),
     PRIMARY KEY (vorgang_id, drucksache_id)
+);
+
+CREATE TABLE constituency (
+    id TEXT PRIMARY KEY,                -- "<election>/<number>", e.g. "btw25/114"
+    election TEXT NOT NULL,             -- "btw25"
+    number INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    state TEXT NOT NULL,                -- Land abbreviation, as mandate.state
+    seat_party TEXT,                    -- party whose candidate got the seat; NULL: no Zweitstimmendeckung
+    electorate INTEGER,
+    voters INTEGER,
+    source_url TEXT NOT NULL, source_document_id TEXT NOT NULL, retrieved_at TEXT NOT NULL
+);
+
+CREATE TABLE constituency_result (
+    id TEXT PRIMARY KEY,                -- "<election>/<number>/<group order>/<vote>"
+    election TEXT NOT NULL,
+    constituency_number INTEGER NOT NULL,
+    group_kind TEXT NOT NULL,           -- party | individual (Einzelbewerber)
+    party TEXT NOT NULL,                -- Gruppenname, e.g. "SPD", "CSU", "GRÜNE"
+    vote INTEGER NOT NULL,              -- 1 = Erststimme, 2 = Zweitstimme
+    votes INTEGER NOT NULL,
+    percent REAL,
+    source_url TEXT NOT NULL, source_document_id TEXT NOT NULL, retrieved_at TEXT NOT NULL
+);
+
+CREATE TABLE election_candidacy (
+    id TEXT PRIMARY KEY,                -- "<election>/<row in the Gewählte file>"
+    election TEXT NOT NULL,
+    person_id TEXT REFERENCES person(id),
+    last_name TEXT NOT NULL,
+    first_names TEXT NOT NULL,
+    birth_year INTEGER,
+    party TEXT NOT NULL,
+    elected_via TEXT NOT NULL,          -- constituency | list
+    constituency_number INTEGER,        -- won there, or stood there (list members)
+    first_vote_percent REAL,            -- constituency winners only; others: constituency_result
+    list_state TEXT,
+    list_position INTEGER,
+    occupation TEXT,
+    source_url TEXT NOT NULL, source_document_id TEXT NOT NULL, retrieved_at TEXT NOT NULL
 );
 

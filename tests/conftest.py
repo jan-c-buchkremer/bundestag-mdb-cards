@@ -172,4 +172,33 @@ def conn():
         [("v1", "Mieten", '["Wohnen", "Recht"]', *dip), ("v2", "Pflege", '["Gesundheit"]', *dip)],
     )
     c.executemany("INSERT INTO vorgang_drucksache VALUES (?,?)", [("v1", "d1"), ("v2", "d1"), ("v2", "d2")])
+    kerg = ("https://x/kerg2.csv", "Bundeswahlleiterin, BTW 2025 Ergebnisse nach Wahlkreisen (Stand 2025-03-14)", "t")
+    elected = ("https://x/gewaehlte.zip", "Bundeswahlleiterin, BTW 2025 Gewählte (Stand 2025-03-12)", "t")
+    c.executemany(
+        "INSERT INTO constituency VALUES (?,'btw25',?,?,?,?,?,?,?,?,?)",
+        [
+            ("btw25/14", 14, "Rostock", "MV", "SPD", 200000, 160000, *kerg),
+            ("btw25/242", 242, "Fürth", "BY", "CSU", 180000, 150000, *kerg),
+            ("btw25/58", 58, "Oberhavel", "BB", None, 190000, 150000, *kerg),  # the winner got no seat
+        ],
+    )
+    c.executemany(
+        "INSERT INTO constituency_result VALUES (?,'btw25',?,'party',?,?,?,?,?,?,?)",
+        [
+            ("btw25/14/1/1", 14, "SPD", 1, 60000, 38.2, *kerg),
+            ("btw25/14/2/1", 14, "AfD", 1, 40000, 25.0, *kerg),
+            ("btw25/242/1/1", 242, "CSU", 1, 45000, 30.5, *kerg),
+            ("btw25/242/2/1", 242, "SPD", 1, 30000, 20.0, *kerg),
+            ("btw25/58/1/1", 58, "AfD", 1, 50000, 33.3, *kerg),
+            ("btw25/58/2/1", 58, "SPD", 1, 40000, 26.7, *kerg),
+        ],
+    )
+    c.executemany(
+        "INSERT INTO election_candidacy VALUES (?,'btw25',?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        [
+            ("btw25/1", "1", "Adler", "Anna", 1970, "SPD", "constituency", 14, 38.2, "MV", 2, None, *elected),
+            ("btw25/2", "2", "Berg", "Bernd Maria", 1970, "CSU", "list", 242, None, "BY", 3, None, *elected),
+            ("btw25/3", None, "Unbekannt", "Uwe", 1960, "AfD", "list", None, None, "BB", 1, None, *elected),
+        ],
+    )
     return c

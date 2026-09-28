@@ -28,6 +28,11 @@ Themenlandschaft. **Abgeordnete** is the searchable list, **Wahlkreise** the lis
 Cards show portraits (downscaled into `fotos/` from the foundation's raw folder: `BDF_RAW`, else `raw/` next to the store) and, for members of the government, their offices. The Regierungsbank, the "Regierung" badge and filter appear once the store has the foundation's `government_role`
 table.
 
+**Fragen** (`regierung/`) counts Kleine Anfragen with answer times, Schriftliche and Mündliche Fragen and the
+Regierungsbefragung per fraction; **Daten** (`daten.html`) lists sources, licences, the date of the data and known gaps.
+`FOUNDATION_EXPORT` points to the foundation's `bdf export` folder; the build copies it to `daten/` and lists the files
+there as downloads. Without it the page says that no export is included.
+
 The map outlines in `src/cards/wahlkreise.json` are made once, not in the daily build:
 
 ```sh

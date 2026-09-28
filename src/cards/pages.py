@@ -29,6 +29,8 @@ NAV = (
     ("votes", "abstimmungen/index.html", "Abstimmungen"),
     ("cohesion", "abstimmungen/geschlossenheit.html", "Geschlossenheit"),
     ("sittings", "sitzungen/index.html", "Sitzungen"),
+    ("questions", "regierung/index.html", "Fragen"),
+    ("data", "daten.html", "Daten"),
 )
 FOOTER = (
     "Daten: Deutscher Bundestag (Plenarprotokolle, namentliche Abstimmungen), Deutscher Bundestag/Bundesrat – DIP, "

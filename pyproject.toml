@@ -4,7 +4,9 @@ version = "0.1.0"
 description = "One info card per member of the 21st Bundestag, every fact linked to its source"
 requires-python = ">=3.12"
 license = "MIT"
-dependencies = []
+dependencies = [
+    "pillow>=12.3.0",
+]
 
 [project.scripts]
 cards = "cards.cli:main"

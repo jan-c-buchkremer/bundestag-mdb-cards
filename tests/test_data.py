@@ -52,7 +52,7 @@ def test_votes_against_fraction_line(conn):
 
 def test_card_kinds(conn):
     cards, _ = by_id(conn)
-    assert set(cards) == {"1", "2", "3", "4", "5", "6", "7", "9"}
+    assert set(cards) == {"1", "2", "3", "4", "5", "6", "7", "9", "Q79"}
     dahl = cards["4"]  # votes, but no WP 21 mandate in the Stammdaten yet
     assert (dahl["kind"], dahl["in_stammdaten"], dahl["fraction"], dahl["first_vote"]) == (
         "member", False, "CDU/CSU", "2026-07-08",
@@ -204,3 +204,76 @@ def test_index_row_seat_fields(conn):
     assert berg["lead"] == 3 and berg["gov"] == "Parlamentarischer Staatssekretär"
     assert data.index_row(cards["1"], gov)["gov"] is None  # office ended
     assert data.index_row(cards["1"])["lead"] is None
+
+
+def test_vote_outcome_announced_else_counted(conn):
+    cards, _ = by_id(conn)
+    first, tie = cards["1"]["votes"]
+    assert (first["outcome"], first["outcome_from"]) == ("angenommen", "protocol")
+    assert (tie["outcome"], tie["outcome_from"]) == ("abgelehnt", "count")  # 2:2, no decision row: a tie rejects
+    assert data.outcome(None, {"yes": 5, "no": 1, "abstain": 0, "absent": 0}) == ("angenommen", "count")
+    assert data.outcome(None, {"yes": 0, "no": 0, "abstain": 0, "absent": 9}) == (None, None)
+
+
+def test_votes_without_decision_table(conn_without_round2):
+    cards, _ = by_id(conn_without_round2)
+    assert [v["outcome_from"] for v in cards["1"]["votes"]] == ["count", "count"]
+
+
+def test_photo_on_card_and_index(conn):
+    cards, _ = by_id(conn)
+    assert cards["1"]["photo"] == {"credit": "Jemand/SPD-Fraktion", "url": "https://x/adler"}
+    assert cards["9"]["photo"]["url"] == "https://commons.wikimedia.org/wiki/File:Hubig.png"  # no biography page
+    assert cards["2"]["photo"] is None
+    assert data.index_row(cards["1"])["photo"] is True and data.index_row(cards["2"])["photo"] is False
+    assert data.photos(conn)["1"]["path"] == "bundestag/fotos/adler.jpg"
+
+
+def test_feminine_office_labels():
+    assert data.feminine("Bundesminister der Finanzen") == "Bundesministerin der Finanzen"
+    assert data.feminine("Bundesministerin für Gesundheit") == "Bundesministerin für Gesundheit"
+    assert data.feminine("Parlamentarischer Staatssekretär") == "Parlamentarische Staatssekretärin"
+    assert data.feminine("Chef des Bundeskanzleramtes") == "Chefin des Bundeskanzleramtes"
+    assert data.feminine("Bundeskanzler der BRD") == "Bundeskanzlerin der BRD"
+
+
+def test_government_offices_on_cards(conn):
+    cards, _ = by_id(conn)
+    # g1 and g7 name the same office (feminine and masculine label): one office with both sources
+    (hubig,) = cards["9"]["government"]
+    assert hubig["office"] == "Bundesministerin der Justiz" and len(hubig["sources"]) == 2
+    assert cards["9"]["kind"] == "speaker"
+    adler = cards["1"]["government"]  # MdB, office ended
+    assert [(o["office"], o["to"]) for o in adler] == [("Parlamentarische Staatssekretärin", "2025-12-31")]
+    assert cards["2"]["government"][0]["office"] == "Parlamentarischer Staatssekretär"  # Berg is a man
+    boehm = cards["Q79"]  # never spoke: a card for the office alone
+    assert (boehm["kind"], boehm["role"], boehm["reden"], boehm["votes"]) == (
+        "speaker", "beamteter Staatssekretär", [], [],
+    )  # fmt: skip
+    assert boehm["government"][0]["department"] == "Bundesministerium der Finanzen"
+    assert cards["3"]["government"] == []
+
+
+def test_government_roles_with_source_kind(conn):
+    conn.executemany(
+        "INSERT INTO government_role VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        [
+            # protocol evidence for the office Wikidata already has: merged, Wikidata's dates stay
+            ("p1", "9", "Q1", "Stefanie Hubig", "Bundesministerin der Justiz", None, "minister", "2025-06-01", None,
+             "https://x/21088.xml", "BT-PlPr. 21/88", "2026-09-28", "protocol"),
+            # an office only the protocols know: dated by the evidence
+            ("p2", "3", None, "Clara Cohn", "Parlamentarische Staatssekretärin", "BMAS", "parl_sts", "2026-07-08",
+             None, "https://x/21088.xml", "BT-PlPr. 21/88", "2026-09-28", "protocol"),
+        ],
+    )  # fmt: skip
+    roles = data.government_roles(conn)
+    (hubig,) = roles["9"]
+    assert (hubig["from"], hubig["evidence"]) == ("2025-05-06", False)
+    assert [s["kind"] for s in hubig["sources"]] == ["wikidata", "wikidata", "protocol"]
+    (cohn,) = roles["3"]
+    assert (cohn["from"], cohn["evidence"], cohn["sources"][0]["doc"]) == ("2026-07-08", True, "BT-PlPr. 21/88")
+
+
+def test_government_cards_without_roster(conn_without_round2):
+    cards, _ = by_id(conn_without_round2)
+    assert "Q79" not in cards and cards["9"]["government"] == [] and cards["1"]["photo"] is None

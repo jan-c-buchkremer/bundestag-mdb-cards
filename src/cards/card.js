@@ -172,11 +172,12 @@ function renderCard() {
     : '<span class="pill"><span class="dot" style="background:var(--reg)"></span>ohne Mandat</span>';
   document.getElementById('card').innerHTML = `
     <div class="top">
-      <div class="photo" title="Fotos folgen, sobald die Lizenz der Bundestagsfotos geklärt ist">${esc(initials)}</div>
+      <div class="photo">${esc(initials)}${C.photo ? `<img src="fotos/${encodeURIComponent(C.id)}.jpg" alt="Foto: ${esc(C.name)}" onerror="this.remove()">` : ''}</div>
       <div class="who">
         <h1>${esc(C.name)}</h1>
         <div style="margin-bottom:8px">${pill}</div>
         <div class="lines">${mandateLines().map(l => `<div>${l}</div>`).join('')}</div>
+        ${C.photo ? `<div class="credit">Foto: ${C.photo.url ? `<a href="${esc(C.photo.url)}">${esc(C.photo.credit || 'Quelle')}</a>` : esc(C.photo.credit)}</div>` : ''}
       </div>
     </div>
     ${contextBox()}${committeeLine()}${facts()}${lastSpeech()}`;
@@ -351,6 +352,7 @@ function renderSources(el) {
       ${member && META.election.length ? `<li>Bundestagswahl 2025: ${META.election.map(s => `<a href="${esc(s.url)}">${esc(s.doc)}</a>`).join(', ')}. © Die Bundeswahlleiterin, Wiesbaden 2025, <a href="https://www.govdata.de/dl-de/by-2-0">dl-de/by-2-0</a></li>` : ''}
       ${C.wikidata ? `<li>Wikidata: <a href="https://www.wikidata.org/wiki/${esc(C.wikidata)}">${esc(C.wikidata)}</a> (CC0 1.0)</li>` : ''}
       ${C.aw ? `<li>abgeordnetenwatch.de: <a href="${esc(C.aw.url)}">Profil</a> mit Bürgerfragen und Antworten (Stand ${shortDate(C.aw.retrieved)}, CC0 1.0)</li>` : C.aw_id ? `<li>abgeordnetenwatch.de: <a href="https://www.abgeordnetenwatch.de/api/v2/politicians/${esc(C.aw_id)}">Datensatz ${esc(C.aw_id)}</a> (CC0 1.0)</li>` : ''}
+      ${C.photo ? `<li>Foto: ${esc(C.photo.credit || '')}${C.photo.url ? `, <a href="${esc(C.photo.url)}">${/wikimedia/.test(C.photo.url) ? 'Wikimedia Commons' : 'Biografie auf bundestag.de'}</a>` : ''}; verkleinert auf 240 Pixel Breite.</li>` : ''}
       <li>Alle Angaben dieser Seite als <a href="${esc(C.id)}.json">JSON</a>.</li>
     </ul>
     <p class="explain">Die Daten werden mit <a href="https://github.com/jan-c-buchkremer/bundestag-data-foundation">bundestag-data-foundation</a> aus den Originalquellen gesammelt und täglich aktualisiert. Diese Seite wurde am ${shortDate(META.built)} erzeugt. Etwas stimmt nicht? <a href="${issue}">Fehler melden</a>.</p>`;

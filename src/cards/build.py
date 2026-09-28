@@ -22,6 +22,8 @@ def _json(payload: object) -> str:
 
 def description(c: dict) -> str:
     """One plain sentence for <meta description> and link previews; the page itself renders from the data."""
+    if c["kind"] == "speaker" and c.get("government") and not c["reden"]:
+        return f"{c['name']}, {c['role']}: Ämter in der Bundesregierung während der 21. Wahlperiode, mit Quellen."
     if c["kind"] == "speaker":
         return f"{c['name']}, {c['role'] or 'Rednerin/Redner'} im 21. Deutschen Bundestag: Reden mit Quellen."
     m = c["mandate"] or {}

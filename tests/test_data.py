@@ -288,3 +288,21 @@ def test_government_roles_with_source_kind(conn):
 def test_government_cards_without_roster(conn_without_round2):
     cards, _ = by_id(conn_without_round2)
     assert "Q79" not in cards and cards["9"]["government"] == [] and cards["1"]["photo"] is None
+
+
+def test_plenum_leaves_out_notes_after_the_chair(conn):
+    # the chair announces the next speaker at the end of Berg's rede: the applause welcomes her, not Berg
+    conn.executemany(
+        "INSERT INTO speech_paragraph VALUES (?,?,?,?,?)",
+        [
+            ("ID1-5/4", "ID1-5", 4, "chair", "Nächste Rednerin ist für die SPD-Fraktion Anna Adler."),
+            ("ID1-5/5", "ID1-5", 5, "comment", "(Beifall bei der SPD)"),
+        ],
+    )
+    conn.execute(
+        "INSERT INTO interjection VALUES ('ID1-5/5/1/1','ID1-5',5,1,'beifall','fraction','SPD',NULL,NULL,NULL,"
+        "NULL,NULL)"
+    )
+    assert data.plenum(conn)["2"]["received"]["SPD"]["beifall"] == 0
+    applause, _ = data._paragraph_stats(conn)
+    assert applause["ID1-5"] == 1  # the note after his words, not the one after the chair's

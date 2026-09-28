@@ -127,3 +127,27 @@ def test_write(conn, tmp_path, monkeypatch):
     assert "Gemessen in Wörtern, nicht in Redezeit" in page
     assert 'href="../debatte/index.html"' in page and "<svg" in page
     assert "Nach Thema" not in page
+
+
+def test_comments_after_the_chair_are_not_the_speakers(conn):
+    # the chair announces the next speaker at the end of Berg's rede; the applause welcomes her, not Berg
+    conn.executemany(
+        "INSERT INTO speech_paragraph VALUES (?,?,?,?,?)",
+        [
+            ("ID1-5/4", "ID1-5", 4, "chair", "Nächste Rednerin ist für die SPD-Fraktion Anna Adler."),
+            ("ID1-5/5", "ID1-5", 5, "comment", "(Beifall bei der SPD – Zuruf von der AfD)"),
+        ],
+    )
+    conn.executemany(
+        "INSERT INTO interjection VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+        [
+            ("ID1-5/5/1/1", "ID1-5", 5, 1, "beifall", "fraction", "SPD", None, None, None, None, None),
+            ("ID1-5/5/2/1", "ID1-5", 5, 2, "zuruf", "fraction", "AfD", None, None, "Na endlich!", None, None),
+        ],
+    )
+    assert ("ID1-5", 5) not in debate.after_speaker(conn) and ("ID1-5", 2) in debate.after_speaker(conn)
+    net = debate.network(conn)
+    assert ("SPD", "CDU/CSU") not in net["share"]["fraction"]
+    assert net["share"]["zuruf"] == {("Die Linke", "CDU/CSU"): 0.5, ("AfD", "CDU/CSU"): 0.5}  # as before
+    assert net["skipped"] == 2
+    assert debate.interruptions(conn)["2026-07"]["CDU/CSU"][0] == 3  # the Zuruf after the chair is not counted

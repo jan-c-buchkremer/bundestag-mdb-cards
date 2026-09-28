@@ -295,22 +295,43 @@ def interim_questions(conn: sqlite3.Connection, rows: list | None = None) -> lis
 INTERRUPTIONS = ("zuruf", "unruhe", "widerspruch", "lachen")
 
 
+def after_speaker(conn: sqlite3.Connection) -> set[tuple[str, int]]:
+    """The comment paragraphs (speech id, position) that follow the speaker's own words: the nearest earlier
+    paragraph of the part that is not a comment is of kind 'text'. A comment after the chair's words belongs to the
+    chair or to the change of speaker: applause after "Nächster Redner ist … für die CDU/CSU" welcomes the next
+    speaker, applause after a Ordnungsruf is for the chair. A Zwischenfrage is its own speech part, so the comments
+    in it go to the asker."""
+    out, last = set(), {}
+    for sid, pos, kind in conn.execute(
+        """SELECT p.speech_id, p.position, p.kind FROM speech_paragraph p JOIN speech s ON s.id = p.speech_id
+           JOIN sitting st ON st.id = s.sitting_id WHERE st.wahlperiode = ? ORDER BY p.speech_id, p.position""",
+        (WP,),
+    ):
+        if kind == "comment":
+            if last.get(sid) == "text":
+                out.add((sid, pos))
+        else:
+            last[sid] = kind
+    return out
+
+
 def interruptions(conn: sqlite3.Connection) -> dict[str, dict[str, list[int]]]:
     """{month: {speaker group: [interruptions, words]}}: Zurufe, Unruhe, Widerspruch and Lachen aimed at the
-    speaker (no other addressee named) from outside the speaker's own fraction."""
+    speaker (no other addressee named) from outside the speaker's own fraction, after the speaker's own words."""
     out: dict[str, dict[str, list[int]]] = defaultdict(lambda: defaultdict(lambda: [0, 0]))
     for s in _speeches(conn):
         if s["group"]:
             out[s["date"][:7]][s["group"]][1] += s["words"]
     marks = ",".join("?" * len(INTERRUPTIONS))
+    heard = after_speaker(conn)
     for r in conn.execute(
-        f"""SELECT st.date, s.speaker_role, s.fraction, i.fraction FROM interjection i
+        f"""SELECT st.date, s.speaker_role, s.fraction, i.fraction, i.speech_id, i.paragraph FROM interjection i
             JOIN speech s ON s.id = i.speech_id JOIN sitting st ON st.id = s.sitting_id
             WHERE st.wahlperiode = ? AND i.kind IN ({marks}) AND i.to_person_id IS NULL""",
         (WP, *INTERRUPTIONS),
     ):
         g = speaker_group(r[1], r[2])
-        if g and not (r[3] and r[3] == r[2]):
+        if g and (r[4], r[5]) in heard and not (r[3] and r[3] == r[2]):
             out[r[0][:7]][g][0] += 1
     return {m: dict(v) for m, v in sorted(out.items())}
 
@@ -335,11 +356,15 @@ def network(conn: sqlite3.Connection) -> dict:
     count = Counter(g for g, _ in speeches.values())
     hits: dict[str, set[tuple[str, str, str]]] = {"fraction": set(), "members": set(), "zuruf": set()}
     months: dict[str, list[int]] = defaultdict(lambda: [0, 0])
+    heard, skipped = after_speaker(conn), 0
     for r in conn.execute(
-        """SELECT speech_id, kind, actor, fraction FROM interjection
+        """SELECT speech_id, kind, actor, fraction, paragraph FROM interjection
            WHERE kind IN ('beifall', 'zuruf') AND to_person_id IS NULL AND fraction IS NOT NULL"""
     ):
         if r[0] not in speeches:
+            continue
+        if (r[0], r[4]) not in heard:
+            skipped += 1
             continue
         g, month = speeches[r[0]]
         if r[1] == "zuruf":
@@ -352,7 +377,7 @@ def network(conn: sqlite3.Connection) -> dict:
     share = {
         k: {(a, b): c / count[b] for (a, b), c in Counter((a, b) for a, b, _ in v).items()} for k, v in hits.items()
     }
-    return {"speeches": dict(count), "share": share, "months": dict(sorted(months.items()))}
+    return {"speeches": dict(count), "share": share, "months": dict(sorted(months.items())), "skipped": skipped}
 
 
 # ---------------------------------------------------------------- rendering
@@ -554,7 +579,8 @@ def interruptions_block(ints: dict[str, dict[str, list[int]]]) -> str:
         f"<tbody>{rows}</tbody></table></div>"
         '<p class="how">Zurufe, Unruhe, Widerspruch und Lachen, die das Protokoll während eines Beitrags vermerkt, '
         "je 1.000 Wörter der Beiträge dieser Fraktion im Monat; Zurufe aus der eigenen Fraktion und Zurufe an eine "
-        "andere genannte Person nicht mitgezählt. Das Protokoll hält fest, was die Stenografie hört: ein Zuruf kann "
+        "andere genannte Person nicht mitgezählt, ebenso Vermerke direkt nach Worten der Sitzungsleitung. "
+        "Das Protokoll hält fest, was die Stenografie hört: ein Zuruf kann "
         "Kritik, Ergänzung oder Zustimmung sein. Monate mit weniger als 2.000 Wörtern einer Fraktion bleiben "
         "leer (–).</p>"
     )
@@ -623,9 +649,12 @@ def section_network(net: dict) -> str:
         '<p class="how">Jede Zelle: in wie viel Prozent der Reden der Spalte (Fraktion oder Bundesregierung der '
         "redenden Person) das Protokoll mindestens einmal Beifall oder einen Zuruf der Zeile vermerkt. Gezählt "
         f"sind Reden ab {MIN_CHARS} Zeichen; Spalten mit weniger als 20 Reden fehlen. Das Protokoll hält fest, "
-        "<em>wann</em> Beifall fällt, nicht <em>wem</em> er gilt: Beifall während einer Rede kann auch einem "
-        "Zwischenruf oder einer Zwischenfrage gelten. Die Zahlen beschreiben also Reaktionen während einer Rede, "
-        "keine Zustimmung zu ihr.</p>"
+        "<em>wann</em> Beifall fällt, nicht <em>wem</em> er gilt. Deshalb zählt nur, was direkt auf die eigenen "
+        "Worte der redenden Person folgt. Vermerke nach Worten der Sitzungsleitung bleiben außen vor "
+        f"({n(net['skipped'])} Vermerke): Beifall nach „Nächster Redner ist …“ begrüßt meist die nächste Person am "
+        "Pult, Beifall nach einem Ordnungsruf gilt dem Präsidium. Eine Zwischenfrage ist ein eigener Beitrag; "
+        "Reaktionen darin zählen für die fragende Person. Beifall kann trotzdem einem Zwischenruf gelten. Die "
+        "Zahlen beschreiben also Reaktionen während einer Rede, keine Zustimmung zu ihr.</p>"
         + heatmap(
             net["share"]["fraction"],
             actors,

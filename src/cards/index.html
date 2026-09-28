@@ -32,7 +32,7 @@ h1 { font-size: 26px; font-weight: 600; letter-spacing: -.02em; margin: 8px 0 6p
 .tip-av { float: left; width: 38px; height: 50px; margin: 1px 9px 2px 0; }
 .people .row a.name:hover { color: var(--accent); }
 .people .row .tags { display: flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end; }
-.tag.gov { color: #7a6512; background: #f6f0d6; }
+.tag.gov { color: var(--reg-text); background: var(--reg-soft); }
 .wk .row { grid-template-columns: 44px 1fr; scroll-margin: 90px; }
 .wk .row.sel { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
 .wk .row .nr { color: var(--faint); font-variant-numeric: tabular-nums; font-size: 12.5px; padding-top: 1px; }
@@ -53,14 +53,27 @@ h1 { font-size: 26px; font-weight: 600; letter-spacing: -.02em; margin: 8px 0 6p
 /* Wahlkreise with the map */
 #side { display: none; }
 body.v-wahlkreise #side { display: block; }
-.map { position: relative; }
+.map { position: relative; overflow: hidden; touch-action: pan-y; }  /* pinch and drag go to the map, a swipe scrolls the page */
+.map.zoomed { touch-action: none; }                                     /* zoomed in, one finger pans the map */
 .map svg { display: block; width: 100%; height: auto; }
+.map.drag svg, .map.drag path { cursor: grabbing; }
 .map path { stroke: var(--card); stroke-width: .6px; vector-effect: non-scaling-stroke; stroke-linejoin: round; cursor: pointer; transition: fill-opacity .12s; }
 .map path.dim { fill-opacity: .18; }
-.map .ov path.hover { stroke: var(--text); stroke-width: 1.6px; }
 .map path.sel { fill-opacity: 1; }
-.map .ov path { fill: none; pointer-events: none; }
-.map .ov path.sel { stroke: var(--accent); stroke-width: 2.4px; }
+/* hover and selection: an accent outline on a casing of the card colour, so it reads on black CDU/CSU regions as
+   well as on light ones; hover also brightens the region, and both lift it with a soft shadow */
+.map .ov path { fill: none; pointer-events: none; stroke-linejoin: round; }
+.map .ov g { filter: drop-shadow(0 1px 2.5px rgba(0,0,0,.35)); }
+.map .ov .case { stroke: var(--card); stroke-width: 4.5px; }
+.map .ov .hover { stroke: var(--accent); stroke-width: 1.8px; fill: rgba(255,255,255,.26); }
+.map .ov .sel { stroke: var(--accent); stroke-width: 2.6px; }
+.mapzoom { position: absolute; top: 8px; right: 8px; display: flex; flex-direction: column; background: var(--card); border: 1px solid var(--line); border-radius: 9px; box-shadow: 0 2px 8px rgba(0,0,0,.08); overflow: hidden; }
+.mapzoom button { width: 32px; height: 32px; border: 0; background: transparent; color: var(--text); font-size: 18px; line-height: 1; cursor: pointer; display: grid; place-items: center; }
+.mapzoom button + button { border-top: 1px solid var(--line); }
+.mapzoom button:hover { background: var(--bg); }
+.mapzoom button:disabled { color: var(--faint); cursor: default; background: transparent; }
+.mapzoom button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.wk .row { cursor: pointer; }
 .map .info { position: absolute; left: 0; bottom: 0; max-width: 62%; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 7px 11px; font-size: 12.5px; box-shadow: 0 3px 12px rgba(0,0,0,.08); pointer-events: none; }
 .map .info[hidden] { display: none; }
 .map .info b { font-weight: 600; }
@@ -192,7 +205,7 @@ function renderChips() {
   });
   const flags = Object.entries(FLAGS).filter(([k]) => !plenum || PLENUM_FLAGS.has(k)).map(([k, [label, test]]) => {
     const n = CARDS.filter(c => test(c) && matches(c, k)).length;
-    return `<button class="chip${state.flags.has(k) ? ' on' : ''}" data-flag="${k}">${label} <span class="n">${n}</span></button>`;
+    return `<button class="chip${state.flags.has(k) ? ' on' : ''}" data-flag="${k}">${k === 'gov' ? '<span class="dot" style="background:var(--reg)"></span>' : ''}${label} <span class="n">${n}</span></button>`;
   });
   $('chips').innerHTML = fr.join('') + flags.join('');
 }
@@ -232,14 +245,15 @@ function renderPlenum() {
   if (!chart) {
     const seats = current.map(seatOf);
     const presidium = current.filter(c => PRESIDIUM.test(c.office || '')).sort((a, b) => /^Vize/.test(a.office) - /^Vize/.test(b.office) || byName(a, b)).map(seatOf);
-    const government = GOVERNMENT.map(g => ({ ...seatOf(benchRow(g)), fraction: g.fraction, office: g.office, card: g.card, gov: true }));
+    const government = GOVERNMENT.map(g => ({ ...seatOf(benchRow(g)), fraction: g.fraction, office: g.office, card: g.card, gov: true, evidence: g.evidence, seen: g.seen }));
     chart = renderParliament($('chart'), seats, {
       government, presidium, title: `Sitzverteilung im 21. Bundestag, ${seats.length} Sitze`,
       colorOf: s => s.gov && !s.fraction ? css('--reg') : color(s.fraction || 'fraktionslos'),
       tooltip: s => {
         const c = s.row;
         const where = c.type === 'Direktwahl' ? `Wahlkreis ${c.number} ${esc(c.constituency)}` : c.state ? `Landesliste ${STATES[c.state] || c.state}` : '';
-        const office = s.gov ? s.office : c.gov || c.office;
+        // an office only the protocols show: its date is the latest sitting that prints it, not the end of office
+        const office = s.gov ? s.office + (s.evidence && s.seen ? ` (laut Plenarprotokoll, zuletzt belegt am ${shortDate(s.seen)})` : '') : c.gov || c.office;
         return `${c.photo ? `<img class="av tip-av" src="fotos/${encodeURIComponent(s.id)}.jpg" alt="">` : ''}<b>${esc(s.name)}</b><div class="sub">${[s.fraction && esc(s.fraction), where].filter(Boolean).join(' · ')}</div>${office ? `<div>${esc(office)}</div>` : ''}${state.redner && SPOKE.has(s.id) ? `<div class="sub">sprach am ${shortDate(LAST.date)}</div>` : ''}${s.gov && !s.card && !BY_ID.has(s.id) ? '<div class="sub">noch keine Karte</div>' : ''}`;
       },
       label: s => [s.name, s.fraction, s.gov ? s.office : null].filter(Boolean).join(', '),
@@ -248,9 +262,11 @@ function renderPlenum() {
     });
   }
   const f = filtering();
+  // filter and speakers: the matching seats keep their colour and get a halo, all others fade to a quarter
+  const hit = s => (!f || seatMatches(s)) && (!state.redner || SPOKE.has(s.id));
   chart.update({
-    dim: s => (f && !seatMatches(s)) || (state.redner && !SPOKE.has(s.id)),
-    highlight: state.redner ? s => SPOKE.has(s.id) : null,
+    dim: f || state.redner ? s => !hit(s) : null,
+    highlight: f || state.redner ? hit : null,
   });
   const on = current.filter(c => matches(c) && (!state.redner || SPOKE.has(c.id)));
   const listed = state.redner ? CARDS.filter(c => SPOKE.has(c.id) && (!f || matches({ ...c, kind: 'member' }))).sort(byName) : f ? on.sort(byName) : [];
@@ -316,7 +332,8 @@ function loadMap() {
   if (mapLoading) return mapLoading;
   mapLoading = fetch('wahlkreise.json').then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).then(geo => {
     const paths = Object.entries(geo.paths).map(([nr, d]) => `<path data-nr="${nr}" d="${d}"></path>`).join('');
-    $('map').innerHTML = `<svg viewBox="${geo.viewBox}" role="img" aria-label="Karte der 299 Wahlkreise, gefärbt nach der Partei des direkt gewählten Mitglieds"><g>${paths}</g><g class="ov"><path id="ovsel" class="sel"></path><path id="ovhover" class="hover"></path></g></svg><div class="info" id="mapinfo" hidden></div>`;
+    $('map').innerHTML = `<svg viewBox="${geo.viewBox}" role="img" aria-label="Karte der 299 Wahlkreise, gefärbt nach der Partei des direkt gewählten Mitglieds"><g>${paths}</g><g class="ov"><g id="ovsel"><path class="case"></path><path class="sel"></path></g><g id="ovhover"><path class="case"></path><path class="hover"></path></g></g></svg><div class="info" id="mapinfo" hidden></div>`
+      + '<div class="mapzoom"><button type="button" data-z="in" aria-label="Karte vergrößern" title="Vergrößern">+</button><button type="button" data-z="out" aria-label="Karte verkleinern" title="Verkleinern">−</button><button type="button" data-z="reset" aria-label="Ganze Karte zeigen" title="Ganze Karte">⟲</button></div>';
     $('mapcredit').innerHTML = `Karte: ${esc(geo.attribution)}, <a href="${esc(geo.source)}">${esc(geo.licence)}</a>, vereinfacht.`;
     const seen = new Set([...WK.values()].map(seatFraction));
     $('maplegend').innerHTML = FRACTIONS.filter(f => seen.has(f)).map(f => `<span><i class="dot" style="background:${color(f)}"></i>${esc(f === 'BÜNDNIS 90/DIE GRÜNEN' ? 'Grüne' : f)}</span>`).join('')
@@ -328,7 +345,9 @@ function loadMap() {
       p.setAttribute('fill', f ? color(f) : NO_SEAT);
     }
     wireMap();
+    ZOOM = mapZoom($('map').querySelector('svg'), geo.viewBox);
     styleMap();
+    if (state.wk != null) ZOOM.to(state.wk, false);
   }).catch(() => { $('map').innerHTML = '<div class="maploading">Die Karte konnte nicht geladen werden.</div>'; });
   return mapLoading;
 }
@@ -358,7 +377,7 @@ function styleMap() {
   for (const [id, nr] of [['ovsel', state.wk], ['ovhover', hoverNr]]) {
     const o = $(id), src = nr != null && MAP.paths.get(nr);
     o.style.display = src ? '' : 'none';
-    if (src) o.setAttribute('d', src.getAttribute('d'));
+    if (src) o.querySelectorAll('path').forEach(x => x.setAttribute('d', src.getAttribute('d')));
   }
   showInfo();
   const strip = $('strip');
@@ -369,8 +388,9 @@ function styleMap() {
     strip.innerHTML = `<div class="t"><b>${w.nr} · ${esc(w.name)}</b><br><span class="k">${h.c ? 'direkt: ' : ''}${esc(h.text)}</span></div>${h.c ? `<a class="go" href="${esc(h.c.id)}.html">Karte →</a>` : `<a class="go" href="#wk-${w.nr}">Liste ↓</a>`}`;
   }
 }
-function select(nr, scroll) {
+function select(nr, scroll, zoom) {
   state.wk = state.wk === nr ? null : nr;
+  if (zoom && state.wk != null && ZOOM) ZOOM.to(state.wk, true);
   document.querySelectorAll('.wk .row.sel').forEach(r => r.classList.remove('sel'));
   const row = state.wk != null && $(`wk-${state.wk}`);
   if (row) { row.classList.add('sel'); if (scroll) row.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
@@ -390,6 +410,129 @@ function wireMap() {
     if (nr !== hoverNr) { hoverNr = nr; styleMap(); }
   });
   $('list').addEventListener('pointerleave', () => { if (hoverNr != null) { hoverNr = null; styleMap(); } });
+  // a Wahlkreis picked in the list: select it and zoom the map to it (links in the row still open the cards)
+  $('list').addEventListener('click', e => {
+    if (state.view !== 'wahlkreise' || e.target.closest('a')) return;
+    const row = e.target.closest('.wk .row');
+    if (row) select(+row.dataset.nr, false, true);
+  });
+}
+
+// Zoom and pan by changing the viewBox (strokes do not scale): wheel, pinch, drag, the +/−/⟲ buttons, and
+// to(nr) for a Wahlkreis. The aspect ratio never changes, so the map keeps its height on the phone.
+let ZOOM = null;
+const MAX_ZOOM = 24;  // the smallest Wahlkreise (Berlin, Munich) need about this much to fill the map
+function mapZoom(svg, viewBox) {
+  const box = $('map'), base = viewBox.split(/[\s,]+/).map(Number);
+  let vb = base.slice(), frame = 0;
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)');
+  function clamp([x, y, w]) {
+    w = Math.min(base[2], Math.max(base[2] / MAX_ZOOM, w));
+    const h = w * base[3] / base[2];
+    return [Math.min(Math.max(x, base[0]), base[0] + base[2] - w), Math.min(Math.max(y, base[1]), base[1] + base[3] - h), w, h];
+  }
+  function apply(v) {
+    vb = clamp(v);
+    svg.setAttribute('viewBox', vb.map(t => +t.toFixed(3)).join(' '));
+    const zoomed = vb[2] < base[2] * 0.999;
+    box.classList.toggle('zoomed', zoomed);
+    buttons.out.disabled = buttons.reset.disabled = !zoomed;
+    buttons.in.disabled = vb[2] <= base[2] / MAX_ZOOM * 1.001;
+  }
+  function animate(target) {
+    cancelAnimationFrame(frame);
+    target = clamp(target);
+    if (reduce.matches) return apply(target);
+    const from = vb.slice(), t0 = performance.now();
+    const c0 = [from[0] + from[2] / 2, from[1] + from[3] / 2], c1 = [target[0] + target[2] / 2, target[1] + target[3] / 2];
+    const step = now => {
+      const t = Math.min(1, (now - t0) / 320), e = 1 - Math.pow(1 - t, 3);
+      const w = Math.exp(Math.log(from[2]) + (Math.log(target[2]) - Math.log(from[2])) * e);  // log scale: in and out feel alike
+      const h = w * base[3] / base[2];
+      apply([c0[0] + (c1[0] - c0[0]) * e - w / 2, c0[1] + (c1[1] - c0[1]) * e - h / 2, w]);
+      if (t < 1) frame = requestAnimationFrame(step);
+    };
+    frame = requestAnimationFrame(step);
+  }
+  const toUser = (cx, cy) => {
+    const m = svg.getScreenCTM();
+    return m ? new DOMPoint(cx, cy).matrixTransform(m.inverse()) : { x: vb[0] + vb[2] / 2, y: vb[1] + vb[3] / 2 };
+  };
+  const around = (f, p, v = vb) => [p.x - (p.x - v[0]) / f, p.y - (p.y - v[1]) / f, v[2] / f];
+  const centre = () => ({ x: vb[0] + vb[2] / 2, y: vb[1] + vb[3] / 2 });
+
+  const buttons = {};
+  box.querySelectorAll('.mapzoom button').forEach(b => { buttons[b.dataset.z] = b; });
+  box.querySelector('.mapzoom').addEventListener('click', e => {
+    const z = e.target.closest('button')?.dataset.z;
+    if (z === 'in') animate(around(1.8, centre()));
+    else if (z === 'out') animate(around(1 / 1.8, centre()));
+    else if (z === 'reset') animate(base);
+  });
+
+  svg.addEventListener('wheel', e => {
+    e.preventDefault();
+    cancelAnimationFrame(frame);
+    const dy = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1);
+    apply(around(Math.exp(-dy * (e.ctrlKey ? 0.01 : 0.0022)), toUser(e.clientX, e.clientY)));  // ctrlKey: trackpad pinch
+  }, { passive: false });
+
+  // pointers: one drags (after a few pixels, so a click still selects), two pinch
+  const down = new Map();
+  let moved = false, last = null;
+  const mid = () => { const [a, b] = [...down.values()]; return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, d: Math.hypot(a.x - b.x, a.y - b.y) }; };
+  svg.addEventListener('pointerdown', e => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    down.set(e.pointerId, { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY });
+    if (down.size === 1) moved = false;
+    last = down.size === 2 ? mid() : null;
+    cancelAnimationFrame(frame);
+  });
+  svg.addEventListener('pointermove', e => {
+    const p = down.get(e.pointerId);
+    if (!p) return;
+    const px = p.x, py = p.y;
+    p.x = e.clientX; p.y = e.clientY;
+    if (down.size === 2) {
+      const m = mid();
+      if (last && last.d > 0) {
+        const a = toUser(last.x, last.y), b = toUser(m.x, m.y);
+        const v = around(m.d / last.d, b, [vb[0] + (a.x - b.x), vb[1] + (a.y - b.y), vb[2]]);
+        apply(v);
+      }
+      last = m;
+      moved = true;
+      if (!svg.hasPointerCapture(e.pointerId)) svg.setPointerCapture(e.pointerId);
+      return;
+    }
+    if (!moved && Math.hypot(p.x - p.x0, p.y - p.y0) < 5) return;
+    if (!moved) { moved = true; svg.setPointerCapture(e.pointerId); box.classList.add('drag'); }
+    const a = toUser(px, py), b = toUser(p.x, p.y);
+    apply([vb[0] - (b.x - a.x), vb[1] - (b.y - a.y), vb[2]]);
+  });
+  const up = e => {
+    down.delete(e.pointerId);
+    last = down.size === 2 ? mid() : null;
+    if (!down.size) box.classList.remove('drag');
+  };
+  svg.addEventListener('pointerup', up);
+  svg.addEventListener('pointercancel', e => { up(e); moved = false; });
+  // a drag or pinch is not a click on the Wahlkreis under the pointer
+  svg.addEventListener('click', e => { if (moved) { e.stopPropagation(); e.preventDefault(); moved = false; } }, true);
+
+  apply(base);
+  return {
+    to(nr, smooth) {  // the Wahlkreis in the middle with room around it
+      const path = MAP && MAP.paths.get(nr);
+      if (!path) return;
+      const bb = path.getBBox();
+      const w = Math.max(bb.width * 2.6, bb.height * 2.6 * base[2] / base[3]);
+      const h = w * base[3] / base[2];
+      const target = [bb.x + bb.width / 2 - w / 2, bb.y + bb.height / 2 - h / 2, w];
+      smooth ? animate(target) : apply(target);
+    },
+    reset() { animate(base); },
+  };
 }
 
 // ------------------------------------------------------------------ view and URL

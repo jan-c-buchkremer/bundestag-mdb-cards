@@ -17,13 +17,15 @@
  *   onClick(seat, event) activation: mouse click, Enter/Space, or the second tap on the same seat on touch
  *   tooltip(seat)        HTML of the tooltip (trusted, escape your own text); default: name, fraction
  *   label(seat)          aria-label text; default: name, fraction
- *   highlight            Set of ids, or a function seat => bool: drawn with a ring
- *   dim                  Set of ids, or a function seat => bool: drawn faded
+ *   highlight            Set of ids, or a function seat => bool: drawn with a thin halo (pass dim for the rest)
+ *   dim                  Set of ids, or a function seat => bool: faded to 25 %
  *   government           seats on the Regierungsbank (top left), in the given order
  *   presidium            seats in the Präsidium (top centre); the first is the chair
  *   bundesrat            number of empty Bundesrat seats (top right), default: as many as the Regierungsbank has
  *   order                fraction order, default PARLIAMENT_ORDER
  *   title                accessible name of the chart, default "Sitzverteilung im Bundestag"
+ *   emptyTips            tooltip HTML of the seats without a person, by block: { regierung, bundesrat, praesidium,
+ *                        stenografen }; defaults in EMPTY_TIPS ("Bundesrat – nicht Teil dieses Datensatzes", …)
  *   tapHint              line added to the tooltip after a first tap, default "Nochmals tippen zum Öffnen"
  *
  * Returns { svg, update(options), seat(id), destroy() }. update() takes colorOf, highlight, dim, tooltip, label,
@@ -44,19 +46,39 @@
   const R = 100;          // outer radius of the plenum, in viewBox units
   const INNER = 0.34;     // inner radius as a share of R
   const AISLE = 0.9;      // gap between wedges, in seat spacings at the middle row
+  const EMPTY_TIPS = {
+    regierung: '<b>Regierungsbank</b> – freier Platz',
+    regierungLeer: '<b>Regierungsbank</b> – nicht Teil dieser Darstellung',
+    bundesrat: '<b>Bundesrat</b> – nicht Teil dieses Datensatzes',
+    praesidium: '<b>Präsidium</b> – freier Platz',
+    praesidiumLeer: '<b>Präsidium</b> – nicht Teil dieser Darstellung',
+    stenografen: '<b>Stenografischer Dienst</b> – nicht Teil dieses Datensatzes',
+  };
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
+  /* Seats: a pointer, and on hover/focus they grow; the dot is 0.68 of the seat spacing, so the card shows
+   * between neighbours even when a seat is grown. Highlight = everything else fades to 25 % and the highlighted
+   * seats get a thin halo with a gap of background colour in between, which reads on black CDU/CSU seats as
+   * well as on light ones. Colours follow the host: pm-dark is set when the page behind the chart is dark. */
   const STYLE = `
-.pm { position: relative; --pm-empty: var(--pm-furniture, #c9c9c4); --pm-edge: transparent; }
+.pm { position: relative; --pm-empty: var(--pm-furniture, #d6d6d1); --pm-rim: rgba(0,0,0,.14); --pm-halo: var(--accent, #2563eb); --pm-on: var(--text, #1f2328); }
+.pm.pm-dark { --pm-empty: var(--pm-furniture, #4b4b53); --pm-rim: rgba(255,255,255,.32); --pm-halo: #8ab4ff; --pm-on: #f4f4f5; }
 .pm svg { display: block; width: 100%; height: auto; overflow: visible; -webkit-tap-highlight-color: transparent; }
 .pm .pm-seat { cursor: pointer; }
-.pm .pm-seat .d { stroke: var(--pm-edge); stroke-width: .35; transition: opacity .15s; }
+.pm .pm-info { cursor: help; }
+.pm .pm-seat .d, .pm .pm-seat .hl, .pm .pm-info .e { transform-box: fill-box; transform-origin: center; transition: transform .12s ease-out, opacity .15s; }
+.pm .pm-seat .d { stroke: var(--pm-rim); stroke-width: .3; }
 .pm .pm-seat .h { fill: transparent; }
-.pm .pm-seat.pm-dim .d { opacity: .16; }
-.pm .pm-seat.pm-hi .d { stroke: var(--text, #1f2328); stroke-width: .9; }
-.pm .pm-seat.pm-on .d, .pm .pm-seat:focus-visible .d { stroke: var(--accent, #2563eb); stroke-width: 1.1; opacity: 1; }
+.pm .pm-seat .hl { fill: none; stroke: var(--pm-halo); stroke-width: .42; opacity: 0; }
+.pm .pm-seat.pm-dim .d { opacity: .25; }
+.pm .pm-seat.pm-hi .hl { opacity: 1; }
+.pm .pm-seat:hover .d, .pm .pm-seat:hover .hl, .pm .pm-seat.pm-on .d, .pm .pm-seat.pm-on .hl,
+.pm .pm-seat:focus-visible .d, .pm .pm-seat:focus-visible .hl, .pm .pm-info:hover .e, .pm .pm-info.pm-on .e { transform: scale(1.35); }
+.pm .pm-seat.pm-dim:hover .d, .pm .pm-seat.pm-dim.pm-on .d { opacity: .7; }
+.pm .pm-seat:hover .hl, .pm .pm-seat.pm-on .hl, .pm .pm-seat:focus-visible .hl { stroke: var(--pm-on); opacity: 1; }
 .pm .pm-seat:focus { outline: none; }
 .pm .pm-empty { fill: var(--pm-empty); }
+.pm .pm-info:hover .e, .pm .pm-info.pm-on .e { fill: var(--muted, #6b7280); }
 .pm .pm-furniture { fill: var(--pm-empty); }
 .pm .pm-label { font: 500 4.2px Inter, system-ui, sans-serif; fill: var(--faint, #a1a1aa); letter-spacing: .02em; text-anchor: middle; }
 .pm-tip { position: absolute; z-index: 20; pointer-events: none; max-width: min(280px, 90%); background: var(--card, #fff); color: var(--text, #1f2328);
@@ -64,11 +86,19 @@
   box-shadow: 0 4px 14px rgba(0,0,0,.12); white-space: normal; }
 .pm-tip[hidden] { display: none; }
 .pm-tip .pm-hint { color: var(--muted, #6b7280); font-size: 11.5px; margin-top: 2px; }
-@media (prefers-color-scheme: dark) {
-  /* a light rim keeps dark seats (CDU/CSU) visible on a dark page and is barely visible on a light one */
-  .pm { --pm-edge: rgba(255,255,255,.28); --pm-empty: var(--pm-furniture, #5f5f66); }
-  .pm-tip { box-shadow: 0 4px 14px rgba(0,0,0,.5); }
-}`;
+.pm.pm-dark .pm-tip { box-shadow: 0 4px 14px rgba(0,0,0,.5); }
+@media (prefers-reduced-motion: reduce) { .pm .pm-seat .d, .pm .pm-seat .hl, .pm .pm-info .e { transition: none; } }`;
+
+  /* true when the first opaque background behind the element is dark */
+  function onDark(node) {
+    for (let n = node; n && n.nodeType === 1; n = n.parentElement) {
+      const m = getComputedStyle(n).backgroundColor.match(/[\d.]+/g);
+      if (!m || (m.length > 3 && +m[3] === 0)) continue;
+      const [r, g, b] = m.slice(0, 3).map(v => +v / 255);
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b < 0.45;
+    }
+    return false;
+  }
 
   function injectStyle() {
     if (document.getElementById('pm-style')) return;
@@ -186,7 +216,7 @@
     const groups = [...known, ...unknown, ...last].map(f => ({ fraction: f, seats: byFraction.get(f) }));
 
     const { wedges = [], d = (R * (1 - INNER)) / 12 } = layoutWedges(groups) || {};
-    const dot = d * 0.4;
+    const dot = d * 0.34;  // a clear gap between neighbours, even with a seat grown on hover
     const placed = [];  // {seat, x, y, bench}
     for (const w of wedges) for (const [s, p] of seatWedge(w)) placed.push({ seat: s, x: p.x, y: p.y, bench: 'plenum' });
 
@@ -211,26 +241,48 @@
     if (getComputedStyle(host).position === 'static') host.style.position = 'relative';
     host.innerHTML = '';
     const svg = el('svg', { viewBox: vb.map(v => +v.toFixed(2)).join(' '), role: 'group', tabindex: '-1', 'aria-label': opts.title || 'Sitzverteilung im Bundestag' }, host);
-    const furniture = el('g', { 'aria-hidden': 'true' }, svg);
-    // empty seats: the rest of the Regierungsbank and the Bundesrat, the Präsidium's empty chairs
-    for (const p of leftEmpty) el('circle', { class: 'pm-empty', cx: p.x.toFixed(2), cy: p.y.toFixed(2), r: dot.toFixed(2) }, furniture);
-    if (nBR > 0) for (const p of right.all) el('circle', { class: 'pm-empty', cx: p.x.toFixed(2), cy: p.y.toFixed(2), r: dot.toFixed(2) }, furniture);
-    for (let i = pres.length; i < 5; i++) el('circle', { class: 'pm-empty', cx: presPos[i][0].toFixed(2), cy: presPos[i][1].toFixed(2), r: (i === 0 ? dot * 1.35 : dot).toFixed(2) }, furniture);
-    // desk of the Präsidium, lectern, stenographers
-    el('rect', { class: 'pm-furniture', x: (-0.03 * R).toFixed(2), y: (-0.435 * R).toFixed(2), width: (0.06 * R).toFixed(2), height: (0.1 * R).toFixed(2), rx: 0.8 }, furniture);
-    el('rect', { class: 'pm-furniture', x: (-0.018 * R).toFixed(2), y: (-0.17 * R).toFixed(2), width: (0.036 * R).toFixed(2), height: (0.036 * R).toFixed(2), rx: 0.5 }, furniture);
-    for (let i = 0; i < 4; i++) el('circle', { class: 'pm-empty', cx: ((i - 1.5) * d * 0.95).toFixed(2), cy: (0.1 * R).toFixed(2), r: (dot * 0.85).toFixed(2) }, furniture);
+    // everything that is not a person's seat, in one group (svg.children stays [furniture, seats] for callers that
+    // drop it to show only the plenum): the drawing is hidden from screen readers, the seat blocks are labelled
+    const furniture = el('g', { class: 'pm-house' }, svg);
+    const drawing = el('g', { 'aria-hidden': 'true' }, furniture);
+    // desk of the Präsidium, lectern
+    el('rect', { class: 'pm-furniture', x: (-0.03 * R).toFixed(2), y: (-0.435 * R).toFixed(2), width: (0.06 * R).toFixed(2), height: (0.1 * R).toFixed(2), rx: 0.8 }, drawing);
+    el('rect', { class: 'pm-furniture', x: (-0.018 * R).toFixed(2), y: (-0.17 * R).toFixed(2), width: (0.036 * R).toFixed(2), height: (0.036 * R).toFixed(2), rx: 0.5 }, drawing);
     const labelY = top + d * 0.2;
-    el('text', { class: 'pm-label', x: (-0.52 * R).toFixed(2), y: labelY.toFixed(2) }, furniture).textContent = 'Regierungsbank';
-    el('text', { class: 'pm-label', x: (0.52 * R).toFixed(2), y: labelY.toFixed(2) }, furniture).textContent = 'Bundesrat';
-    el('text', { class: 'pm-label', x: 0, y: labelY.toFixed(2) }, furniture).textContent = 'Präsidium';
+    el('text', { class: 'pm-label', x: (-0.52 * R).toFixed(2), y: labelY.toFixed(2) }, drawing).textContent = 'Regierungsbank';
+    el('text', { class: 'pm-label', x: (0.52 * R).toFixed(2), y: labelY.toFixed(2) }, drawing).textContent = 'Bundesrat';
+    el('text', { class: 'pm-label', x: 0, y: labelY.toFixed(2) }, drawing).textContent = 'Präsidium';
+
+    // seats without a person: the rest of the Regierungsbank, the Bundesrat, the Präsidium's empty chairs and the
+    // stenographers. Each has a tooltip (hover, tap) saying what it is; one aria-label per block for screen readers.
+    const tipOf = { ...EMPTY_TIPS, ...(gov.length ? {} : { regierung: EMPTY_TIPS.regierungLeer }), ...(pres.length ? {} : { praesidium: EMPTY_TIPS.praesidiumLeer }), ...(opts.emptyTips || {}) };
+    const infos = [];
+    function infoBlock(kind, label, points) {
+      if (!points.length) return;
+      const g = el('g', { role: 'img', 'aria-label': label }, furniture);
+      for (const [x, y, r] of points) {
+        const s = el('g', { class: 'pm-info', 'aria-hidden': 'true' }, g);
+        el('circle', { class: 'pm-empty e', cx: x.toFixed(2), cy: y.toFixed(2), r: r.toFixed(2) }, s);
+        const p = { x, y, kind, node: s };
+        s._pm = p;
+        infos.push(p);
+      }
+    }
+    infoBlock('regierung', `Regierungsbank: ${leftEmpty.length} freie Plätze`, leftEmpty.map(p => [p.x, p.y, dot]));
+    if (nBR > 0) infoBlock('bundesrat', `Bundesrat: ${right.all.length} Plätze, nicht Teil dieses Datensatzes`, right.all.map(p => [p.x, p.y, dot]));
+    const presEmpty = [];
+    for (let i = pres.length; i < 5; i++) presEmpty.push([presPos[i][0], presPos[i][1], i === 0 ? dot * 1.35 : dot]);
+    infoBlock('praesidium', 'Präsidium: freie Plätze', presEmpty);
+    infoBlock('stenografen', 'Stenografischer Dienst', [0, 1, 2, 3].map(i => [(i - 1.5) * d * 0.95, 0.1 * R, dot * 0.85]));
 
     const nodes = [];
     const seatsG = el('g', {}, svg);
     for (const p of placed) {
       const g = el('g', { class: 'pm-seat', tabindex: '-1', role: 'button' }, seatsG);
       el('circle', { class: 'h', cx: p.x.toFixed(2), cy: p.y.toFixed(2), r: (d * 0.55).toFixed(2) }, g);
-      el('circle', { class: 'd', cx: p.x.toFixed(2), cy: p.y.toFixed(2), r: (p.chair ? dot * 1.35 : dot).toFixed(2) }, g);
+      const r = p.chair ? dot * 1.35 : dot;
+      el('circle', { class: 'hl', cx: p.x.toFixed(2), cy: p.y.toFixed(2), r: (r + d * 0.12).toFixed(2) }, g);
+      el('circle', { class: 'd', cx: p.x.toFixed(2), cy: p.y.toFixed(2), r: r.toFixed(2) }, g);
       p.node = g;
       g._pm = p;
       nodes.push(p);
@@ -252,6 +304,7 @@
         const t = TOKENS[s.fraction || 'fraktionslos'];
         return (t && getComputedStyle(host).getPropertyValue(t).trim()) || FALLBACK[s.fraction || 'fraktionslos'] || '#8a8a8a';
       });
+      host.classList.toggle('pm-dark', onDark(host));
       const hi = asTest(opts.highlight), dim = asTest(opts.dim);
       const label = opts.label || defaultLabel;
       for (const p of nodes) {
@@ -266,9 +319,9 @@
     let active = null;      // the node whose tooltip is shown after a tap or focus
     let pointer = 'mouse';
     function show(p, pinned) {
-      tip.innerHTML = (opts.tooltip || defaultTip)(p.seat) + (pinned && pointer !== 'mouse' && opts.onClick ? `<div class="pm-hint">${esc(opts.tapHint || 'Nochmals tippen zum Öffnen')}</div>` : '');
+      tip.innerHTML = p.kind ? tipOf[p.kind] : (opts.tooltip || defaultTip)(p.seat) + (pinned && pointer !== 'mouse' && opts.onClick ? `<div class="pm-hint">${esc(opts.tapHint || 'Nochmals tippen zum Öffnen')}</div>` : '');
       tip.hidden = false;
-      const hb = host.getBoundingClientRect(), sb = p.node.querySelector('.d').getBoundingClientRect();
+      const hb = host.getBoundingClientRect(), sb = p.node.querySelector('.d, .e').getBoundingClientRect();
       const tw = tip.offsetWidth, th = tip.offsetHeight;
       let x = sb.left + sb.width / 2 - hb.left - tw / 2;
       x = Math.max(0, Math.min(hb.width - tw, x));
@@ -291,19 +344,23 @@
       p.node.setAttribute('tabindex', '0');
     }
     const seatOf = e => e.target.closest && e.target.closest('.pm-seat');
+    const infoOf = e => e.target.closest && e.target.closest('.pm-info');
     svg.addEventListener('pointerdown', e => { pointer = e.pointerType || 'mouse'; });
     svg.addEventListener('pointerover', e => {
       if (e.pointerType && e.pointerType !== 'mouse') return;
-      const g = seatOf(e);
+      const g = seatOf(e) || infoOf(e);
       if (g) show(g._pm, false);
     });
     svg.addEventListener('pointerout', e => {
       if (e.pointerType && e.pointerType !== 'mouse') return;
-      if (seatOf(e) && !(e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('.pm-seat') === seatOf(e))) {
+      const g = seatOf(e) || infoOf(e);
+      if (g && !(e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('.pm-seat, .pm-info') === g)) {
         if (active) show(active, true); else hide();
       }
     });
     svg.addEventListener('click', e => {
+      const info = infoOf(e);
+      if (info) { if (pointer !== 'mouse') { setActive(info._pm); show(info._pm, false); } return; }  // a tap shows what it is
       const g = seatOf(e);
       if (!g) { setActive(null); hide(); return; }
       const p = g._pm;

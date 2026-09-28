@@ -120,7 +120,12 @@ function officeWhen(o) {
   const kinds = [...new Map(o.sources.map(x => [x.kind, x])).values()];
   const links = kinds.map(x => x.url ? `<a href="${esc(x.url)}" title="${esc(x.doc)}">${SOURCE[x.kind] || esc(x.kind)}</a>` : SOURCE[x.kind] || esc(x.kind));
   // protocol rows only show that the office was held on the days someone spoke in it, not the term
-  if (o.evidence) return `belegt ab ${shortDate(o.from)} (${links.join(', ')})`;
+  // (its to_date is the last sitting that prints the role, not an end of office: the office counts as current)
+  if (o.evidence) {
+    const last = o.sources.filter(x => x.kind === 'protocol').sort((a, b) => (b.to || b.from || '').localeCompare(a.to || a.from || ''))[0];
+    const doc = last && last.url ? `<a href="${esc(last.url)}" title="${esc(last.doc)}">Plenarprotokoll</a>` : 'Plenarprotokoll';
+    return `laut ${doc}, zuletzt belegt am ${shortDate(o.to || o.from)}${o.to && o.to !== o.from ? ` · erstmals am ${shortDate(o.from)}` : ''}`;
+  }
   return `${period(o.from, o.to)} · laut ${links.join(', ')}`;
 }
 
@@ -414,23 +419,70 @@ function renderSources(el) {
 function renderTabs() {
   const want = (location.hash.slice(1) || 'reden');
   const active = TABS.find(t => want === t[0] || want.startsWith(t[0] + '-')) || TABS[0];
-  document.getElementById('tabs').innerHTML = TABS.map(([id, label, count]) => {
+  const nav = document.getElementById('tabs');
+  nav.innerHTML = `<div class="tabs-in">${TABS.map(([id, label, count]) => {
     const k = count();
-    return `<a href="#${id}" class="${id === active[0] ? 'on' : ''}">${label}${k !== '' ? `<span class="n">${n(k)}</span>` : ''}</a>`;
-  }).join('');
+    return `<a href="#${id}" class="${id === active[0] ? 'on' : ''}"${id === active[0] ? ' aria-current="page"' : ''}>${label}${k !== '' ? `<span class="n">${n(k)}</span>` : ''}</a>`;
+  }).join('')}</div>`;
   const body = document.getElementById('tabbody');
   if (body.dataset.tab !== active[0]) {
     body.dataset.tab = active[0];
     body.innerHTML = `<section class="tab on" id="tab-${active[0]}"></section>`;
     active[3](body.firstElementChild);
   }
+  // the active tab in view inside the bar, without moving the page
+  const strip = nav.firstElementChild, on = strip.querySelector('a.on');
+  if (on && (on.offsetLeft < strip.scrollLeft || on.offsetLeft + on.offsetWidth > strip.scrollLeft + strip.clientWidth)) {
+    strip.scrollLeft = on.offsetLeft - (strip.clientWidth - on.offsetWidth) / 2;
+  }
+  fadeTabs();
   if (want !== active[0]) document.getElementById(want)?.scrollIntoView({ block: 'start' });
 }
+
+// the tab bar scrolls sideways when it is wider than the page: fade the edge that has more tabs behind it
+function fadeTabs() {
+  const strip = document.querySelector('#tabs .tabs-in');
+  if (!strip) return;
+  const nav = strip.parentElement, max = strip.scrollWidth - strip.clientWidth;
+  nav.classList.toggle('more-l', strip.scrollLeft > 2);
+  nav.classList.toggle('more-r', strip.scrollLeft < max - 2);
+}
+document.getElementById('tabs').addEventListener('scroll', fadeTabs, true);
+window.addEventListener('resize', fadeTabs);
+// a vertical mouse wheel scrolls the bar sideways (only while it overflows; the page scrolls otherwise)
+document.getElementById('tabs').addEventListener('wheel', e => {
+  const strip = e.currentTarget.firstElementChild;
+  if (!strip || strip.scrollWidth <= strip.clientWidth || Math.abs(e.deltaX) >= Math.abs(e.deltaY)) return;
+  const before = strip.scrollLeft;
+  strip.scrollLeft += e.deltaY;
+  if (strip.scrollLeft !== before) e.preventDefault();
+}, { passive: false });
+
+// switching tabs keeps the page where it is: no jump to an anchor, and a shorter tab does not pull the page up.
+// When the bar is stuck at the top, the new tab starts right under it; otherwise the scroll position stays.
+document.getElementById('tabs').addEventListener('click', e => {
+  const a = e.target.closest('a[href^="#"]');
+  if (!a || e.metaKey || e.ctrlKey || e.shiftKey || e.button) return;
+  e.preventDefault();
+  if (a.classList.contains('on')) return;
+  const nav = document.getElementById('tabs');
+  const stuck = nav.getBoundingClientRect().top <= 1 && window.scrollY > 0;
+  const y = window.scrollY;
+  history.pushState(null, '', a.getAttribute('href'));
+  const body = document.getElementById('tabbody');
+  body.style.minHeight = `${window.innerHeight}px`;  // room below the bar so the position can be kept
+  renderTabs();
+  if (stuck) {
+    const top = body.getBoundingClientRect().top + window.scrollY - nav.offsetHeight - parseFloat(getComputedStyle(nav).marginBottom);
+    window.scrollTo(0, Math.min(y, top));
+  } else window.scrollTo(0, y);
+});
 
 document.addEventListener('click', e => {
   const b = e.target.closest('.more');
   if (b) { document.getElementById(b.dataset.for).querySelectorAll('.row[hidden]').forEach(r => r.hidden = false); b.remove(); }
 });
+// links to a tab from elsewhere on the page (the facts list, "Zuletzt im Plenum"): open it with the bar on top
 window.addEventListener('hashchange', () => {
   renderTabs();
   if (TABS.some(t => t[0] === location.hash.slice(1))) document.getElementById('tabs').scrollIntoView({ block: 'start' });

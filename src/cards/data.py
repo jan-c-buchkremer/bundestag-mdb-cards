@@ -433,8 +433,9 @@ SOURCE_RANK = {"wikidata": 0, "stammdaten": 1, "protocol": 2}
 
 
 def feminine(office: str) -> str:
-    """Wikidata labels positions in the masculine ("Bundesminister der Finanzen") whoever holds them."""
-    return _MALE_TITLE.sub(r"\1in", _MALE_ADJ.sub(r"\1e", office))
+    """Wikidata labels positions in the masculine ("Bundesminister der Finanzen") whoever holds them. Only the
+    holder's own title changes: "Staatsminister beim Bundeskanzler" names the Kanzler, not the holder."""
+    return _MALE_TITLE.sub(r"\1in", _MALE_ADJ.sub(r"\1e", office, count=1), count=1)
 
 
 def _office_key(office: str) -> str:
@@ -633,27 +634,34 @@ def government(conn: sqlite3.Connection) -> list[dict]:
     # protocol rows (foundation `source_kind`) date evidence, not a term: their last date does not end the office
     evidence = "OR g.source_kind = 'protocol'" if _has_column(conn, "government_role", "source_kind") else ""
     rows = conn.execute(
-        f"""SELECT g.person_id, g.wikidata_qid, g.name, g.office, g.department, g.kind, g.from_date, p.party, p.gender
+        f"""SELECT g.person_id, g.wikidata_qid, g.name, g.office, g.department, g.kind, g.from_date, g.to_date,
+                  {"g.source_kind" if evidence else "'wikidata'"} AS source_kind, p.party, p.gender
            FROM government_role g LEFT JOIN person p ON p.id = g.person_id
            WHERE g.to_date IS NULL OR g.to_date >= date('now') {evidence}"""
     ).fetchall()
     best: dict[str, sqlite3.Row] = {}
+    same: dict[str, list[sqlite3.Row]] = defaultdict(list)  # every current row per person
     rank = {k: i for i, k in enumerate(GOVERNMENT_KINDS)}
     for r in rows:
         if r["kind"] not in rank:
             continue
         pid = r["person_id"] or f"Q{(r['wikidata_qid'] or '').lstrip('Q')}"  # the foundation's id for non-MdBs
+        same[pid].append(r)
         key = (rank[r["kind"]], r["from_date"] or "")
         if pid not in best or key < (rank[best[pid]["kind"]], best[pid]["from_date"] or ""):
             best[pid] = r
-    out = [
-        {
+    out = []
+    for pid, r in best.items():
+        # the office only the protocols know: its last date is the latest sitting that prints it, not an end
+        held = [x for x in same[pid] if _office_key(x["office"]) == _office_key(r["office"])]
+        evidence_only = all(x["source_kind"] == "protocol" for x in held)
+        out.append({
             "id": pid, "name": r["name"], "department": r["department"], "kind": r["kind"],
             "office": feminine(r["office"]) if r["gender"] == "weiblich" else r["office"],
             "fraction": PARTY_TO_FRACTION.get(r["party"], r["party"]) if r["party"] else None,
-        }
-        for pid, r in best.items()
-    ]  # fmt: skip
+            "evidence": evidence_only,
+            "seen": max(x["to_date"] or x["from_date"] for x in held) if evidence_only else None,
+        })  # fmt: skip
     return sorted(out, key=lambda g: (rank[g["kind"]], g["department"] or "", g["name"]))
 
 

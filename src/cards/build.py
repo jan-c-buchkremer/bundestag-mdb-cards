@@ -8,10 +8,12 @@ import json
 import shutil
 from pathlib import Path
 
+from cards import pages
 from cards.data import index_row
 
 HERE = Path(__file__).parent
-ASSETS = ("cards.css", "card.js", "parliament.js", "wahlkreise.json")  # wahlkreise.json: map, fetched on demand
+# wahlkreise.json: the map, fetched on demand
+ASSETS = ("cards.css", "card.js", "pages.js", "parliament.js", "wahlkreise.json")
 
 
 def _json(payload: object) -> str:
@@ -40,6 +42,7 @@ def render_card(c: dict, meta: dict) -> str:
         .replace("__ID__", html.escape(c["id"]))
         .replace("__CARD__", _json(c))
         .replace("__META__", _json(meta))
+        .replace("__HEADER__", pages.site_header("", "cards"))
     )
 
 
@@ -59,7 +62,12 @@ def render_index(
         "government": [{**g, "card": g["id"] in ids} for g in government],
         "last_sitting": last_sitting,
     }  # fmt: skip
-    return (HERE / "index.html").read_text(encoding="utf-8").replace("__DATA__", _json(payload))
+    return (
+        (HERE / "index.html")
+        .read_text(encoding="utf-8")
+        .replace("__HEADER__", pages.site_header("", "cards"))
+        .replace("__DATA__", _json(payload))
+    )
 
 
 def write_site(
@@ -69,7 +77,11 @@ def write_site(
     constituencies: list[dict] | None = None,
     government: list[dict] | None = None,
     last_sitting: dict | None = None,
-) -> None:
+    decisions: list[dict] | None = None,
+    members: dict[str, list[list]] | None = None,
+    sittings: list[dict] | None = None,
+) -> dict[str, int]:
+    """Write the site; returns the number of vote and sitting pages (empty without the foundation's decisions)."""
     meta = {**meta, "built": dt.date.today().isoformat()}
     out.mkdir(parents=True, exist_ok=True)
     for c in cards:
@@ -79,3 +91,6 @@ def write_site(
     (out / "index.html").write_text(index, encoding="utf-8")
     for name in ASSETS:
         shutil.copyfile(HERE / name, out / name)
+    if sittings:
+        return pages.write_pages(out, decisions or [], members or {}, sittings, meta)
+    return {}

@@ -26,8 +26,14 @@ def main(argv: list[str] | None = None) -> None:
     gov = data.government(conn)
     if not gov:
         print("no government_role table in the store: no Regierungsbank, no Regierung filter")
-    build.write_site(cards, meta, args.out, wks, gov, data.last_sitting(conn))
-    print(f"wrote {len(cards)} pages to {args.out}")
+    decided = data.decisions(conn)
+    if not decided:
+        print("no decision table in the store: sitting pages without decisions, no vote pages")
+    written = build.write_site(
+        cards, meta, args.out, wks, gov, data.last_sitting(conn),
+        decided, data.roll_call_members(conn), data.sittings(conn, decided),
+    )  # fmt: skip
+    print(f"wrote {len(cards)} card pages, " + ", ".join(f"{v} pages in {k}/" for k, v in written.items()))
 
 
 if __name__ == "__main__":

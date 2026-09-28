@@ -574,3 +574,302 @@ def index_row(c: dict, government: dict[str, dict] | None = None) -> dict:
         "lead": lead_rank([r["role"] for r in c["fraction_roles"] if r["to"] is None]),
         "gov": gov["office"] if gov else None,
     }  # fmt: skip
+
+
+# ---------------------------------------------------------------- decisions and sittings (vote and sitting pages)
+
+DIP_DOC = "https://dip.bundestag.de/drucksache/x/{}"  # DIP ignores the title slug; the id picks the document
+RESULTS = ("angenommen", "abgelehnt")
+_DRS = re.compile(r"\b(\d{2})/(\d{1,5})\b")
+# a subject with none of these names only a document type ("Beschlussempfehlung", "Gesetzentwurf – zweite Beratung")
+_INFORMATIVE = re.compile(r"„|\b(zur|zum|über|gegen|zu dem|zu der|betreffend)\b")
+_HIER = re.compile(r"^([a-z]\) )?hier: ")
+_INTRODUCED = re.compile(r"^von (der|den) (.+?) eingebrachten (\w+)")
+# the chair proposing a referral ("Interfraktionell wird Überweisung der Vorlage auf Drucksache 21/6466 an …
+# vorgeschlagen") or declaring one decided ("Dann ist die Überweisung so beschlossen")
+_REFERRAL = re.compile(r"Überweisung (der|des|von) .*?vorgeschlagen|Überweisung (so )?beschlossen|überwiesen", re.S)
+
+
+def page_id(any_id: str) -> str:
+    """File name of a vote or sitting page: "21/90/h3" -> "21-90-h3"."""
+    return any_id.replace("/", "-")
+
+
+def drucksache_pdf(number: str) -> str:
+    """The Bundestag's PDF of a Drucksache, from its number alone: 21/6130 -> …/btd/21/061/2106130.pdf."""
+    wp, n = number.split("/")
+    n5 = f"{int(n):05d}"
+    return f"https://dserver.bundestag.de/btd/{wp}/{n5[:3]}/{wp}{n5}.pdf"
+
+
+def drucksache_numbers(text: str | None) -> list[str]:
+    return [f"{wp}/{int(n)}" for wp, n in _DRS.findall(text or "")]
+
+
+def _dip_index(conn: sqlite3.Connection) -> dict[str, sqlite3.Row]:
+    return {r["number"]: r for r in conn.execute("SELECT id, number, type, title FROM drucksache")}
+
+
+def drucksache_ref(number: str, dip: dict[str, sqlite3.Row]) -> dict:
+    """A Drucksache as the pages link it: to DIP when DIP has it, else to the PDF."""
+    r = dip.get(number)
+    return {
+        "number": number, "type": r["type"] if r else None,
+        "url": DIP_DOC.format(r["id"]) if r else drucksache_pdf(number), "pdf": drucksache_pdf(number),
+    }  # fmt: skip
+
+
+def dip_subject(title: str | None) -> str | None:
+    """The substantive line of a DIP title: DIP puts "zu dem Antrag … – Drucksache 21/1 –" lines before it."""
+    lines = [ln.strip(" -–") for ln in (title or "").replace("\r", "").split("\n")]
+    lines = [ln for ln in lines if ln and not ln.startswith("Drucksache")]
+    return lines[-1] if lines else None
+
+
+def clean_subject(subject: str) -> str:
+    """ "von der Bundesregierung eingebrachten Gesetzentwurf zur …" -> "Gesetzentwurf der Bundesregierung zur …"."""
+    s = _INTRODUCED.sub(lambda m: f"{m[3]} der {m[2]}", subject.strip())
+    return s[:1].upper() + s[1:]
+
+
+def is_bare(subject: str) -> bool:
+    return not (_INFORMATIVE.search(subject) or subject.startswith("Einzelplan"))
+
+
+def decision_title(subject: str, rcv_title: str | None, drs: str | None, dip: dict, agenda_title: str | None) -> str:
+    """A headline for a decision. The chair often names only the document type ("Beschlussempfehlung"); then the
+    Drucksache's DIP title, else the agenda item's title says what it is about (the subject stays next to it)."""
+    if rcv_title:
+        return rcv_title
+    subject = clean_subject(subject)
+    if not is_bare(subject):
+        return subject
+    about = dip_subject(dip[drs]["title"]) if drs in dip else None
+    about = _HIER.sub("", about or agenda_title or "")
+    if not about:
+        return subject
+    if about.split()[0] == subject.split()[0]:  # "Sammelübersicht 171 zu Petitionen" says it already
+        return about if len(subject.split()) == 1 else subject
+    return f"{subject}: {about}"
+
+
+def _houses(conn: sqlite3.Connection) -> list[tuple[str, dict[str, int]]]:
+    """Seats per fraction on each roll-call date, from the vote lists (every member has a row, absent or not)."""
+    by_date: dict[str, Counter] = {}
+    for r in conn.execute(
+        """SELECT r.date, r.id, v.fraction, count(*) AS n
+           FROM individual_vote v JOIN roll_call_vote r ON r.id = v.vote_id
+           GROUP BY r.id, v.fraction ORDER BY r.date, r.number"""
+    ):
+        by_date.setdefault(r["date"], {}).setdefault(r["id"], Counter())[r["fraction"]] = r["n"]
+    # the last vote of a day: the house as it stood after the day's changes
+    return [(d, dict(list(votes.values())[-1])) for d, votes in sorted(by_date.items())]
+
+
+def house_on(houses: list[tuple[str, dict[str, int]]], date: str) -> dict[str, int]:
+    """The fractions' seats on a date: from the latest vote list on or before it, else the first one after."""
+    before = [h for d, h in houses if d <= date]
+    if before:
+        return before[-1]
+    return houses[0][1] if houses else {}
+
+
+_SQL_DECISION = """
+SELECT d.*, st.date, st.pdf_url AS protocol, st.source_document_id AS cite, a.position AS top_position, a.top_id,
+       a.title AS agenda_title
+FROM decision d JOIN sitting st ON st.id = d.sitting_id LEFT JOIN agenda_item a ON a.id = d.agenda_item_id
+WHERE st.wahlperiode = ?
+"""
+
+
+def decisions(conn: sqlite3.Connection) -> list[dict]:
+    """Every decision on substance (foundation `decision`), plus the roll-call votes without one (their protocol is
+    not in the store yet, or the vote is not in its text), newest sitting first, in protocol order within one.
+    Roll-call votes carry the totals and the tally per fraction; show-of-hands decisions the fractions' positions
+    and the seats per fraction on that day. Empty when the store has no decision table yet."""
+    if not has_table(conn, "decision"):
+        return []
+    dip = _dip_index(conn)
+    houses = _houses(conn)
+    rcv = {r["id"]: r for r in conn.execute("SELECT * FROM roll_call_vote")}
+    tally: dict[str, dict[str, Counter]] = defaultdict(lambda: defaultdict(Counter))
+    for r in conn.execute("SELECT vote_id, fraction, vote, count(*) AS n FROM individual_vote GROUP BY 1, 2, 3"):
+        tally[r["vote_id"]][r["fraction"]][r["vote"]] = r["n"]
+    positions: dict[str, dict[str, str]] = defaultdict(dict)
+    for r in conn.execute("SELECT decision_id, fraction, position FROM decision_fraction"):
+        positions[r["decision_id"]][r["fraction"]] = r["position"]
+    agendas = {r["id"]: r for r in conn.execute("SELECT id, position, top_id, title FROM agenda_item")}
+
+    def agenda(aid: str | None) -> dict | None:
+        a = agendas.get(aid)
+        if a is None:
+            return None
+        return {"id": a["id"], "position": a["position"], "label": top_label(a["top_id"]),
+                "title": short_title(a["title"], a["top_id"])}  # fmt: skip
+
+    def roll_call(v: sqlite3.Row) -> dict:
+        per = tally[v["id"]]
+        return {
+            "counts": {c: v[c] for c in ("yes", "no", "abstain", "absent", "invalid")},
+            "fractions": {f: {c: t[c] for c in (*VOTE_CHOICES, "absent")} for f, t in per.items()},
+            "sources": {"xlsx": v["xlsx_url"], "pdf": v["pdf_url"], "cite": v["source_document_id"]},
+        }
+
+    out = []
+    linked = set()
+    for r in conn.execute(_SQL_DECISION, (WP,)):
+        v = rcv.get(r["roll_call_vote_id"])
+        numbers = drucksache_numbers(r["drucksache_number"])
+        if v is not None:
+            linked.add(v["id"])
+            numbers += [n for n in drucksache_numbers(v["drucksache_number"]) if n not in numbers]
+        a = agenda(r["agenda_item_id"])
+        d = {
+            "id": r["id"], "page": page_id(r["id"]), "kind": r["kind"], "date": r["date"], "sitting": r["sitting_id"],
+            "order": r["position"], "agenda": a,
+            "title": decision_title(r["subject"], v["title"] if v else None, r["drucksache_number"], dip,
+                                    a["title"] if a else None),
+            "subject": clean_subject(r["subject"]),
+            "drucksachen": [drucksache_ref(n, dip) for n in numbers],
+            "result": r["result"], "result_from": "protocol",
+            "text": r["text"], "protocol": r["protocol"], "cite": r["cite"],
+            "counts": None, "fractions": None, "house": None, "sources": None,
+        }  # fmt: skip
+        if v is not None:
+            d.update(roll_call(v))
+        elif r["kind"] == "handzeichen":
+            d["fractions"] = positions.get(r["id"], {})
+            d["house"] = house_on(houses, r["date"])
+        out.append(d)
+    sittings = {r["id"]: r for r in conn.execute("SELECT id, pdf_url, source_document_id FROM sitting")}
+    for v in rcv.values():
+        if v["id"] in linked:
+            continue
+        st = sittings.get(v["sitting_id"])
+        a = agenda(v["agenda_item_id"])
+        d = {
+            "id": v["id"], "page": page_id(v["id"]), "kind": "namentlich", "date": v["date"],
+            "sitting": v["sitting_id"] if st else None, "order": 1000 + v["number"], "agenda": a,
+            "title": v["title"], "subject": None,
+            "drucksachen": [drucksache_ref(n, dip) for n in drucksache_numbers(v["drucksache_number"])],
+            "result": "angenommen" if v["yes"] > v["no"] else "abgelehnt", "result_from": "counts",
+            "text": None, "protocol": st["pdf_url"] if st else None, "cite": st["source_document_id"] if st else None,
+            "house": None,
+            **roll_call(v),
+        }  # fmt: skip
+        out.append(d)
+    out.sort(key=lambda d: (d["date"], _sitting_number(d["sitting"] or d["id"]), d["order"]), reverse=True)
+    return out
+
+
+def _sitting_number(sid: str) -> int:
+    return int(sid.split("/")[1])
+
+
+def roll_call_members(conn: sqlite3.Connection) -> dict[str, list[list]]:
+    """Per roll-call vote, every row of its list: [person id or None, name, fraction, vote]."""
+    out: dict[str, list[list]] = defaultdict(list)
+    for r in conn.execute("SELECT vote_id, person_id, first_name, last_name, fraction, vote FROM individual_vote"):
+        name = f"{r['first_name']} {r['last_name']}".strip()
+        out[r["vote_id"]].append([r["person_id"], name, r["fraction"], r["vote"]])
+    return out
+
+
+def top_label(top_id: str | None) -> str:
+    """ "Tagesordnungspunkt 22" -> "TOP 22", "Zusatzpunkt 18" -> "ZP 18"."""
+    return (top_id or "").replace("Tagesordnungspunkt", "TOP").replace("Zusatzpunkt", "ZP")
+
+
+def referrals(conn: sqlite3.Connection) -> dict[str, dict]:
+    """Per agenda item: whether the chair referred something to the committees, and which Drucksachen. From the
+    chair text under the agenda item (foundation `agenda_item_paragraph`); empty without that table."""
+    if not has_table(conn, "agenda_item_paragraph"):
+        return {}
+    out: dict[str, dict] = {}
+    for r in conn.execute(
+        "SELECT agenda_item_id, text FROM agenda_item_paragraph WHERE kind = 'chair' AND text LIKE '%berwei%' "
+        "ORDER BY agenda_item_id, position"
+    ):
+        m = _REFERRAL.search(r["text"])
+        if not m:
+            continue
+        ref = out.setdefault(r["agenda_item_id"], {"drucksachen": []})
+        head = r["text"][m.start() : m.end()].split(" an ")[0]  # the Drucksachen before "an die … Ausschüsse"
+        for n in drucksache_numbers(head):
+            if n not in ref["drucksachen"]:
+                ref["drucksachen"].append(n)
+    return out
+
+
+def iso_week(date: str) -> str:
+    y, w, _ = dt.date.fromisoformat(date).isocalendar()
+    return f"{y}-W{w:02d}"
+
+
+_SQL_SITTING_SPEECH = """
+SELECT s.id, s.agenda_item_id, s.person_id, s.speaker_role, s.fraction, s.text, p.party, p.first_name, p.last_name,
+       p.academic_title, p.name_prefix
+FROM speech s JOIN person p ON p.id = s.person_id
+WHERE s.sitting_id = ?
+ORDER BY s.position
+"""
+
+
+def sittings(conn: sqlite3.Connection, decided: list[dict] | None = None) -> list[dict]:
+    """Every WP 21 sitting, oldest first, with its agenda in order: per agenda item the Drucksachen, the Reden
+    (owner of each rede, as on the cards; `on_map` when it is a point in the Themenlandschaft), the decisions taken
+    under it and what was referred to committees."""
+    decided = decided if decided is not None else decisions(conn)
+    by_item: dict[str, list[dict]] = defaultdict(list)
+    for d in sorted(decided, key=lambda d: d["order"]):
+        if d["agenda"]:
+            by_item[d["agenda"]["id"]].append(
+                {"id": d["id"], "page": d["page"], "kind": d["kind"], "title": d["title"], "result": d["result"],
+                 "counts": d["counts"]}
+            )  # fmt: skip
+    dip = _dip_index(conn)
+    referred = referrals(conn)
+    photos = (
+        {r[0] for r in conn.execute("SELECT person_id FROM person_photo")} if has_table(conn, "person_photo") else set()
+    )
+    rows = conn.execute("SELECT * FROM sitting WHERE wahlperiode = ? ORDER BY date, number", (WP,)).fetchall()
+    out = []
+    for i, st in enumerate(rows):
+        items = {
+            a["id"]: {
+                "id": a["id"], "position": a["position"], "label": top_label(a["top_id"]),
+                "title": short_title(a["title"], a["top_id"]),
+                "segments": [s.strip() for s in (a["title"] or "").split("|") if s.strip()],
+                "drucksachen": [drucksache_ref(n, dip) for n in json.loads(a["drucksache_numbers"])],
+                "speeches": [], "decisions": by_item.get(a["id"], []),
+                "referred": referred.get(a["id"]),
+            }
+            for a in conn.execute("SELECT * FROM agenda_item WHERE sitting_id = ? ORDER BY position", (st["id"],))
+        }  # fmt: skip
+        rede: dict[str, list[sqlite3.Row]] = defaultdict(list)
+        for s in conn.execute(_SQL_SITTING_SPEECH, (st["id"],)):
+            rede[re.sub(r"-\d+$", "", s["id"])].append(s)
+        for parts in rede.values():
+            first = parts[0]
+            item = items.get(first["agenda_item_id"])
+            if item is None:
+                continue
+            own = [p for p in parts if p["person_id"] == first["person_id"]]
+            length = len("\n\n".join(p["text"] for p in own))
+            item["speeches"].append(
+                {"id": first["id"], "person": first["person_id"], "name": display_name(first),
+                 "fraction": _fraction(first), "role": first["speaker_role"],
+                 "words": sum(len(p["text"].split()) for p in own), "on_map": length >= MIN_CHARS,
+                 "photo": first["person_id"] in photos}
+            )  # fmt: skip
+        out.append(
+            {
+                "id": st["id"], "page": page_id(st["id"]), "number": st["number"], "date": st["date"],
+                "start": st["start_time"], "end": st["end_time"], "pdf": st["pdf_url"], "xml": st["xml_url"],
+                "cite": st["source_document_id"], "week": iso_week(st["date"]),
+                "prev": page_id(rows[i - 1]["id"]) if i else None,
+                "next": page_id(rows[i + 1]["id"]) if i + 1 < len(rows) else None,
+                "items": list(items.values()),
+            }
+        )  # fmt: skip
+    return out

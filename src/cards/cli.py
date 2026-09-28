@@ -7,7 +7,7 @@ import time
 from collections import Counter
 from pathlib import Path
 
-from cards import build, data, debate, photos, questions, search, sources, speeches
+from cards import bills, build, data, debate, photos, questions, search, sources, speeches
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -48,6 +48,8 @@ def main(argv: list[str] | None = None) -> None:
     similar = speeches.neighbours()
     n_speeches = speeches.write_pages(args.out, speeches.load(conn), {c["id"] for c in cards}, clusters, similar)
     print(f"wrote {n_speeches} speech pages in reden/" + (f", {len(similar)} with similar speeches" if similar else ""))
+    n_bills = bills.write(conn, args.out).get("gesetze", 0)
+    print(f"wrote {n_bills} pages in gesetze/" if n_bills else "no Gesetzgebung in the store: no gesetze/ pages")
     search.write_index(args.out)  # last: indexes everything written above
 
 

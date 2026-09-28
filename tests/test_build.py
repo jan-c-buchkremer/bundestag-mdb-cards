@@ -8,7 +8,8 @@ def test_write_site(conn, tmp_path):
     cards[0]["name"] = "</script><b>x"  # must not end the inline script
     build.write_site(cards, meta, tmp_path)
     assert (tmp_path / "index.html").exists()
-    assert (tmp_path / "card.js").exists() and (tmp_path / "cards.css").exists()
+    for asset in ("card.js", "cards.css", "parliament.js"):
+        assert (tmp_path / asset).read_bytes() == (build.HERE / asset).read_bytes()
     page = (tmp_path / f"{cards[0]['id']}.html").read_text()
     assert "</script><b>" not in page
     assert "__CARD__" not in page and "__META__" not in page

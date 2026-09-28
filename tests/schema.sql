@@ -223,3 +223,26 @@ CREATE TABLE interjection (
     to_name TEXT                        -- NULL: aimed at the speaker of speech_id
 );
 
+
+-- New in foundation round 2 (contract in the cards/landscape plan; not in every store yet, the cards check with
+-- has_table). Refresh from src/bdf/db.py once merged.
+CREATE TABLE government_role (
+    id TEXT PRIMARY KEY,
+    person_id TEXT REFERENCES person(id),  -- NULL until matched; roster members without a person row get "Q<qid>"
+    wikidata_qid TEXT,
+    name TEXT NOT NULL,
+    office TEXT,                         -- e.g. "Bundesministerin der Justiz und für Verbraucherschutz"
+    department TEXT,
+    kind TEXT NOT NULL,                  -- kanzler | minister | staatsminister | parl_sts | beamteter_sts
+    from_date TEXT,
+    to_date TEXT,
+    source_url TEXT NOT NULL, source_document_id TEXT NOT NULL, retrieved_at TEXT NOT NULL
+);
+
+CREATE TABLE person_photo (
+    person_id TEXT PRIMARY KEY REFERENCES person(id),
+    image_url TEXT NOT NULL,
+    credit TEXT,
+    bio_url TEXT,
+    source_url TEXT NOT NULL, source_document_id TEXT NOT NULL, retrieved_at TEXT NOT NULL
+);

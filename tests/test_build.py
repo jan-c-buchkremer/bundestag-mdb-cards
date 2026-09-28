@@ -23,3 +23,20 @@ def test_description():
     assert build.description(member).startswith("Anna Adler (SPD, Wahlkreis 14 Rostock), Mitglied")
     speaker = {"kind": "speaker", "name": "Stefanie Hubig", "role": "Bundesministerin der Justiz"}
     assert build.description(speaker).startswith("Stefanie Hubig, Bundesministerin der Justiz im")
+
+
+def test_index_payload(conn, tmp_path):
+    cards, meta = data.cards(conn)
+    build.write_site(cards, meta, tmp_path, [], data.government(conn), data.last_sitting(conn))
+    page = (tmp_path / "index.html").read_text()
+    payload = json.loads(page.split("const DATA = ", 1)[1].split(";\n", 1)[0])
+    assert {g["id"]: g["card"] for g in payload["government"]} == {"9": True, "Q77": False, "2": True}
+    assert payload["last_sitting"]["week"] == "2026-W28"
+    assert next(r for r in payload["cards"] if r["id"] == "9")["gov"] == "Bundesministerin der Justiz"
+    assert json.loads((tmp_path / "wahlkreise.json").read_text())["paths"]["1"].startswith("M")
+
+
+def test_index_without_round2_tables(conn_without_round2, tmp_path):
+    cards, meta = data.cards(conn_without_round2)
+    build.write_site(cards, meta, tmp_path, [], data.government(conn_without_round2), None)
+    assert '"government":[]' in (tmp_path / "index.html").read_text()

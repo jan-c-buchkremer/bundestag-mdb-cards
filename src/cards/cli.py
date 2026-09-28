@@ -23,7 +23,10 @@ def main(argv: list[str] | None = None) -> None:
     wks = data.constituencies(conn)
     if not wks:
         print("no election tables in the store: cards without vote shares and list positions")
-    build.write_site(cards, meta, args.out, wks)
+    gov = data.government(conn)
+    if not gov:
+        print("no government_role table in the store: no Regierungsbank, no Regierung filter")
+    build.write_site(cards, meta, args.out, wks, gov, data.last_sitting(conn))
     print(f"wrote {len(cards)} pages to {args.out}")
 
 

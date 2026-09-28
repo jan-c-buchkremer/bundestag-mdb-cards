@@ -171,7 +171,8 @@ Each of these needs a caveat on the page; section 7 lists them.
 
 - **Index:** all members as a sortable, filterable list: name search, fraction, state, committee, first-termer,
   direct/list. Static, one JSON bundle.
-- **Mein Wahlkreis:** constituency list (299 Wahlkreise) → the members connected to it (idea 7).
+- **Mein Wahlkreis:** constituency list (299 Wahlkreise) → the members connected to it (idea 7). Built with a map of the Wahlkreise (2026-09-28).
+- **Plenum:** the seating chart as the default entry (2026-09-28), filtered by the same search and chips as the list.
 - **Postcode search:** needs a new source (Bundeswahlleiterin: Gemeinde/PLZ → Wahlkreis; postcodes can span
   several constituencies, so the answer is sometimes "one of these two"). D8.
 - **Deep links:** `/<mdb-id>.html#abstimmungen` and from the landscape: a click on a speaker could open their card.
@@ -296,3 +297,4 @@ former members of earlier Wahlperioden.
 | 4 | Drucksachen, Im Plenum, Laufbahn, Quellen, exports | built 2026-09-28 (Im Plenum on the foundation's `interjection` table) |
 | 5 | Container, compose service in `/srv/apps/bundestag`, Pages publish, `update.sh` hook (live since 2026-09-28) | the daily timer rebuilds and publishes the cards |
 | 6 | Topics (D3 b), photos, similar members, network | — |
+| 7 | Round 2: Plenum seating chart as the index entry (with last-sitting speakers and the Regierungsbank), Wahlkreis map; vote and sitting pages, photos and government cards follow in their own branches | Plenum and map built 2026-09-28 |

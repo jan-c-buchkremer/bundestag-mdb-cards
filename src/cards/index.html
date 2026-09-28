@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="cards.css">
+<script src="parliament.js"></script>
 <style>
 h1 { font-size: 26px; font-weight: 600; letter-spacing: -.02em; margin: 8px 0 6px; }
 .lead { color: var(--muted); max-width: 660px; margin: 0 0 22px; }
@@ -27,12 +28,67 @@ h1 { font-size: 26px; font-weight: 600; letter-spacing: -.02em; margin: 8px 0 6p
 .people .row a.name { font-weight: 500; color: var(--text); }
 .people .row a.name:hover { color: var(--accent); }
 .people .row .tags { display: flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end; }
-.wk .row { grid-template-columns: 44px 1fr; }
+.tag.gov { color: #7a6512; background: #f6f0d6; }
+.wk .row { grid-template-columns: 44px 1fr; scroll-margin: 90px; }
+.wk .row.sel { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
 .wk .row .nr { color: var(--faint); font-variant-numeric: tabular-nums; font-size: 12.5px; padding-top: 1px; }
 .wk .who { margin-top: 3px; display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; }
 .wk .who a { display: inline-flex; align-items: center; gap: 6px; color: var(--text); }
 .wk .who a:hover { color: var(--accent); }
 .wk .who .k { color: var(--faint); font-size: 12px; }
+
+/* Plenum */
+.toggles { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin: 2px 0 6px; font-size: 13px; }
+.toggles label { color: var(--text); cursor: pointer; }
+.toggles label input { accent-color: var(--accent); margin: 0 7px 0 0; vertical-align: -2px; }
+.toggles .when { color: var(--faint); }
+.chart { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px 14px 8px; margin: 6px 0 12px; }
+.chart .note { color: var(--faint); font-size: 12px; margin: 4px 2px 0; }
+.pm-tip .sub { color: var(--muted); }
+
+/* Wahlkreise with the map */
+#side { display: none; }
+body.v-wahlkreise #side { display: block; }
+.map { position: relative; }
+.map svg { display: block; width: 100%; height: auto; }
+.map path { stroke: var(--card); stroke-width: .6px; vector-effect: non-scaling-stroke; stroke-linejoin: round; cursor: pointer; transition: fill-opacity .12s; }
+.map path.dim { fill-opacity: .18; }
+.map .ov path.hover { stroke: var(--text); stroke-width: 1.6px; }
+.map path.sel { fill-opacity: 1; }
+.map .ov path { fill: none; pointer-events: none; }
+.map .ov path.sel { stroke: var(--accent); stroke-width: 2.4px; }
+.map .info { position: absolute; left: 0; bottom: 0; max-width: 62%; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 7px 11px; font-size: 12.5px; box-shadow: 0 3px 12px rgba(0,0,0,.08); pointer-events: none; }
+.map .info[hidden] { display: none; }
+.map .info b { font-weight: 600; }
+.map .info .k { color: var(--muted); }
+.maplegend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--muted); margin: 8px 0 2px; }
+.maplegend span { display: inline-flex; align-items: center; gap: 5px; }
+.mapcredit { color: var(--faint); font-size: 11.5px; margin: 4px 0 0; }
+.mapcredit a { color: var(--muted); }
+.strip { display: none; }
+.maploading { color: var(--faint); font-size: 13px; padding: 30px 0; }
+
+/* desktop: the map fills the left column at viewport height and stays, everything else scrolls on the right */
+body.desk.v-wahlkreise main { max-width: 1400px; display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 32px; align-items: start; padding-top: 16px; }
+body.desk.v-wahlkreise #side { grid-column: 1; grid-row: 1 / span 2; position: sticky; top: 8px; height: calc(100vh - 84px); width: min(50vw, calc((100vh - 150px) * 0.74)); display: flex; flex-direction: column; }
+body.desk.v-wahlkreise #col { grid-column: 2; padding-top: 12px; }
+body.desk.v-wahlkreise footer { grid-column: 2; }
+body.desk.v-wahlkreise #side .map { flex: 1; min-height: 0; }
+body.desk.v-wahlkreise #side .map svg { height: 100%; width: 100%; }
+/* phone: the map between the filters and the list */
+body.v-wahlkreise:not(.desk) main { display: flex; flex-direction: column; }
+body.v-wahlkreise:not(.desk) #col { display: contents; }
+body.v-wahlkreise:not(.desk) .segmented { align-self: flex-start; }
+body.v-wahlkreise:not(.desk) #side { order: 1; }
+body.v-wahlkreise:not(.desk) #count, body.v-wahlkreise:not(.desk) #list { order: 2; }
+body.v-wahlkreise:not(.desk) footer { order: 3; }
+
+body:not(.desk) .map .info { display: none; }
+body:not(.desk) .strip:not([hidden]) { display: flex; align-items: center; gap: 10px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; margin: 8px 0 4px; font-size: 13px; }
+.strip .t { flex: 1; min-width: 0; }
+.strip .k { color: var(--muted); }
+.strip a.go { white-space: nowrap; font-weight: 500; }
+body:not(.desk) #side { margin-bottom: 14px; }
 </style>
 </head>
 <body>
@@ -42,9 +98,16 @@ h1 { font-size: 26px; font-weight: 600; letter-spacing: -.02em; margin: 8px 0 6p
   <a class="ext" href="https://jan-c-buchkremer.github.io/bundestag-topic-landscape/">Themenlandschaft ↗</a>
 </header>
 <main>
+  <div id="side">
+    <div class="map" id="map"><div class="maploading">Karte wird geladen …</div></div>
+    <div class="strip" id="strip" hidden></div>
+    <div class="maplegend" id="maplegend"></div>
+    <p class="mapcredit" id="mapcredit"></p>
+  </div>
+  <div id="col">
   <h1>Abgeordnete des 21. Bundestages</h1>
   <p class="lead" id="lead"></p>
-  <div class="segmented" id="views"><button data-v="personen" class="on">Abgeordnete</button><button data-v="wahlkreise">Wahlkreise</button></div>
+  <div class="segmented" id="views" role="tablist"><button data-v="plenum" class="on">Plenum</button><button data-v="personen">Abgeordnete</button><button data-v="wahlkreise">Wahlkreise</button></div>
   <div class="filters">
     <input type="search" id="q" placeholder="Name, Wahlkreis oder Ausschuss …" autocomplete="off">
     <select id="state"><option value="">alle Länder</option></select>
@@ -52,17 +115,24 @@ h1 { font-size: 26px; font-weight: 600; letter-spacing: -.02em; margin: 8px 0 6p
     <select id="committee"><option value="">alle Ausschüsse</option></select>
   </div>
   <div class="chips" id="chips"></div>
+  <div class="toggles" id="toggles"></div>
+  <div class="chart" id="chartbox"><div id="chart"></div><p class="note">Sitze nach Fraktionen, wie in der Sitzverteilung des Bundestages; innerhalb einer Fraktion vorn die Fraktionsspitze, dann nach Land und Name. Das ist ein Schema, nicht die echte Sitzordnung.</p></div>
   <div class="count" id="count"></div>
   <div id="list"></div>
-  <footer>Daten: Deutscher Bundestag (Stammdaten, Plenarprotokolle, namentliche Abstimmungen), abgeordnetenwatch.de (CC0 1.0), gesammelt mit <a href="https://github.com/jan-c-buchkremer/bundestag-data-foundation">bundestag-data-foundation</a>. Code: <a href="https://github.com/jan-c-buchkremer/bundestag-mdb-cards">bundestag-mdb-cards</a> (MIT). Die Liste ist alphabetisch; es gibt bewusst keine Rangliste.</footer>
+  </div>
+  <footer>Daten: Deutscher Bundestag (Stammdaten, Plenarprotokolle, namentliche Abstimmungen), abgeordnetenwatch.de (CC0 1.0), Wikidata (CC0 1.0, Regierungsmitglieder), Die Bundeswahlleiterin (Ergebnisse und Wahlkreiskarte, dl-de/by-2-0), gesammelt mit <a href="https://github.com/jan-c-buchkremer/bundestag-data-foundation">bundestag-data-foundation</a>. Code: <a href="https://github.com/jan-c-buchkremer/bundestag-mdb-cards">bundestag-mdb-cards</a> (MIT). Die Liste ist alphabetisch; es gibt bewusst keine Rangliste.</footer>
 </main>
 <script>
 'use strict';
 const DATA = __DATA__;
 const { cards: CARDS, meta: META, constituencies: WAHLKREISE } = DATA;
+const GOVERNMENT = DATA.government || [];
+const LAST = DATA.last_sitting;
+const LANDSCAPE = 'https://jan-c-buchkremer.github.io/bundestag-topic-landscape/';
 const pct = x => x.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' %';
 const FRACTIONS = ['CDU/CSU', 'AfD', 'SPD', 'BÜNDNIS 90/DIE GRÜNEN', 'Die Linke', 'fraktionslos'];
 const FRACTION_COLORS = { 'CDU/CSU': '--cdu', 'SPD': '--spd', 'AfD': '--afd', 'BÜNDNIS 90/DIE GRÜNEN': '--gru', 'Die Linke': '--lin', 'fraktionslos': '--frl' };
+const PARTY_FRACTION = { CDU: 'CDU/CSU', CSU: 'CDU/CSU', SPD: 'SPD', AfD: 'AfD', 'GRÜNE': 'BÜNDNIS 90/DIE GRÜNEN', 'Die Linke': 'Die Linke' };
 const STATES = { BW: 'Baden-Württemberg', BY: 'Bayern', BE: 'Berlin', BB: 'Brandenburg', HB: 'Bremen', HH: 'Hamburg', HE: 'Hessen', MV: 'Mecklenburg-Vorpommern',
   NI: 'Niedersachsen', NW: 'Nordrhein-Westfalen', RP: 'Rheinland-Pfalz', SL: 'Saarland', SN: 'Sachsen', ST: 'Sachsen-Anhalt', SH: 'Schleswig-Holstein', TH: 'Thüringen' };
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -71,40 +141,56 @@ const color = f => FRACTION_COLORS[f] ? css(FRACTION_COLORS[f]) : css('--reg');
 const shortDate = d => `${d.slice(8, 10)}.${d.slice(5, 7)}.${d.slice(0, 4)}`;
 const norm = s => String(s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 const $ = id => document.getElementById(id);
+const mq = matchMedia('(max-width: 900px), (pointer: coarse) and (max-width: 1100px)');  // the phone layout, as in the landscape
 
 const members = CARDS.filter(c => c.kind === 'member');
 const speakers = CARDS.filter(c => c.kind === 'speaker');
 const current = members.filter(c => !c.left);
+const BY_ID = new Map(CARDS.map(c => [c.id, c]));
+const SPOKE = new Set(LAST ? LAST.speakers : []);
 $('lead').textContent = `Eine Karte für jedes der ${members.length} Mitglieder der 21. Wahlperiode (${current.length} davon heute im Bundestag) und für ${speakers.length} Rednerinnen und Redner ohne Mandat. Jede Karte zeigt Reden, namentliche Abstimmungen und Ausschüsse, jede Angabe mit Quelle. Stand: Plenarprotokolle bis ${shortDate(META.sittings.to)}, Stammdaten ${META.stammdaten.doc.split(' ').pop()}.`;
 
-const state = { view: 'personen', q: '', state: '', type: '', committee: '', fractions: new Set(), flags: new Set() };
-const FLAGS = { first: ['erstmals im Bundestag', c => c.first_term], office: ['mit Amt', c => !!c.office], left: ['ausgeschieden', c => !!c.left], speaker: ['ohne Mandat', c => c.kind === 'speaker'] };
+const state = { view: 'plenum', q: '', state: '', type: '', committee: '', fractions: new Set(), flags: new Set(), redner: false, wk: null };
+const FLAGS = {
+  first: ['erstmals im Bundestag', c => c.first_term],
+  office: ['mit Amt', c => !!c.office],
+  ...(GOVERNMENT.length ? { gov: ['Regierung', c => !!c.gov] } : {}),
+  left: ['ausgeschieden', c => !!c.left],
+  speaker: ['ohne Mandat', c => c.kind === 'speaker'],
+};
+const PLENUM_FLAGS = new Set(['first', 'office', 'gov']);  // former members and non-members have no seat
 
 for (const s of Object.keys(STATES).sort((a, b) => STATES[a].localeCompare(STATES[b]))) $('state').insertAdjacentHTML('beforeend', `<option value="${s}">${STATES[s]}</option>`);
 for (const c of [...new Set(CARDS.flatMap(c => c.committees))].sort((a, b) => a.localeCompare(b, 'de'))) $('committee').insertAdjacentHTML('beforeend', `<option>${esc(c)}</option>`);
 
-function haystack(c) { return norm([c.name, c.constituency, c.number, c.role, c.office, STATES[c.state], ...c.committees].join(' ')); }
+function haystack(c) { return norm([c.name, c.constituency, c.number, c.role, c.office, c.gov, STATES[c.state], ...(c.committees || [])].join(' ')); }
 const HAY = new Map(CARDS.map(c => [c.id, haystack(c)]));
 
 function matches(c, skip) {
   const words = norm(state.q).split(/\s+/).filter(Boolean);
-  if (words.some(w => !HAY.get(c.id).includes(w))) return false;
+  const hay = HAY.get(c.id) ?? haystack(c);
+  if (words.some(w => !hay.includes(w))) return false;
   if (state.state && c.state !== state.state) return false;
   if (state.type && c.type !== state.type) return false;
-  if (state.committee && !c.committees.includes(state.committee)) return false;
+  if (state.committee && !(c.committees || []).includes(state.committee)) return false;
   if (skip !== 'fraction' && state.fractions.size && !state.fractions.has(c.fraction || 'fraktionslos')) return false;
-  for (const f of state.flags) if (skip !== f && !FLAGS[f][1](c)) return false;
+  for (const f of state.flags) {
+    if (state.view === 'plenum' && !PLENUM_FLAGS.has(f)) continue;  // kept for the Abgeordnete view
+    if (skip !== f && FLAGS[f] && !FLAGS[f][1](c)) return false;
+  }
   if (!state.flags.has('left') && c.left && skip !== 'left') return false;  // former members only on request
   if (!state.flags.has('speaker') && c.kind === 'speaker' && skip !== 'speaker') return false;
   return true;
 }
+const filtering = () => !!(state.q || state.state || state.type || state.committee || state.fractions.size || [...state.flags].some(f => state.view !== 'plenum' || PLENUM_FLAGS.has(f)));
 
 function renderChips() {
+  const plenum = state.view === 'plenum';
   const fr = FRACTIONS.map(f => {
-    const k = CARDS.filter(c => c.kind === 'member' && (c.fraction || 'fraktionslos') === f && matches(c, 'fraction')).length;
+    const k = CARDS.filter(c => c.kind === 'member' && (c.fraction || 'fraktionslos') === f && (!plenum || !c.left) && matches(c, 'fraction')).length;
     return `<button class="chip${state.fractions.has(f) ? ' on' : ''}" data-f="${esc(f)}"><span class="dot" style="background:${color(f)}"></span>${esc(f)} <span class="n">${k}</span></button>`;
   });
-  const flags = Object.entries(FLAGS).map(([k, [label, test]]) => {
+  const flags = Object.entries(FLAGS).filter(([k]) => !plenum || PLENUM_FLAGS.has(k)).map(([k, [label, test]]) => {
     const n = CARDS.filter(c => test(c) && matches(c, k)).length;
     return `<button class="chip${state.flags.has(k) ? ' on' : ''}" data-flag="${k}">${label} <span class="n">${n}</span></button>`;
   });
@@ -116,36 +202,100 @@ function personRow(c) {
     : c.type === 'Direktwahl' ? `Wahlkreis ${c.number} · ${esc(c.constituency)}`
     : c.type ? `Landesliste ${STATES[c.state] || c.state}` : 'neu, noch nicht in den Stammdaten';
   const tags = [
+    c.gov && `<span class="tag gov" title="${esc(c.gov)}">Regierung</span>`,
     c.office && `<span class="tag">${esc(c.office)}</span>`,
     c.first_term && '<span class="tag">erstmals</span>',
     c.left && `<span class="tag warn">ausgeschieden ${shortDate(c.left)}</span>`,
   ].filter(Boolean).join('');
   return `<div class="row"><div class="t"><a class="name" href="${esc(c.id)}.html">${esc(c.name)}</a><div class="sub"><span class="dot" style="background:${c.kind === 'speaker' ? css('--reg') : color(c.fraction || 'fraktionslos')};width:7px;height:7px;margin-right:6px"></span>${c.kind === 'member' ? esc(c.fraction || 'fraktionslos') + ' · ' : ''}${where}</div></div><div class="tags">${tags}</div></div>`;
 }
+const byName = (a, b) => a.last.localeCompare(b.last, 'de') || a.name.localeCompare(b.name, 'de');
 
 function renderPeople() {
-  const shown = CARDS.filter(c => matches(c)).sort((a, b) => a.last.localeCompare(b.last, 'de') || a.name.localeCompare(b.name, 'de'));
+  const shown = CARDS.filter(c => matches(c)).sort(byName);
   $('count').textContent = `${shown.length} ${shown.length === 1 ? 'Karte' : 'Karten'}`;
   $('list').innerHTML = shown.length ? `<div class="rows people">${shown.map(personRow).join('')}</div>` : '<div class="rows"><div class="empty">Keine Treffer.</div></div>';
 }
 
-function renderWahlkreise() {
-  const byNr = new Map();
-  // official list of all 299 Wahlkreise when the store has the election tables, else those named in the Stammdaten
-  for (const w of WAHLKREISE) byNr.set(w.number, { nr: w.number, name: w.name, state: w.state, direct: [], list: [], official: w });
-  for (const c of members) {
-    if (!c.number) continue;
-    const w = byNr.get(c.number) || byNr.set(c.number, { nr: c.number, name: c.constituency, state: c.state, direct: [], list: [] }).get(c.number);
-    (c.type === 'Direktwahl' ? w.direct : w.list).push(c);
+// ------------------------------------------------------------------ Plenum
+
+let chart = null;
+const PRESIDIUM = /^(Vize)?[Pp]räsident(in)? des Deutschen Bundestages/;
+function seatOf(c) { return { id: c.id, fraction: c.fraction || 'fraktionslos', name: c.name, group: STATES[c.state] || '', sort: `${c.last} ${c.name}`, lead: c.lead ?? null, row: c }; }
+// people on the Regierungsbank without a card (not MdB, never spoke) still match name and office searches
+const benchRow = g => BY_ID.get(g.id) || { id: g.id, name: g.name, last: g.name.split(' ').pop(), kind: 'member', fraction: g.fraction, gov: g.office, committees: [] };
+const seatMatches = s => matches({ ...s.row, kind: 'member', left: null });
+
+function renderPlenum() {
+  if (!chart) {
+    const seats = current.map(seatOf);
+    const presidium = current.filter(c => PRESIDIUM.test(c.office || '')).sort((a, b) => /^Vize/.test(a.office) - /^Vize/.test(b.office) || byName(a, b)).map(seatOf);
+    const government = GOVERNMENT.map(g => ({ ...seatOf(benchRow(g)), fraction: g.fraction, office: g.office, card: g.card, gov: true }));
+    chart = renderParliament($('chart'), seats, {
+      government, presidium, title: `Sitzverteilung im 21. Bundestag, ${seats.length} Sitze`,
+      colorOf: s => s.gov && !s.fraction ? css('--reg') : color(s.fraction || 'fraktionslos'),
+      tooltip: s => {
+        const c = s.row;
+        const where = c.type === 'Direktwahl' ? `Wahlkreis ${c.number} ${esc(c.constituency)}` : c.state ? `Landesliste ${STATES[c.state] || c.state}` : '';
+        const office = s.gov ? s.office : c.gov || c.office;
+        return `<b>${esc(s.name)}</b><div class="sub">${[s.fraction && esc(s.fraction), where].filter(Boolean).join(' · ')}</div>${office ? `<div>${esc(office)}</div>` : ''}${state.redner && SPOKE.has(s.id) ? `<div class="sub">sprach am ${shortDate(LAST.date)}</div>` : ''}${s.gov && !s.card && !BY_ID.has(s.id) ? '<div class="sub">noch keine Karte</div>' : ''}`;
+      },
+      label: s => [s.name, s.fraction, s.gov ? s.office : null].filter(Boolean).join(', '),
+      tapHint: 'Nochmals tippen öffnet die Karte',
+      onClick: s => { if (BY_ID.has(s.id)) location.href = `${encodeURIComponent(s.id)}.html`; },
+    });
   }
-  const words = norm(state.q).split(/\s+/).filter(Boolean);
-  const shown = [...byNr.values()].sort((a, b) => a.nr - b.nr).filter(w => {
-    if (state.state && w.state !== state.state) return false;
-    const hay = norm([w.nr, w.name, STATES[w.state], ...w.direct.map(c => c.name), ...w.list.map(c => c.name)].join(' '));
-    return words.every(x => hay.includes(x));
+  const f = filtering();
+  chart.update({
+    dim: s => (f && !seatMatches(s)) || (state.redner && !SPOKE.has(s.id)),
+    highlight: state.redner ? s => SPOKE.has(s.id) : null,
   });
+  const on = current.filter(c => matches(c) && (!state.redner || SPOKE.has(c.id)));
+  const listed = state.redner ? CARDS.filter(c => SPOKE.has(c.id) && (!f || matches({ ...c, kind: 'member' }))).sort(byName) : f ? on.sort(byName) : [];
+  $('count').textContent = state.redner
+    ? `${listed.length} Redner:innen in der Sitzung ${LAST.id} am ${shortDate(LAST.date)}${f ? ' passend zum Filter' : ''}; ${on.length} davon mit Sitz im Plenum`
+    : f ? `${on.length} von ${current.length} Sitzen passen zum Filter` : `${current.length} Sitze${GOVERNMENT.length ? `, ${GOVERNMENT.length} Mitglieder der Bundesregierung auf der Regierungsbank` : ''}. Ein Sitz öffnet die Karte.`;
+  $('list').innerHTML = listed.length ? `<div class="rows people">${listed.map(personRow).join('')}</div>` : f || state.redner ? '<div class="rows"><div class="empty">Keine Treffer.</div></div>' : '';
+}
+
+function renderToggles() {
+  if (state.view !== 'plenum' || !LAST) { $('toggles').innerHTML = ''; return; }
+  $('toggles').innerHTML = `<label><input type="checkbox" id="redner"${state.redner ? ' checked' : ''}>Redner:innen der letzten Sitzung <span class="when">(${esc(LAST.id)}, ${shortDate(LAST.date)})</span></label>`
+    + (state.redner ? `<a href="${LANDSCAPE}${esc(LAST.week)}.html">Diese Woche in der Themenlandschaft →</a>` : '');
+  $('redner').onchange = e => { state.redner = e.target.checked; render(); };
+}
+
+// ------------------------------------------------------------------ Wahlkreise
+
+const WK = new Map();  // number → {nr, name, state, direct, list, official}
+for (const w of WAHLKREISE) WK.set(w.number, { nr: w.number, name: w.name, state: w.state, direct: [], list: [], official: w });
+for (const c of members) {
+  if (!c.number) continue;
+  const w = WK.get(c.number) || WK.set(c.number, { nr: c.number, name: c.constituency, state: c.state, direct: [], list: [] }).get(c.number);
+  (c.type === 'Direktwahl' ? w.direct : w.list).push(c);
+}
+for (const w of WK.values()) w.direct.sort((a, b) => !!a.left - !!b.left);  // the sitting member first
+const WK_HAY = new Map([...WK.values()].map(w => [w.nr, norm([w.nr, w.name, STATES[w.state], ...w.direct.map(c => c.name), ...w.list.map(c => c.name)].join(' '))]));
+function wkShown(w) {
+  if (state.state && w.state !== state.state) return false;
+  return norm(state.q).split(/\s+/).filter(Boolean).every(x => WK_HAY.get(w.nr).includes(x));
+}
+const seatFraction = w => w.official ? (w.official.seat_party ? PARTY_FRACTION[w.official.seat_party] || 'fraktionslos' : null)
+  : w.direct[0] ? w.direct[0].fraction || 'fraktionslos' : null;
+const NO_SEAT = '#d4d4cf';
+
+function holder(w) {
+  const c = w.direct.find(c => !c.left) || w.direct[0];
+  if (c) return { c, text: `${c.name} (${c.fraction || 'fraktionslos'})${c.left ? ', ausgeschieden' : ''}` };
+  const o = w.official;
+  if (o && !o.seat_party && o.first_party) return { c: null, text: `kein Direktmandat: ${o.first_party} vorn mit ${pct(o.first_percent)}, nicht durch Zweitstimmen gedeckt` };
+  return { c: null, text: 'kein direkt gewähltes Mitglied' };
+}
+
+function renderWahlkreise() {
+  const shown = [...WK.values()].sort((a, b) => a.nr - b.nr).filter(wkShown);
   const person = c => `<a href="${esc(c.id)}.html"><span class="dot" style="background:${color(c.fraction || 'fraktionslos')};width:7px;height:7px"></span>${esc(c.name)}${c.left ? ' <span class="faint">(ausgeschieden)</span>' : ''}</a>`;
-  $('count').textContent = `${shown.length} von ${byNr.size} Wahlkreisen`;
+  $('count').textContent = `${shown.length} von ${WK.size} Wahlkreisen`;
   const noSeat = w => {
     const o = w.official;
     if (!o || o.seat_party) return '<span class="k">kein direkt gewähltes Mitglied</span>';
@@ -153,29 +303,128 @@ function renderWahlkreise() {
   };
   const official = WAHLKREISE.length > 0;
   $('list').innerHTML = `<p class="explain">Zu jedem Wahlkreis: wer ihn direkt gewonnen hat, und wer dort kandidiert hat und über die Landesliste in den Bundestag kam. Seit der Wahlrechtsreform 2023 erhält ein Wahlkreissieger nur einen Sitz, wenn die Zweitstimmen seiner Partei im Land dafür reichen (Zweitstimmendeckung)${official ? `; ${WAHLKREISE.filter(w => !w.seat_party).length} Wahlkreise haben deshalb kein direkt gewähltes Mitglied. Ergebnisse: Die Bundeswahlleiterin, Bundestagswahl 2025` : ''}.</p>
-    <div class="rows wk">${shown.map(w => `<div class="row"><div class="nr">${w.nr}</div><div class="t">${esc(w.name)} <span class="faint">· ${STATES[w.state] || w.state}${w.official?.turnout ? ` · Wahlbeteiligung ${pct(w.official.turnout)}` : ''}</span>
-      <div class="who">${w.direct.length ? `<span class="k">direkt</span>${w.direct.map(person).join('')}` : noSeat(w)}${w.list.length ? `<span class="k">über die Liste</span>${w.list.map(person).join('')}` : ''}</div></div></div>`).join('')}</div>`;
+    <div class="rows wk">${shown.map(w => `<div class="row${state.wk === w.nr ? ' sel' : ''}" id="wk-${w.nr}" data-nr="${w.nr}"><div class="nr">${w.nr}</div><div class="t">${esc(w.name)} <span class="faint">· ${STATES[w.state] || w.state}${w.official?.turnout ? ` · Wahlbeteiligung ${pct(w.official.turnout)}` : ''}</span>
+      <div class="who">${w.direct.length ? `<span class="k">direkt</span>${w.direct.map(person).join('')}` : noSeat(w)}${w.list.length ? `<span class="k">über die Liste</span>${w.list.map(person).join('')}` : ''}</div></div></div>`).join('') || '<div class="empty">Keine Treffer.</div>'}</div>`;
+  styleMap();
 }
 
-function render() {
-  const people = state.view === 'personen';
-  for (const id of ['type', 'committee', 'chips']) $(id).style.display = people ? '' : 'none';
-  $('q').placeholder = people ? 'Name, Wahlkreis oder Ausschuss …' : 'Wahlkreis, Nummer, Ort oder Name …';
-  document.querySelectorAll('#views button').forEach(b => b.classList.toggle('on', b.dataset.v === state.view));
-  if (people) { renderChips(); renderPeople(); } else renderWahlkreise();
+let MAP = null;       // {paths: Map nr → <path>}
+let mapLoading = null;
+function loadMap() {
+  if (mapLoading) return mapLoading;
+  mapLoading = fetch('wahlkreise.json').then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).then(geo => {
+    const paths = Object.entries(geo.paths).map(([nr, d]) => `<path data-nr="${nr}" d="${d}"></path>`).join('');
+    $('map').innerHTML = `<svg viewBox="${geo.viewBox}" role="img" aria-label="Karte der 299 Wahlkreise, gefärbt nach der Partei des direkt gewählten Mitglieds"><g>${paths}</g><g class="ov"><path id="ovsel" class="sel"></path><path id="ovhover" class="hover"></path></g></svg><div class="info" id="mapinfo" hidden></div>`;
+    $('mapcredit').innerHTML = `Karte: ${esc(geo.attribution)}, <a href="${esc(geo.source)}">${esc(geo.licence)}</a>, vereinfacht.`;
+    const seen = new Set([...WK.values()].map(seatFraction));
+    $('maplegend').innerHTML = FRACTIONS.filter(f => seen.has(f)).map(f => `<span><i class="dot" style="background:${color(f)}"></i>${esc(f === 'BÜNDNIS 90/DIE GRÜNEN' ? 'Grüne' : f)}</span>`).join('')
+      + (seen.has(null) ? `<span><i class="dot" style="background:${NO_SEAT}"></i>kein Direktmandat (Zweitstimmendeckung)</span>` : '');
+    MAP = { paths: new Map([...$('map').querySelectorAll('path')].map(p => [+p.dataset.nr, p])) };
+    for (const [nr, p] of MAP.paths) {
+      const w = WK.get(nr);
+      const f = w ? seatFraction(w) : null;
+      p.setAttribute('fill', f ? color(f) : NO_SEAT);
+    }
+    wireMap();
+    styleMap();
+  }).catch(() => { $('map').innerHTML = '<div class="maploading">Die Karte konnte nicht geladen werden.</div>'; });
+  return mapLoading;
+}
+
+let hoverNr = null;
+function info(nr) {
+  const w = WK.get(nr);
+  if (!w) return '';
+  const h = holder(w);
+  return `<b>${w.nr} · ${esc(w.name)}</b><br><span class="k">${h.c ? 'direkt: ' : ''}</span>${esc(h.text)}`;
+}
+function showInfo() {
+  const box = $('mapinfo');
+  if (!box) return;
+  const nr = hoverNr ?? state.wk;
+  box.hidden = nr == null;
+  if (nr != null) box.innerHTML = info(nr);
+}
+function styleMap() {
+  if (!MAP) return;
+  for (const [nr, p] of MAP.paths) {
+    const w = WK.get(nr);
+    p.classList.toggle('dim', !w || !wkShown(w));
+    p.classList.toggle('sel', state.wk === nr);
+  }
+  // outlines on top of the neighbours, as copies: moving the path itself under the pointer would swallow clicks
+  for (const [id, nr] of [['ovsel', state.wk], ['ovhover', hoverNr]]) {
+    const o = $(id), src = nr != null && MAP.paths.get(nr);
+    o.style.display = src ? '' : 'none';
+    if (src) o.setAttribute('d', src.getAttribute('d'));
+  }
+  showInfo();
+  const strip = $('strip');
+  const w = state.wk != null && WK.get(state.wk);
+  strip.hidden = !w;
+  if (w) {
+    const h = holder(w);
+    strip.innerHTML = `<div class="t"><b>${w.nr} · ${esc(w.name)}</b><br><span class="k">${h.c ? 'direkt: ' : ''}${esc(h.text)}</span></div>${h.c ? `<a class="go" href="${esc(h.c.id)}.html">Karte →</a>` : `<a class="go" href="#wk-${w.nr}">Liste ↓</a>`}`;
+  }
+}
+function select(nr, scroll) {
+  state.wk = state.wk === nr ? null : nr;
+  document.querySelectorAll('.wk .row.sel').forEach(r => r.classList.remove('sel'));
+  const row = state.wk != null && $(`wk-${state.wk}`);
+  if (row) { row.classList.add('sel'); if (scroll) row.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+  styleMap();
+  writeHash();
+}
+function wireMap() {
+  const svg = $('map').querySelector('svg');
+  const nrOf = e => e.target.closest && e.target.closest('path') ? +e.target.closest('path').dataset.nr : null;
+  svg.addEventListener('pointerover', e => { if (e.pointerType === 'mouse') { hoverNr = nrOf(e); styleMap(); } });
+  svg.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') { hoverNr = null; styleMap(); } });
+  svg.addEventListener('click', e => { const nr = nrOf(e); if (nr != null) select(nr, document.body.classList.contains('desk')); });
+  $('list').addEventListener('pointerover', e => {
+    if (e.pointerType !== 'mouse' || state.view !== 'wahlkreise') return;
+    const row = e.target.closest('.wk .row');
+    const nr = row ? +row.dataset.nr : null;
+    if (nr !== hoverNr) { hoverNr = nr; styleMap(); }
+  });
+  $('list').addEventListener('pointerleave', () => { if (hoverNr != null) { hoverNr = null; styleMap(); } });
+}
+
+// ------------------------------------------------------------------ view and URL
+
+function writeHash() {
   const h = new URLSearchParams();
-  if (state.view !== 'personen') h.set('ansicht', state.view);
+  if (state.view !== 'plenum') h.set('ansicht', state.view);
   for (const k of ['q', 'state', 'type', 'committee']) if (state[k]) h.set(k, state[k]);
   if (state.fractions.size) h.set('fraktion', [...state.fractions].join('|'));
   if (state.flags.size) h.set('nur', [...state.flags].join('|'));
+  if (state.redner && state.view === 'plenum') h.set('redner', '1');
+  if (state.wk != null && state.view === 'wahlkreise') h.set('wk', state.wk);
   history.replaceState(null, '', h.size ? '#' + h : location.pathname);
 }
 
+function render() {
+  const v = state.view;
+  document.body.classList.toggle('desk', !mq.matches);
+  for (const x of ['plenum', 'personen', 'wahlkreise']) document.body.classList.toggle('v-' + x, v === x);
+  for (const id of ['type', 'committee', 'chips']) $(id).style.display = v === 'wahlkreise' ? 'none' : '';
+  $('chartbox').style.display = v === 'plenum' ? '' : 'none';
+  $('q').placeholder = v === 'wahlkreise' ? 'Wahlkreis, Nummer, Ort oder Name …' : 'Name, Wahlkreis, Ausschuss oder Amt …';
+  document.querySelectorAll('#views button').forEach(b => { b.classList.toggle('on', b.dataset.v === v); b.setAttribute('aria-selected', b.dataset.v === v); });
+  renderToggles();
+  if (v === 'plenum') { renderChips(); renderPlenum(); }
+  else if (v === 'personen') { renderChips(); renderPeople(); }
+  else { renderWahlkreise(); loadMap(); }
+  writeHash();
+}
+
 const h = new URLSearchParams(location.hash.slice(1));
-state.view = h.get('ansicht') || 'personen';
+state.view = ['plenum', 'personen', 'wahlkreise'].includes(h.get('ansicht')) ? h.get('ansicht') : 'plenum';
 for (const k of ['q', 'state', 'type', 'committee']) { state[k] = h.get(k) || ''; $(k).value = state[k]; }
 (h.get('fraktion') || '').split('|').filter(Boolean).forEach(f => state.fractions.add(f));
 (h.get('nur') || '').split('|').filter(k => k in FLAGS).forEach(f => state.flags.add(f));
+state.redner = h.get('redner') === '1' && !!LAST;
+state.wk = h.get('wk') ? +h.get('wk') : null;
 
 $('q').oninput = e => { state.q = e.target.value; render(); };
 for (const k of ['state', 'type', 'committee']) $(k).onchange = e => { state[k] = e.target.value; render(); };
@@ -187,6 +436,7 @@ $('chips').onclick = e => {
   set.has(v) ? set.delete(v) : set.add(v);
   render();
 };
+mq.addEventListener('change', render);
 render();
 </script>
 </body>

@@ -11,7 +11,7 @@ from pathlib import Path
 from cards.data import index_row
 
 HERE = Path(__file__).parent
-ASSETS = ("cards.css", "card.js", "parliament.js")
+ASSETS = ("cards.css", "card.js", "parliament.js", "wahlkreise.json")  # wahlkreise.json: map, fetched on demand
 
 
 def _json(payload: object) -> str:
@@ -43,18 +43,39 @@ def render_card(c: dict, meta: dict) -> str:
     )
 
 
-def render_index(cards: list[dict], meta: dict, constituencies: list[dict]) -> str:
-    rows = [index_row(c) for c in cards]
-    payload = {"cards": rows, "meta": meta, "constituencies": constituencies}
+def render_index(
+    cards: list[dict],
+    meta: dict,
+    constituencies: list[dict],
+    government: list[dict] | None = None,
+    last_sitting: dict | None = None,
+) -> str:
+    government = government or []
+    by_id = {g["id"]: g for g in government}
+    rows = [index_row(c, by_id) for c in cards]
+    ids = {c["id"] for c in cards}
+    payload = {
+        "cards": rows, "meta": meta, "constituencies": constituencies,
+        "government": [{**g, "card": g["id"] in ids} for g in government],
+        "last_sitting": last_sitting,
+    }  # fmt: skip
     return (HERE / "index.html").read_text(encoding="utf-8").replace("__DATA__", _json(payload))
 
 
-def write_site(cards: list[dict], meta: dict, out: Path, constituencies: list[dict] | None = None) -> None:
+def write_site(
+    cards: list[dict],
+    meta: dict,
+    out: Path,
+    constituencies: list[dict] | None = None,
+    government: list[dict] | None = None,
+    last_sitting: dict | None = None,
+) -> None:
     meta = {**meta, "built": dt.date.today().isoformat()}
     out.mkdir(parents=True, exist_ok=True)
     for c in cards:
         (out / f"{c['id']}.html").write_text(render_card(c, meta), encoding="utf-8")
         (out / f"{c['id']}.json").write_text(json.dumps(c, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    (out / "index.html").write_text(render_index(cards, meta, constituencies or []), encoding="utf-8")
+    index = render_index(cards, meta, constituencies or [], government, last_sitting)
+    (out / "index.html").write_text(index, encoding="utf-8")
     for name in ASSETS:
         shutil.copyfile(HERE / name, out / name)

@@ -15,7 +15,7 @@ import sqlite3
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from cards.data import MIN_CHARS, NO_FRACTION, PARTY_TO_FRACTION, WP, _houses, page_id
+from cards.data import MIN_CHARS, NO_FRACTION, PARTY_TO_FRACTION, WP, _houses, after_speaker, page_id
 from cards.pages import FOOTER, MONTHS, ORDER, SHORT, TOKEN, dot, e, n, shell, short_date
 from cards.speeches import rede_id
 
@@ -293,26 +293,6 @@ def interim_questions(conn: sqlite3.Connection, rows: list | None = None) -> lis
 
 
 INTERRUPTIONS = ("zuruf", "unruhe", "widerspruch", "lachen")
-
-
-def after_speaker(conn: sqlite3.Connection) -> set[tuple[str, int]]:
-    """The comment paragraphs (speech id, position) that follow the speaker's own words: the nearest earlier
-    paragraph of the part that is not a comment is of kind 'text'. A comment after the chair's words belongs to the
-    chair or to the change of speaker: applause after "Nächster Redner ist … für die CDU/CSU" welcomes the next
-    speaker, applause after a Ordnungsruf is for the chair. A Zwischenfrage is its own speech part, so the comments
-    in it go to the asker."""
-    out, last = set(), {}
-    for sid, pos, kind in conn.execute(
-        """SELECT p.speech_id, p.position, p.kind FROM speech_paragraph p JOIN speech s ON s.id = p.speech_id
-           JOIN sitting st ON st.id = s.sitting_id WHERE st.wahlperiode = ? ORDER BY p.speech_id, p.position""",
-        (WP,),
-    ):
-        if kind == "comment":
-            if last.get(sid) == "text":
-                out.add((sid, pos))
-        else:
-            last[sid] = kind
-    return out
 
 
 def interruptions(conn: sqlite3.Connection) -> dict[str, dict[str, list[int]]]:

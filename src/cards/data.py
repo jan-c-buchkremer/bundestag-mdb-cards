@@ -59,12 +59,36 @@ def _fraction(r: sqlite3.Row) -> str | None:
     return r["fraction"] or PARTY_TO_FRACTION.get(r["party"], r["party"])
 
 
+def after_speaker(conn: sqlite3.Connection) -> set[tuple[str, int]]:
+    """The comment paragraphs (speech id, position) that follow the speaker's own words: the nearest earlier
+    paragraph of the part that is not a comment is of kind 'text'. A comment after the chair's words belongs to the
+    chair or to the change of speaker: applause after "Nächster Redner ist … für die CDU/CSU" welcomes the next
+    speaker, applause after an Ordnungsruf is for the chair. Used by the cards and the Debattenkultur page alike.
+    A Zwischenfrage is its own speech part, so the comments in it go to the asker."""
+    out, last = set(), {}
+    for sid, pos, kind in conn.execute(
+        """SELECT p.speech_id, p.position, p.kind FROM speech_paragraph p JOIN speech s ON s.id = p.speech_id
+           JOIN sitting st ON st.id = s.sitting_id WHERE st.wahlperiode = ? ORDER BY p.speech_id, p.position""",
+        (WP,),
+    ):
+        if kind == "comment":
+            if last.get(sid) == "text":
+                out.add((sid, pos))
+        else:
+            last[sid] = kind
+    return out
+
+
 def _paragraph_stats(conn: sqlite3.Connection) -> tuple[Counter, dict[str, str]]:
-    """Applause paragraphs per speech part, and the chair's words among each part's last six paragraphs."""
+    """Applause paragraphs per speech part (after the speaker's own words, see after_speaker), and the chair's words
+    among each part's last six paragraphs."""
     applause: Counter = Counter()
     tail: dict[str, list[tuple[int, str, str]]] = defaultdict(list)
+    last: dict[str, str] = {}
     for r in conn.execute("SELECT speech_id, position, kind, text FROM speech_paragraph ORDER BY speech_id, position"):
-        if r["kind"] == "comment" and "Beifall" in r["text"]:
+        if r["kind"] != "comment":
+            last[r["speech_id"]] = r["kind"]
+        elif "Beifall" in r["text"] and last.get(r["speech_id"]) == "text":
             applause[r["speech_id"]] += 1
         t = tail[r["speech_id"]]
         t.append((r["position"], r["kind"], r["text"]))
@@ -344,14 +368,16 @@ def plenum(conn: sqlite3.Connection) -> dict[str, dict]:
     if not has_table(conn, "interjection"):
         return {}
     out: dict[str, dict] = defaultdict(lambda: {"received": {}, "house": 0, "made": []})
+    heard = after_speaker(conn)  # notes after the chair's words are not reactions to the speaker
     for r in conn.execute(
-        """SELECT s.person_id, i.kind, i.actor, i.fraction, count(*) AS n
+        """SELECT s.person_id, i.kind, i.actor, i.fraction, i.speech_id, i.paragraph, 1 AS n
            FROM interjection i JOIN speech s ON s.id = i.speech_id JOIN sitting st ON st.id = s.sitting_id
            WHERE st.wahlperiode = ? AND i.kind IN ({})
-             AND (i.person_id IS NULL OR i.person_id != s.person_id)
-           GROUP BY 1, 2, 3, 4""".format(",".join("?" * len(REACTIONS))),
+             AND (i.person_id IS NULL OR i.person_id != s.person_id)""".format(",".join("?" * len(REACTIONS))),
         (WP, *REACTIONS),
     ):
+        if (r["speech_id"], r["paragraph"]) not in heard:
+            continue
         p = out[r["person_id"]]
         if r["actor"] == "house":
             p["house"] += r["n"]

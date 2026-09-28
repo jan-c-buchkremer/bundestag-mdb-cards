@@ -32,6 +32,8 @@ const isoWeek = d => {
   return `${y}-W${String(w).padStart(2, '0')}`;
 };
 const mapLink = s => s.on_map ? `<a href="${LANDSCAPE}${isoWeek(s.date)}.html#rede=${encodeURIComponent(s.id)}" title="Diese Rede in der Themenlandschaft der Woche">Karte</a>` : '';
+// the speech page is the rede's; a part of it (a Zwischenfrage, a turn in the Befragung) is an anchor there
+const textLink = s => { const r = s.id.replace(/-\d+$/, ''); return `<a href="reden/${encodeURIComponent(r)}.html${r === s.id ? '' : '#' + encodeURIComponent(s.id)}" title="Der Text im Protokoll">Text</a>`; };
 const pdfLink = s => `<a href="${esc(s.pdf)}" title="${esc(s.cite)}, Rede ${esc(s.id)}">Protokoll</a>`;
 
 const C = CARD;
@@ -243,19 +245,19 @@ function renderReden(el) {
         s.role && esc(s.role), plural(s.words, 'Wort', 'Wörter'), s.applause && `${n(s.applause)}× Beifall`,
         s.interruptions.length && `${s.interruptions.length === 1 ? 'Zwischenfrage' : 'Zwischenfragen'} von ${s.interruptions.map(who).join(', ')}`,
       ].filter(Boolean).join(' · ')}</div></div>
-      <div class="l">${mapLink(s)}${pdfLink(s)}</div></div>`);
+      <div class="l">${textLink(s)}${mapLink(s)}${pdfLink(s)}</div></div>`);
   const fragen = C.fragen.filter(match).sort(byDateDesc).map(f => `
     <div class="row"><div class="d">${shortDate(f.date)}</div>
       <div class="t">${f.kind === 'kurzintervention' ? 'Kurzintervention' : 'Zwischenfrage'} an <a href="${esc(f.speaker)}.html">${esc(f.speaker_name)}</a><div class="sub">${esc(f.title)}</div></div>
-      <div class="l">${pdfLink(f)}</div></div>`);
+      <div class="l">${textLink(f)}${pdfLink(f)}</div></div>`);
   const kurz = C.kurz.filter(match).sort(byDateDesc).map(s => `
     <div class="row"><div class="d">${shortDate(s.date)}</div>
       <div class="t">${esc(s.title)}<div class="sub">${[s.role && esc(s.role), plural(s.words, 'Wort', 'Wörter')].filter(Boolean).join(' · ')}</div></div>
-      <div class="l">${pdfLink(s)}</div></div>`);
+      <div class="l">${textLink(s)}${pdfLink(s)}</div></div>`);
   const bef = C.befragung.filter(match).sort(byDateDesc).map(b => `
     <div class="row"><div class="d">${shortDate(b.date)}</div>
       <div class="t">${b.role ? `Antwort als ${esc(b.role)}` : 'Frage an die Bundesregierung'}<div class="sub">${plural(b.words, 'Wort', 'Wörter')}</div></div>
-      <div class="l">${mapLink(b)}${pdfLink(b)}</div></div>`);
+      <div class="l">${textLink(b)}${mapLink(b)}${pdfLink(b)}</div></div>`);
   el.innerHTML = `
     <div class="tools"><input type="search" placeholder="Reden durchsuchen: Tagesordnungspunkt, Datum …" value="${esc(el.dataset.q || '')}"></div>
     <p class="explain">Eine Rede ist ein Redebeitrag zu einem Tagesordnungspunkt, so wie ihn das Plenarprotokoll führt, mit mindestens 500 Zeichen; Zwischenfragen anderer gehören zur Rede, in der sie gestellt wurden. Die Länge ist in Wörtern angegeben, die Redezeit steht nicht im Protokoll. „Karte“ öffnet die Rede in der Themenlandschaft ihrer Sitzungswoche.</p>

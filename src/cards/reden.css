@@ -1,0 +1,24 @@
+/* Speech pages (reden/) and the search page; everything else comes from cards.css */
+.sp-head { border-top: 3px solid var(--c); }
+.sp-head h1 { font-size: 21px; margin: 4px 0 8px; line-height: 1.35; }
+.sp-head .lines { color: var(--muted); font-size: 13.5px; }
+.sp-head .lines .sub { color: var(--muted); }
+.sp-head .links { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 12px; font-size: 13.5px; }
+.speech { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 8px 26px 12px; margin-top: 14px; font-size: 15.5px; line-height: 1.65; }
+.speech p { margin: 12px 0; max-width: 68ch; }
+.speech .rc { color: var(--muted); font-size: 13.5px; font-style: italic; margin: 6px 0 6px 18px; line-height: 1.5; }
+.speech .rch { color: var(--muted); font-size: 14px; border-left: 3px solid var(--line); padding-left: 12px; }
+.speech .rch .k, .rp-who { font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--faint); }
+.rp { scroll-margin-top: 12px; }
+.rp:not(.own) { border-left: 3px solid var(--line); padding-left: 14px; margin: 14px 0; }
+.rp-who { margin-top: 12px; text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--muted); }
+.rp-who a { font-weight: 600; }
+.rp:target { background: #fffaf0; }
+.similar h2 { font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 28px 0 8px; }
+.p-speech .explain { margin-top: 18px; }
+.p-search h1 { font-size: 26px; font-weight: 600; letter-spacing: -.02em; margin: 8px 0 6px; }
+.p-search #search { margin-top: 16px; --pagefind-ui-primary: var(--accent); --pagefind-ui-text: var(--text); --pagefind-ui-border: var(--line); --pagefind-ui-border-radius: 10px; --pagefind-ui-font: inherit; --pagefind-ui-scale: .85; }
+@media (max-width: 640px) {
+  .speech { padding: 4px 16px 8px; font-size: 15px; }
+  .speech .rc { margin-left: 8px; }
+}

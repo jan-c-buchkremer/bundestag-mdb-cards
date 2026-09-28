@@ -7,7 +7,7 @@ import time
 from collections import Counter
 from pathlib import Path
 
-from cards import build, data, photos, questions, sources
+from cards import build, data, photos, questions, search, sources, speeches
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -44,6 +44,10 @@ def main(argv: list[str] | None = None) -> None:
     )  # fmt: skip
     written |= questions.write(conn, args.out) | sources.write(conn, args.out, meta)
     print(f"wrote {len(cards)} card pages, " + ", ".join(f"{v} pages in {k}/" for k, v in written.items()))
+    similar = speeches.neighbours()
+    n_speeches = speeches.write_pages(args.out, speeches.load(conn), {c["id"] for c in cards}, clusters, similar)
+    print(f"wrote {n_speeches} speech pages in reden/" + (f", {len(similar)} with similar speeches" if similar else ""))
+    search.write_index(args.out)  # last: indexes everything written above
 
 
 def write_photos(conn, cards: list[dict], out: Path) -> None:

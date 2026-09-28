@@ -27,6 +27,7 @@ TOKEN = {"CDU/CSU": "cdu", "SPD": "spd", "AfD": "afd", "BÜNDNIS 90/DIE GRÜNEN"
 NAV = (
     ("cards", "index.html", "Abgeordnete"),
     ("votes", "abstimmungen/index.html", "Abstimmungen"),
+    ("cohesion", "abstimmungen/geschlossenheit.html", "Geschlossenheit"),
     ("sittings", "sitzungen/index.html", "Sitzungen"),
 )
 FOOTER = (

@@ -8,7 +8,7 @@ import json
 import shutil
 from pathlib import Path
 
-from cards import pages
+from cards import cohesion, pages
 from cards.data import index_row
 
 HERE = Path(__file__).parent
@@ -95,5 +95,7 @@ def write_site(
     for name in ASSETS:
         shutil.copyfile(HERE / name, out / name)
     if sittings:
-        return pages.write_pages(out, decisions or [], members or {}, sittings, meta, clusters)
+        written = pages.write_pages(out, decisions or [], members or {}, sittings, meta, clusters)
+        written["abstimmungen"] += cohesion.write_page(out, decisions or [], members or {})
+        return written
     return {}

@@ -26,6 +26,10 @@ h1 { font-size: 26px; font-weight: 600; letter-spacing: -.02em; margin: 8px 0 6p
 .count { color: var(--muted); font-size: 12.5px; margin: 4px 0 8px; }
 .people .row { grid-template-columns: 1fr auto; align-items: center; }
 .people .row a.name { font-weight: 500; color: var(--text); }
+.people .row .t { display: flex; align-items: center; gap: 10px; }
+.av { width: 28px; height: 37px; border-radius: 5px; object-fit: cover; object-position: 50% 20%; background: var(--bg); flex: none; }
+.people .av { display: grid; place-items: center; font-size: 10.5px; font-weight: 600; color: var(--faint); border: 1px solid var(--line); }
+.tip-av { float: left; width: 38px; height: 50px; margin: 1px 9px 2px 0; }
 .people .row a.name:hover { color: var(--accent); }
 .people .row .tags { display: flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end; }
 .tag.gov { color: #7a6512; background: #f6f0d6; }
@@ -203,7 +207,9 @@ function personRow(c) {
     c.first_term && '<span class="tag">erstmals</span>',
     c.left && `<span class="tag warn">ausgeschieden ${shortDate(c.left)}</span>`,
   ].filter(Boolean).join('');
-  return `<div class="row"><div class="t"><a class="name" href="${esc(c.id)}.html">${esc(c.name)}</a><div class="sub"><span class="dot" style="background:${c.kind === 'speaker' ? css('--reg') : color(c.fraction || 'fraktionslos')};width:7px;height:7px;margin-right:6px"></span>${c.kind === 'member' ? esc(c.fraction || 'fraktionslos') + ' · ' : ''}${where}</div></div><div class="tags">${tags}</div></div>`;
+  const initials = c.name.replace(/^(Dr\.|Prof\.|\s)+/g, '').split(' ').map(w => w[0]).filter(Boolean);
+  const av = c.photo ? `<img class="av" src="fotos/${encodeURIComponent(c.id)}.jpg" alt="" loading="lazy">` : `<span class="av">${esc(initials[0] + initials.at(-1))}</span>`;
+  return `<div class="row"><div class="t">${av}<div><a class="name" href="${esc(c.id)}.html">${esc(c.name)}</a><div class="sub"><span class="dot" style="background:${c.kind === 'speaker' ? css('--reg') : color(c.fraction || 'fraktionslos')};width:7px;height:7px;margin-right:6px"></span>${c.kind === 'member' ? esc(c.fraction || 'fraktionslos') + ' · ' : ''}${where}</div></div></div><div class="tags">${tags}</div></div>`;
 }
 const byName = (a, b) => a.last.localeCompare(b.last, 'de') || a.name.localeCompare(b.name, 'de');
 
@@ -234,7 +240,7 @@ function renderPlenum() {
         const c = s.row;
         const where = c.type === 'Direktwahl' ? `Wahlkreis ${c.number} ${esc(c.constituency)}` : c.state ? `Landesliste ${STATES[c.state] || c.state}` : '';
         const office = s.gov ? s.office : c.gov || c.office;
-        return `<b>${esc(s.name)}</b><div class="sub">${[s.fraction && esc(s.fraction), where].filter(Boolean).join(' · ')}</div>${office ? `<div>${esc(office)}</div>` : ''}${state.redner && SPOKE.has(s.id) ? `<div class="sub">sprach am ${shortDate(LAST.date)}</div>` : ''}${s.gov && !s.card && !BY_ID.has(s.id) ? '<div class="sub">noch keine Karte</div>' : ''}`;
+        return `${c.photo ? `<img class="av tip-av" src="fotos/${encodeURIComponent(s.id)}.jpg" alt="">` : ''}<b>${esc(s.name)}</b><div class="sub">${[s.fraction && esc(s.fraction), where].filter(Boolean).join(' · ')}</div>${office ? `<div>${esc(office)}</div>` : ''}${state.redner && SPOKE.has(s.id) ? `<div class="sub">sprach am ${shortDate(LAST.date)}</div>` : ''}${s.gov && !s.card && !BY_ID.has(s.id) ? '<div class="sub">noch keine Karte</div>' : ''}`;
       },
       label: s => [s.name, s.fraction, s.gov ? s.office : null].filter(Boolean).join(', '),
       tapHint: 'Nochmals tippen öffnet die Karte',

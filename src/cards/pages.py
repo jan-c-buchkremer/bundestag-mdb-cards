@@ -223,7 +223,8 @@ def vote_page(d: dict, members: list[list] | None) -> str:
                 '<h2>Im Plenum <span class="n">nach Fraktion</span></h2>'
                 '<div class="chart"><div id="chart"></div><div class="legend" id="legend"></div>'
                 '<p class="note">Abstimmung per Handzeichen: Das Protokoll hält nur fest, wie die Fraktionen '
-                "gestimmt haben, nicht wer. Jede Fraktion ist deshalb ganz in ihrer Farbe gezeichnet, so groß wie "
+                "gestimmt haben, nicht wer. Von links: AfD, CDU/CSU, Grüne, SPD, Die Linke, fraktionslos. "
+                "Jede Fraktion ist deshalb ganz in der Farbe ihrer Position gezeichnet, so groß wie "
                 "sie an diesem Tag war (nach der Abstimmungsliste der nächsten namentlichen Abstimmung); einzelne "
                 "Abweichungen sieht man nicht.</p></div>"
             )

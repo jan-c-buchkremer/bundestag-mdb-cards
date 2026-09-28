@@ -18,6 +18,14 @@
       .map(([k, label, c]) => `<span><i style="background:${color(k)}"></i>${esc(label)}${c != null ? ` <b>${n(c)}</b>` : ''}</span>`).join('');
   }
 
+  // vote pages have no Regierungsbank or Bundesrat: drop that furniture and crop the chart to the seats
+  function plenumOnly(chart) {
+    const [furniture, seatsG] = chart.svg.children;
+    furniture.remove();
+    const b = seatsG.getBBox(), pad = 3;
+    chart.svg.setAttribute('viewBox', [b.x - pad, b.y - pad, b.width + 2 * pad, b.height + 2 * pad].map(v => +v.toFixed(2)).join(' '));
+  }
+
   function rollCall() {
     const tally = {};
     for (const [, , f, v] of PAGE.members) {
@@ -41,6 +49,7 @@
       government: [], bundesrat: 0, title: 'Stimmen im Plenum',
       tapHint: 'Nochmals tippen öffnet die Karte',
     });
+    plenumOnly(chart);
     const count = k => seats.filter(s => s.vote === k).length;
     legend($('legend'), [['yes', 'Ja', count('yes')], ['no', 'Nein', count('no')], ['abstain', 'Enthaltung', count('abstain')], ['absent', 'nicht abgegeben', count('absent')], ['invalid', 'ungültig', count('invalid')]]);
     const dev = $('dev');
@@ -54,12 +63,13 @@
     const seats = [];
     for (const [f, k] of Object.entries(PAGE.house)) for (let i = 0; i < k; i++) seats.push({ id: `${f}#${i}`, fraction: f, name: f, sort: String(i).padStart(3, '0') });
     const pos = s => PAGE.positions[s.fraction] || 'unknown';
-    renderParliament($('chart'), seats, {
+    const chart = renderParliament($('chart'), seats, {
       colorOf: s => color(pos(s)),
       tooltip: s => `<b>${esc(s.fraction)}</b><br><span class="sub">${esc(POSITION[pos(s)] || 'im Protokoll nicht genannt')}</span>`,
       label: s => `${s.fraction}: ${POSITION[pos(s)] || 'nicht genannt'}`,
       government: [], bundesrat: 0, title: 'Positionen der Fraktionen',
     });
+    plenumOnly(chart);
     const by = {};
     for (const [f, p] of Object.entries(PAGE.positions)) (by[p] = by[p] || []).push(short(f));
     const missing = Object.keys(PAGE.house).filter(f => !PAGE.positions[f]).map(short);

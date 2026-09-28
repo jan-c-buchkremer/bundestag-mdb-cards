@@ -82,6 +82,7 @@ def write_site(
     decisions: list[dict] | None = None,
     members: dict[str, list[list]] | None = None,
     sittings: list[dict] | None = None,
+    clusters: dict[str, dict] | None = None,
 ) -> dict[str, int]:
     """Write the site; returns the number of vote and sitting pages (empty without the foundation's decisions)."""
     meta = {**meta, "built": dt.date.today().isoformat()}
@@ -94,5 +95,5 @@ def write_site(
     for name in ASSETS:
         shutil.copyfile(HERE / name, out / name)
     if sittings:
-        return pages.write_pages(out, decisions or [], members or {}, sittings, meta)
+        return pages.write_pages(out, decisions or [], members or {}, sittings, meta, clusters)
     return {}

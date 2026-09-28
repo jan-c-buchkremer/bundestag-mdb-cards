@@ -991,3 +991,23 @@ def sittings(conn: sqlite3.Connection, decided: list[dict] | None = None) -> lis
             }
         )  # fmt: skip
     return out
+
+
+def speech_clusters(path: str | os.PathLike | None = None) -> dict[str, dict]:
+    """The Themenlandschaft's topic cluster per speech: {speech id: {"week", "cluster_id", "label"}}, from the JSON
+    the landscape build writes (`speech_clusters.json`, path in LANDSCAPE_CLUSTERS). Empty when it is not set or
+    not there: the sitting pages then leave out "Worum ging es"."""
+    path = path or os.environ.get("LANDSCAPE_CLUSTERS")
+    if not path or not Path(path).is_file():
+        return {}
+    try:
+        raw = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as err:
+        print(f"{path}: not readable ({err}), sitting pages without topics")
+        return {}
+    if not isinstance(raw, dict):
+        return {}
+    return {
+        str(sid): c for sid, c in raw.items()
+        if isinstance(c, dict) and c.get("week") and c.get("cluster_id") is not None and c.get("label")
+    }  # fmt: skip

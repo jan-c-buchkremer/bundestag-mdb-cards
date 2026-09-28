@@ -20,10 +20,15 @@ _PROCEDURAL = re.compile(
     r"Beschlussempfehlung|Bericht des|Antrag der|zu dem Antrag|zu der|\(Schluss)",
 )
 _GESETZ = re.compile(r"^.*?Entwurfs eines (\w+ )?Gesetzes ")
+# where the next sub-item of a combined agenda item starts: "b) …", "25 b) …", "ZP 3 …", "2 Erste Beratung …"
+_SUB_ITEM = re.compile(r"^((\d+\s*)?[b-z]\)|ZP\s*\d+|\d+\s)")
 
 
 def short_title(title: str | None, top_id: str) -> str:
-    """A label-sized title: the first non-procedural segment, or the law's name."""
+    """A label-sized title: the first non-procedural segment of the first sub-item, or the law's name.
+
+    Only the first sub-item counts: in "a) Entwurf eines Gesetzes … | b) Beratung des Antrags … | <Antrag title>"
+    the item is about the law, not the motion debated with it."""
     if not title:
         if top_id.startswith("Einzelplan"):
             num = top_id.removeprefix("Einzelplan").strip().lstrip("0")
@@ -32,7 +37,9 @@ def short_title(title: str | None, top_id: str) -> str:
     segments = [s.strip() for s in title.split("|") if not s.strip().startswith("(Schluss")]
     if not segments:
         return top_id
-    for s in segments:
+    first = next((i for i, s in enumerate(segments) if i and _SUB_ITEM.match(s) and _PROCEDURAL.match(s)),
+                 len(segments))  # fmt: skip
+    for s in segments[:first]:
         if not _PROCEDURAL.match(s):
             return s
     s = _GESETZ.sub("", segments[0])

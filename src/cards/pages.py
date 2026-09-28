@@ -373,7 +373,15 @@ def vote_row(d: dict) -> str:
 # ---------------------------------------------------------------- sittings
 
 
-def sitting_page(s: dict) -> str:
+SHOWN = 10  # speeches of an agenda item shown before "alle N Reden zeigen"
+FACES = 24  # avatars of the hidden speakers under the fade (the row is clipped to the width)
+TOPICS = 5  # clusters under "Worum ging es"
+# without JavaScript the long speech lists stay open
+NOSCRIPT = ("<noscript><style>.sp-list .sp-rest{display:block!important}.sp-list .sp-shown::after,"
+            ".sp-bar{display:none!important}</style></noscript>")  # fmt: skip
+
+
+def sitting_page(s: dict, clusters: dict[str, dict] | None = None) -> str:
     week = f"{LANDSCAPE}{s['week']}.html"
     n_speeches = sum(len(i["speeches"]) for i in s["items"])
     n_dec = sum(len(i["decisions"]) for i in s["items"])
@@ -399,15 +407,17 @@ def sitting_page(s: dict) -> str:
 </section>
 <h2>Tagesordnung</h2>
 <nav class="toc">{toc}</nav>"""  # noqa: E501
-    items = "".join(agenda_item(i, s) for i in s["items"])
+    items = "".join(agenda_item(i, s, clusters or {}) for i in s["items"])
     body = f"{head}{items}<footer>{FOOTER}</footer>"
     desc = f"{s['number']}. Sitzung des 21. Deutschen Bundestages am {long_date(s['date'])}: Tagesordnung, Reden und Beschlüsse."  # noqa: E501
     title = f"{s['number']}. Sitzung, {short_date(s['date'])}"
     data = {"kind": "sitting", "id": s["id"]}
-    return shell(root="../", kind="p-sitting", active="sittings", title=title, desc=desc, body=body, data=data)
+    head = NOSCRIPT if any(len(i["speeches"]) > SHOWN for i in s["items"]) else ""
+    return shell(root="../", kind="p-sitting", active="sittings", title=title, desc=desc, body=body, data=data,
+                 head=head)  # fmt: skip
 
 
-def agenda_item(i: dict, s: dict) -> str:
+def agenda_item(i: dict, s: dict, clusters: dict[str, dict] | None = None) -> str:
     parts = [f'<section class="top" id="top-{i["position"]}"><h3><span class="lbl">{e(i["label"])}</span> '
              f'{e(i["title"])}</h3>']  # fmt: skip
     if len(i["segments"]) > 1 or (i["segments"] and i["segments"][0] != i["title"]):
@@ -427,24 +437,86 @@ def agenda_item(i: dict, s: dict) -> str:
         parts.append('<div class="ref"><span class="badge ref">überwiesen</span> '
                      + (f"Drucksache{'n' if len(drs) > 1 else ''} {', '.join(e(x) for x in drs)} an die Ausschüsse"
                         if drs else "an die Ausschüsse") + "</div>")  # fmt: skip
+    parts.append(topics_block(i, clusters or {}))
     if i["speeches"]:
-        rows = "".join(speech_row(sp, s) for sp in i["speeches"])
-        parts.append(f'<div class="speeches"><div class="k">Reden <span class="n">{len(i["speeches"])}</span></div>'
-                     f"{rows}</div>")  # fmt: skip
+        parts.append(speeches_block(i, s))
     parts.append("</section>")
     return "".join(parts)
 
 
-def speech_row(sp: dict, s: dict) -> str:
+def topics(i: dict, clusters: dict[str, dict]) -> list[dict]:
+    """The Themenlandschaft clusters of an agenda item's speeches, the most speeches first."""
+    count: Counter = Counter()
+    label: dict[tuple, str] = {}
+    for sp in i["speeches"]:
+        c = clusters.get(sp["id"])
+        if c:
+            key = (c["week"], c["cluster_id"])
+            count[key] += 1
+            label.setdefault(key, c["label"])
+    ranked = sorted(count.items(), key=lambda kv: (-kv[1], label[kv[0]]))
+    return [{"week": w, "cluster_id": cid, "label": label[(w, cid)], "n": k} for (w, cid), k in ranked]
+
+
+def topics_block(i: dict, clusters: dict[str, dict]) -> str:
+    """ "Worum ging es": the item's top clusters in the Themenlandschaft; nothing without the landscape's data."""
+    found = topics(i, clusters)
+    if not found:
+        return ""
+    total = len(i["speeches"])
+    links = "".join(
+        f'<a class="topic" href="{LANDSCAPE}{e(t["week"])}.html#cluster={e(t["cluster_id"])}" '
+        f'title="{t["n"]} von {total} Reden zu diesem Punkt in diesem Thema der Themenlandschaft">'
+        f'{e(t["label"])} <span class="n">{t["n"]}</span></a>'
+        for t in found[:TOPICS]
+    )
+    more = len(found) - TOPICS
+    rest = f'<span class="faint">und {more} weitere</span>' if more > 0 else ""
+    return (f'<div class="topics"><div class="k">Worum ging es <span class="n">aus der Themenlandschaft'
+            "</span></div>"
+            f'<div class="chips">{links}{rest}</div></div>')  # fmt: skip
+
+
+def speeches_block(i: dict, s: dict) -> str:
+    """The item's speeches; beyond SHOWN the list fades out over the faces of the rest and a button opens it
+    (pages.js). All rows are in the HTML, so every card link stays in the file."""
+    sps = i["speeches"]
+    head = f'<div class="k">Reden <span class="n">{len(sps)}</span></div>'
+    if len(sps) <= SHOWN:
+        return f'<div class="speeches">{head}{"".join(speech_row(sp, s) for sp in sps)}</div>'
+    rest = sps[SHOWN:]
+    people = list({sp["person"]: sp for sp in rest}.values())
+    faces = "".join(
+        f'<span class="av" style="--c:var(--{TOKEN.get(sp["fraction"] or "", "reg")})" title="{e(sp["name"])}">'
+        f"{avatar(sp)}</span>"
+        for sp in people[:FACES]
+    )
+    rid = f"rest-{i['position']}"
+    return (
+        f'<div class="speeches sp-list" data-n="{len(sps)}">{head}'
+        f'<div class="sp-shown">{"".join(speech_row(sp, s) for sp in sps[:SHOWN])}</div>'
+        f'<div class="sp-rest" id="{rid}">{"".join(speech_row(sp, s) for sp in rest)}</div>'
+        f'<div class="sp-bar"><span class="sp-faces" aria-hidden="true">{faces}</span>'
+        f'<button type="button" class="sp-more" aria-expanded="false" aria-controls="{rid}">alle {len(sps)} Reden '
+        "zeigen</button></div></div>"
+    )
+
+
+def avatar(sp: dict) -> str:
+    """Initials, covered by the portrait when there is one."""
     initials = "".join(w[0] for w in sp["name"].split()[-2:] if w)
     photo = (f'<img src="../fotos/{e(sp["person"])}.jpg" alt="" loading="lazy" onerror="this.remove()">'
              if sp["photo"] else "")  # fmt: skip
+    return f"{e(initials)}{photo}"
+
+
+def speech_row(sp: dict, s: dict) -> str:
     who = e(sp["role"]) if sp["role"] else e(sp["fraction"] or "")
     land = (f'<a class="go" href="{LANDSCAPE}{e(s["week"])}.html#open={e(sp["id"])}" '
             'title="Diese Rede in der Themenlandschaft">Themenlandschaft ↗</a>' if sp["on_map"] else "")  # fmt: skip
     return (
         f'<div class="sp"><span class="av" style="--c:var(--{TOKEN.get(sp["fraction"] or "", "reg")})">'
-        f"{e(initials)}{photo}</span>"
+        f"{avatar(sp)}</span>"
         f'<span class="who"><a href="../{e(sp["person"])}.html">{e(sp["name"])}</a> '
         f'<span class="sub">{who} · {n(sp["words"])} Wörter</span></span>{land}</div>'
     )
@@ -478,7 +550,7 @@ def sittings_index(sittings: list[dict]) -> str:
 
 
 def write_pages(out: Path, decisions: list[dict], members: dict[str, list[list]], sittings: list[dict],
-                meta: dict) -> dict[str, int]:  # fmt: skip
+                meta: dict, clusters: dict[str, dict] | None = None) -> dict[str, int]:  # fmt: skip
     """Write abstimmungen/ and sitzungen/; returns the number of pages written per folder."""
     votes_dir, sit_dir = out / "abstimmungen", out / "sitzungen"
     votes_dir.mkdir(parents=True, exist_ok=True)
@@ -487,6 +559,6 @@ def write_pages(out: Path, decisions: list[dict], members: dict[str, list[list]]
         (votes_dir / f"{d['page']}.html").write_text(vote_page(d, members.get(d["id"])), encoding="utf-8")
     (votes_dir / "index.html").write_text(votes_index(decisions, meta), encoding="utf-8")
     for s in sittings:
-        (sit_dir / f"{s['page']}.html").write_text(sitting_page(s), encoding="utf-8")
+        (sit_dir / f"{s['page']}.html").write_text(sitting_page(s, clusters), encoding="utf-8")
     (sit_dir / "index.html").write_text(sittings_index(sittings), encoding="utf-8")
     return {"abstimmungen": len(decisions) + 1, "sitzungen": len(sittings) + 1}

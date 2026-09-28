@@ -1,0 +1,7 @@
+{
+  "ID1": {"week": "2026-W28", "cluster_id": 7, "label": "Mieten & Wohnungsbau"},
+  "ID2": {"week": "2026-W28", "cluster_id": 7, "label": "Mieten & Wohnungsbau"},
+  "ID3": {"week": "2026-W28", "cluster_id": 12, "label": "Eigentum"},
+  "ID10": {"week": "2026-W28", "cluster_id": 3, "label": "Justiz"},
+  "ID404": {"week": "2026-W28", "cluster_id": 9, "label": "not in the store"}
+}

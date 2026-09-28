@@ -143,6 +143,13 @@ function facts() {
     const topics = topSubjects(C.authored);
     if (topics.length) li.push(`Häufigste Sachgebiete der eigenen Drucksachen: <a href="#drucksachen">${topics.map(esc).join(', ')}</a>.<span class="hint">Sachgebiete vergibt der Bundestag selbst (DIP).</span>`);
   }
+  if (member && C.aw && C.aw.questions) {
+    const hint = `<span class="hint">Alle Fragen seit Beginn des Profils, nicht nur in dieser Wahlperiode; Stand ${shortDate(C.aw.retrieved)}.</span>`;
+    // abgeordnetenwatch leaves the answered count empty on some profiles (119 of 630): no number is better than a guessed 0
+    li.push(C.aw.answered == null
+      ? `Hat auf <a href="${esc(C.aw.url)}">abgeordnetenwatch.de</a> <b>${plural(C.aw.questions, 'Bürgerfrage', 'Bürgerfragen')}</b> erhalten; wie viele beantwortet sind, gibt die Plattform nicht an.${hint}`
+      : `Hat auf <a href="${esc(C.aw.url)}">abgeordnetenwatch.de</a> <b>${n(C.aw.answered)} von ${plural(C.aw.questions, 'Bürgerfrage', 'Bürgerfragen')}</b> beantwortet.${hint}`);
+  }
   if (member && C.votes.length) {
     const hint = `<span class="hint">${META.votes} namentliche Abstimmungen seit ${longDate(META.sittings.from)}. Die meisten Beschlüsse fallen per Handzeichen und werden nur je Fraktion festgehalten.</span>`;
     if (C.fraction === 'fraktionslos' || !withLine.length) li.push(`Hat bei <a href="#abstimmungen"><b>${plural(votesCast.length, 'namentlichen Abstimmung', 'namentlichen Abstimmungen')}</b> eine Stimme abgegeben</a>; als fraktionsloses Mitglied ohne Fraktionslinie.${hint}`);
@@ -316,7 +323,7 @@ function renderSources(el) {
       ${member && hasDip ? `<li>DIP, Dokumentations- und Informationssystem für Parlamentsmaterialien: Drucksachen, Urheber und Sachgebiete (${META.dip.n} Drucksachen vom ${shortDate(META.dip.from)} bis ${shortDate(META.dip.to)}). © Deutscher Bundestag/Bundesrat – DIP</li>` : ''}
       ${member && META.election.length ? `<li>Bundestagswahl 2025: ${META.election.map(s => `<a href="${esc(s.url)}">${esc(s.doc)}</a>`).join(', ')}. © Die Bundeswahlleiterin, Wiesbaden 2025, <a href="https://www.govdata.de/dl-de/by-2-0">dl-de/by-2-0</a></li>` : ''}
       ${C.wikidata ? `<li>Wikidata: <a href="https://www.wikidata.org/wiki/${esc(C.wikidata)}">${esc(C.wikidata)}</a> (CC0 1.0)</li>` : ''}
-      ${C.aw_id ? `<li>abgeordnetenwatch.de: <a href="https://www.abgeordnetenwatch.de/api/v2/politicians/${esc(C.aw_id)}">Datensatz ${esc(C.aw_id)}</a> (CC0 1.0)</li>` : ''}
+      ${C.aw ? `<li>abgeordnetenwatch.de: <a href="${esc(C.aw.url)}">Profil</a> mit Bürgerfragen und Antworten (Stand ${shortDate(C.aw.retrieved)}, CC0 1.0)</li>` : C.aw_id ? `<li>abgeordnetenwatch.de: <a href="https://www.abgeordnetenwatch.de/api/v2/politicians/${esc(C.aw_id)}">Datensatz ${esc(C.aw_id)}</a> (CC0 1.0)</li>` : ''}
       <li>Alle Angaben dieser Seite als <a href="${esc(C.id)}.json">JSON</a>.</li>
     </ul>
     <p class="explain">Die Daten werden mit <a href="https://github.com/jan-c-buchkremer/bundestag-data-foundation">bundestag-data-foundation</a> aus den Originalquellen gesammelt und täglich aktualisiert. Diese Seite wurde am ${shortDate(META.built)} erzeugt. Etwas stimmt nicht? <a href="${issue}">Fehler melden</a>.</p>`;

@@ -300,6 +300,23 @@ def election_sources(conn: sqlite3.Connection) -> list[dict]:
     ]
 
 
+# ---------------------------------------------------------------- abgeordnetenwatch
+
+
+def aw_profiles(conn: sqlite3.Connection) -> dict[str, dict]:
+    """Per person: public profile and citizen questions (lifetime totals of the profile, not per Wahlperiode).
+    Empty when the store has no aw_profile table yet."""
+    if not has_table(conn, "aw_profile"):
+        return {}
+    return {
+        r["person_id"]: {
+            "url": r["url"], "questions": r["questions"], "answered": r["questions_answered"],
+            "retrieved": r["retrieved_at"],
+        }
+        for r in conn.execute("SELECT * FROM aw_profile WHERE person_id IS NOT NULL")
+    }  # fmt: skip
+
+
 # ---------------------------------------------------------------- persons
 
 
@@ -315,6 +332,7 @@ def cards(conn: sqlite3.Connection) -> tuple[list[dict], dict]:
     by_person = speeches(conn)
     docs = drucksachen(conn)
     elected = elections(conn)
+    aw = aw_profiles(conn)
     vote_rows, n_votes = votes(conn)
     mandates: dict[str, list[sqlite3.Row]] = defaultdict(list)
     for r in conn.execute("SELECT * FROM mandate ORDER BY wahlperiode"):
@@ -376,7 +394,7 @@ def cards(conn: sqlite3.Connection) -> tuple[list[dict], dict]:
                      "number": m["constituency_number"], "constituency": m["constituency_name"], "state": m["state"]}
                     for m in mandates[pid]
                 ],
-                "aw_id": p["aw_politician_id"], "wikidata": p["wikidata_qid"],
+                "aw_id": p["aw_politician_id"], "wikidata": p["wikidata_qid"], "aw": aw.get(pid),
             }
         )  # fmt: skip
     return out, meta(conn, n_votes)

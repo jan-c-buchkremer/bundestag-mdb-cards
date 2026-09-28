@@ -201,4 +201,9 @@ def conn():
             ("btw25/3", None, "Unbekannt", "Uwe", 1960, "AfD", "list", None, None, "BB", 1, None, *elected),
         ],
     )
+    aw = "https://www.abgeordnetenwatch.de"
+    c.execute(
+        "INSERT INTO aw_profile VALUES (79001, '1', ?, 107, 95, ?, 'aw politician 79001', '2026-09-28T03:00:00+00:00')",
+        (f"{aw}/profile/anna-adler", f"{aw}/api/v2/politicians/79001"),
+    )
     return c

@@ -136,3 +136,14 @@ def test_store_without_election_tables(conn):
     cards, meta = by_id(conn)
     assert cards["1"]["election"] is None and meta["election"] == []
     assert data.constituencies(conn) == []
+
+
+def test_aw_profile(conn):
+    cards, _ = by_id(conn)
+    assert cards["1"]["aw"] == {
+        "url": "https://www.abgeordnetenwatch.de/profile/anna-adler", "questions": 107, "answered": 95,
+        "retrieved": "2026-09-28T03:00:00+00:00",
+    }  # fmt: skip
+    assert cards["2"]["aw"] is None
+    conn.execute("DROP TABLE aw_profile")
+    assert by_id(conn)[0]["1"]["aw"] is None

@@ -198,3 +198,12 @@ CREATE TABLE election_candidacy (
     source_url TEXT NOT NULL, source_document_id TEXT NOT NULL, retrieved_at TEXT NOT NULL
 );
 
+CREATE TABLE aw_profile (
+    aw_politician_id INTEGER PRIMARY KEY,
+    person_id TEXT REFERENCES person(id),
+    url TEXT NOT NULL,                  -- the public profile page
+    questions INTEGER,                  -- citizen questions on the profile, all periods (statistic_questions)
+    questions_answered INTEGER,
+    source_url TEXT NOT NULL, source_document_id TEXT NOT NULL, retrieved_at TEXT NOT NULL
+);
+

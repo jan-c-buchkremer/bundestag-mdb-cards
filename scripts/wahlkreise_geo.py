@@ -31,8 +31,7 @@ import shapely
 from shapely.geometry import MultiPolygon, Polygon, shape
 
 URL = (
-    "https://www.bundeswahlleiterin.de/dam/jcr/aa735279-6f34-4222-b7e0-2d5192ee29c3/"
-    "btw25_geometrie_wahlkreise_shp.zip"
+    "https://www.bundeswahlleiterin.de/dam/jcr/aa735279-6f34-4222-b7e0-2d5192ee29c3/btw25_geometrie_wahlkreise_shp.zip"
 )
 PAGE = "https://www.bundeswahlleiterin.de/bundestagswahlen/2025/wahlkreiseinteilung/downloads.html"
 LICENCE = "Datenlizenz Deutschland – Namensnennung – Version 2.0 (dl-de/by-2-0)"

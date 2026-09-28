@@ -147,3 +147,23 @@ def test_aw_profile(conn):
     assert cards["2"]["aw"] is None
     conn.execute("DROP TABLE aw_profile")
     assert by_id(conn)[0]["1"]["aw"] is None
+
+
+def test_plenum_reactions_and_own_zurufe(conn):
+    cards, _ = by_id(conn)
+    berg = cards["2"]["plenum"]
+    assert berg["received"] == {
+        "CDU/CSU": {"beifall": 1, "beifall_members": 0, "zurufe": 0, "lachen": 0, "widerspruch": 0},  # not his own
+        "SPD": {"beifall": 0, "beifall_members": 1, "zurufe": 0, "lachen": 0, "widerspruch": 0},
+        "Die Linke": {"beifall": 0, "beifall_members": 0, "zurufe": 1, "lachen": 0, "widerspruch": 0},
+        "AfD": {"beifall": 0, "beifall_members": 0, "zurufe": 1, "lachen": 1, "widerspruch": 0},
+    }
+    assert berg["house"] == 1 and berg["made"] == []
+    (cohn,) = cards["3"]["plenum"]["made"]
+    assert (cohn["text"], cohn["speaker"], cohn["speaker_name"], cohn["title"]) == (
+        "Falsch!", "2", "Dr. Bernd Berg", "Mietpreisbremse",
+    )  # fmt: skip
+    (adler,) = cards["1"]["plenum"]["made"]
+    assert (adler["kind"], adler["to"], adler["to_name"]) == ("gegenruf", "3", "Clara Cohn")
+    conn.execute("DROP TABLE interjection")
+    assert by_id(conn)[0]["1"]["plenum"] is None

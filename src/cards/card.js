@@ -191,6 +191,7 @@ const TABS = [
     ['ausschuesse', 'Ausschüsse & Funktionen', () => C.committees.length + C.offices.length, renderMemberships],
     ['laufbahn', 'Laufbahn', () => C.career.length, renderCareer],
   ] : []),
+  ...(C.plenum ? [['plenum', 'Im Plenum', () => C.plenum.made.length, renderPlenum]] : []),
   ['quellen', 'Quellen', () => '', renderSources],
 ];
 
@@ -296,6 +297,32 @@ function renderDocuments(el) {
     ${writtenQuestions.length ? `<h2 id="drucksachen-fragen">Schriftliche Fragen <span class="n">${n(writtenQuestions.length)}</span></h2><p class="explain">Schriftliche Fragen erscheinen gesammelt in einer Drucksache je Woche; der Link führt zu dieser Sammlung.</p>${list(writtenQuestions.slice().sort(byDateDesc).map(row), '')}` : ''}
     ${C.reported.length ? `<h2 id="drucksachen-berichte">Berichterstattung <span class="n">${n(C.reported.length)}</span></h2><p class="explain">Als Berichterstatterin oder Berichterstatter eines Ausschusses auf einer Beschlussempfehlung genannt. Das ist eine Aufgabe im Ausschuss, keine Urheberschaft.</p>${list(C.reported.slice().sort(byDateDesc).map(row), '')}` : ''}`;
   el.querySelector('input')?.addEventListener('change', e => { el.dataset.only = e.target.checked ? '1' : ''; renderDocuments(el); });
+}
+
+// "21/94" -> the sitting's PDF, as the foundation builds sitting.pdf_url
+const protocolPdf = s => { const [wp, nr] = s.split('/'); return `https://dserver.bundestag.de/btp/${wp}/${wp}${nr.padStart(3, '0')}.pdf`; };
+const FRACTION_ORDER = ['CDU/CSU', 'AfD', 'SPD', 'BÜNDNIS 90/DIE GRÜNEN', 'Die Linke', 'fraktionslos'];
+const SHORT = { 'BÜNDNIS 90/DIE GRÜNEN': 'Grüne', 'Die Linke': 'Linke' };
+
+function renderPlenum(el) {
+  const R = C.plenum.received;
+  const fr = FRACTION_ORDER.filter(f => R[f]).concat(Object.keys(R).filter(f => !FRACTION_ORDER.includes(f)));
+  const cell = x => `<td class="num">${x ? n(x) : '<span class="faint">–</span>'}</td>`;
+  const table = fr.length ? `<div class="rows" style="overflow-x:auto"><table class="plenum">
+    <thead><tr><th>Fraktion</th><th>Beifall der Fraktion</th><th>Beifall einzelner Abg.</th><th>Zurufe</th><th>Lachen, Heiterkeit</th><th>Widerspruch</th></tr></thead>
+    <tbody>${fr.map(f => `<tr${f === C.fraction ? ' class="own"' : ''}><td><span class="dot" style="background:${fractionColor(f)};width:7px;height:7px;margin-right:6px"></span>${esc(SHORT[f] || f)}${f === C.fraction ? ' <span class="faint">(eigene)</span>' : ''}</td>${cell(R[f].beifall)}${cell(R[f].beifall_members)}${cell(R[f].zurufe)}${cell(R[f].lachen)}${cell(R[f].widerspruch)}</tr>`).join('')}</tbody>
+  </table></div>${C.plenum.house ? `<p class="explain" style="margin-top:8px">Dazu ${n(C.plenum.house)}-mal Beifall im ganzen Haus.</p>` : ''}` : '<div class="rows"><div class="empty">Keine Reaktionen im Protokoll.</div></div>';
+  const made = C.plenum.made.slice().sort(byDateDesc).map(z => `
+    <div class="row"><div class="d">${shortDate(z.date)}</div>
+      <div class="t">${z.text ? `„${esc(z.text)}“` : `<span class="muted">${z.kind === 'gegenruf' ? 'Gegenruf' : 'Zuruf'} ohne Wortlaut</span>`}
+        <div class="sub">${z.kind === 'gegenruf' ? 'Gegenruf' : 'Zwischenruf'} ${z.to ? `an <a href="${esc(z.to)}.html">${esc(z.to_name)}</a>` : `in der Rede von <a href="${esc(z.speaker)}.html">${esc(z.speaker_name)}</a>`} · ${esc(z.title)}</div></div>
+      <div class="l"><a href="${protocolPdf(z.sitting)}" title="BT-PlPr. ${esc(z.sitting)}, Rede ${esc(z.id)}">Protokoll</a></div></div>`);
+  el.innerHTML = `
+    <p class="explain">Das Plenarprotokoll hält fest, wer Beifall spendet, dazwischenruft, lacht oder widerspricht. Die Tabelle zählt diese Vermerke während eigener Redebeiträge: „Beifall bei der SPD“ ist Beifall der Fraktion, „Beifall bei Abgeordneten der SPD“ Beifall einzelner. Das Protokoll hält fest, wann Beifall fällt, nicht wem er gilt: Er kann auch einem Zwischenruf oder der Sitzungsleitung gelten. Wie oft etwas vermerkt wird, hängt zudem davon ab, wie lang und wie umstritten eine Debatte war; es ist kein Maß für Zustimmung.</p>
+    <h2 id="plenum-reaktionen">Vermerke während eigener Beiträge</h2>${table}
+    <h2 id="plenum-zurufe">Eigene Zwischenrufe <span class="n">${n(made.length)}</span></h2>
+    <p class="explain">Zurufe, die das Protokoll mit Namen verzeichnet, meist mit Wortlaut.</p>
+    ${list(made, 'Keine namentlich protokollierten Zwischenrufe.')}`;
 }
 
 function renderCareer(el) {

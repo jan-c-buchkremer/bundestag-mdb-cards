@@ -201,6 +201,19 @@ def conn():
             ("btw25/3", None, "Unbekannt", "Uwe", 1960, "AfD", "list", None, None, "BB", 1, None, *elected),
         ],
     )
+    c.executemany(
+        "INSERT INTO interjection VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+        [
+            ("ID1/2/1/1", "ID1", 2, 1, "beifall", "fraction", "CDU/CSU", None, None, None, None, None),
+            ("ID1/2/1/2", "ID1", 2, 1, "beifall", "members", "SPD", None, None, None, None, None),
+            ("ID1/2/1/3", "ID1", 2, 1, "beifall", "person", "CDU/CSU", "2", "Dr. Bernd Berg", None, None, None),  # own
+            ("ID1/3/1/1", "ID1", 3, 1, "zuruf", "person", "Die Linke", "3", "Clara Cohn", "Falsch!", None, None),
+            ("ID1/3/2/1", "ID1", 3, 2, "lachen", "fraction", "AfD", None, None, None, None, None),
+            ("ID1/3/3/1", "ID1", 3, 3, "beifall", "house", None, None, None, None, None, None),
+            ("ID1-5/2/1/1", "ID1-5", 2, 1, "zuruf", "fraction", "AfD", None, None, "Unsinn!", None, None),
+            ("ID2/1/1/1", "ID2", 1, 1, "gegenruf", "person", "SPD", "1", "Anna Adler", "Doch!", "3", "Clara Cohn"),
+        ],
+    )
     aw = "https://www.abgeordnetenwatch.de"
     c.execute(
         "INSERT INTO aw_profile VALUES (79001, '1', ?, 107, 95, ?, 'aw politician 79001', '2026-09-28T03:00:00+00:00')",

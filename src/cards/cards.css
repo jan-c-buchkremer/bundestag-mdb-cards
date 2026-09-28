@@ -92,6 +92,12 @@ nav.tabs a .n { color: var(--faint); font-weight: 400; margin-left: 4px; font-si
 .memb .row { grid-template-columns: 1fr auto; }
 .memb .row.ended { color: var(--muted); }
 
+table.plenum { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.plenum th { text-align: right; font-weight: 500; color: var(--muted); font-size: 12px; padding: 9px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+table.plenum th:first-child, table.plenum td:first-child { text-align: left; white-space: nowrap; }
+table.plenum td { text-align: right; padding: 8px 12px; border-top: 1px solid var(--line); }
+table.plenum tbody tr:first-child td { border-top: 0; }
+table.plenum tr.own td { background: var(--bg); }
 .sources li { margin-bottom: 8px; }
 .sources { padding-left: 18px; font-size: 13.5px; }
 

@@ -54,7 +54,7 @@ def write_site(cards: list[dict], meta: dict, out: Path, constituencies: list[di
     out.mkdir(parents=True, exist_ok=True)
     for c in cards:
         (out / f"{c['id']}.html").write_text(render_card(c, meta), encoding="utf-8")
-        (out / f"{c['id']}.json").write_text(json.dumps(c, ensure_ascii=False, indent=1), encoding="utf-8")
+        (out / f"{c['id']}.json").write_text(json.dumps(c, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     (out / "index.html").write_text(render_index(cards, meta, constituencies or []), encoding="utf-8")
     for name in ASSETS:
         shutil.copyfile(HERE / name, out / name)

@@ -7,7 +7,7 @@ import time
 from collections import Counter
 from pathlib import Path
 
-from cards import build, data, photos, questions, search, sources, speeches
+from cards import build, data, debate, photos, questions, search, sources, speeches
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -43,6 +43,7 @@ def main(argv: list[str] | None = None) -> None:
         decided, data.roll_call_members(conn), data.sittings(conn, decided), clusters,
     )  # fmt: skip
     written |= questions.write(conn, args.out) | sources.write(conn, args.out, meta)
+    written |= debate.write(conn, args.out)
     print(f"wrote {len(cards)} card pages, " + ", ".join(f"{v} pages in {k}/" for k, v in written.items()))
     similar = speeches.neighbours()
     n_speeches = speeches.write_pages(args.out, speeches.load(conn), {c["id"] for c in cards}, clusters, similar)

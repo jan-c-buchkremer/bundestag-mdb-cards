@@ -124,10 +124,10 @@ def conn():
     )
     c.executemany(
         "INSERT INTO roll_call_vote VALUES (?,'21/88',?,'2026-07-08',?,NULL,NULL,NULL,?,?,?,0,?,'https://x/1.xlsx',"
-        "'https://x/1.pdf','https://x/1.xlsx',?,'2026-09-27')",
+        "'https://x/1.pdf','https://x/1.xlsx',?,'2026-09-27',?)",
         [
-            ("21/88/1", 1, "Mietpreisbremse", 4, 3, 1, 0, "NA 21/88/1"),
-            ("21/88/2", 2, "Haushalt", 2, 2, 0, 1, "NA 21/88/2"),
+            ("21/88/1", 1, "Mietpreisbremse", 4, 3, 1, 0, "NA 21/88/1", "21/88/2"),
+            ("21/88/2", 2, "Haushalt", 2, 2, 0, 1, "NA 21/88/2", None),
         ],
     )
     c.executemany(
@@ -221,7 +221,7 @@ def conn():
     )
     wd = ("https://query.wikidata.org/sparql", "Wikidata P39 2026-09-28", "2026-09-28")
     c.executemany(
-        "INSERT INTO government_role VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+        "INSERT INTO government_role VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'wikidata')",
         [
             ("g1", "9", "Q1", "Stefanie Hubig", "Bundesministerin der Justiz", "BMJV", "minister", "2025-05-06",
              None, *wd),
@@ -235,8 +235,8 @@ def conn():
         ],
     )  # fmt: skip
     c.execute(
-        "INSERT INTO person_photo VALUES ('1', 'https://x/adler.jpg', 'Foto: Jemand', 'https://x/adler', 'https://x/bio',"
-        " 'bundestag.de Biografien', '2026-09-28')"
+        "INSERT INTO person_photo VALUES ('1', 'https://x/adler.jpg', 'Foto: Jemand', 'https://x/adler',"
+        " 'bundestag/fotos/1.jpg', 'https://x/bio', 'bundestag.de Biografien', '2026-09-28')"
     )
     return c
 

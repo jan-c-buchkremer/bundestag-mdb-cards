@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 import json
 import os
 import re
@@ -490,9 +491,78 @@ def dip_complete(conn: sqlite3.Connection) -> bool:
     return bool(sat) and sat <= dip
 
 
-def index_row(c: dict) -> dict:
-    """What the index page needs to list, search and filter one card."""
+# ---------------------------------------------------------------- government, seating chart, last sitting
+
+# government_role.kind (foundation, from Wikidata) in order of rank; beamtete Staatssekretäre are civil servants,
+# not members of the government, and have no seat on the Regierungsbank
+GOVERNMENT_KINDS = ("kanzler", "minister", "staatsminister", "parl_sts")
+_LEAD = (  # fraction leadership in the seating chart's front row, most senior first
+    re.compile(r"^Vorsitzender?$"),
+    re.compile(r"^Erster? Parlamentarische"),
+    re.compile(r"^(Erster? )?Stellv.*Vorsitzender?\b(?!.*Geschäftsführer)"),
+    re.compile(r"Parlamentarischer? Geschäftsführer"),
+)
+
+
+def lead_rank(roles: list[str]) -> int | None:
+    """Rank of the most senior fraction leadership role (0 = Vorsitz), None for none."""
+    ranks = [i for role in roles for i, rx in enumerate(_LEAD) if rx.search(role or "")]
+    return min(ranks) if ranks else None
+
+
+def government(conn: sqlite3.Connection) -> list[dict]:
+    """Current members of the government (Kanzler, Minister, Staatsminister, Parlamentarische Staatssekretäre),
+    one entry per person with the highest-ranking office, in order of rank. Empty when the store has no
+    government_role table yet (foundation before the Wikidata source)."""
+    if not has_table(conn, "government_role"):
+        return []
+    rows = conn.execute(
+        """SELECT g.person_id, g.wikidata_qid, g.name, g.office, g.department, g.kind, g.from_date, p.party
+           FROM government_role g LEFT JOIN person p ON p.id = g.person_id
+           WHERE g.to_date IS NULL OR g.to_date >= date('now')"""
+    ).fetchall()
+    best: dict[str, sqlite3.Row] = {}
+    rank = {k: i for i, k in enumerate(GOVERNMENT_KINDS)}
+    for r in rows:
+        if r["kind"] not in rank:
+            continue
+        pid = r["person_id"] or f"Q{(r['wikidata_qid'] or '').lstrip('Q')}"  # the foundation's id for non-MdBs
+        key = (rank[r["kind"]], r["from_date"] or "")
+        if pid not in best or key < (rank[best[pid]["kind"]], best[pid]["from_date"] or ""):
+            best[pid] = r
+    out = [
+        {
+            "id": pid, "name": r["name"], "office": r["office"], "department": r["department"], "kind": r["kind"],
+            "fraction": PARTY_TO_FRACTION.get(r["party"], r["party"]) if r["party"] else None,
+        }
+        for pid, r in best.items()
+    ]  # fmt: skip
+    return sorted(out, key=lambda g: (rank[g["kind"]], g["department"] or "", g["name"]))
+
+
+def last_sitting(conn: sqlite3.Connection) -> dict | None:
+    """The latest sitting in the store, its ISO week (the Themenlandschaft's page) and everyone who held a
+    speech in it: the owners of each rede, not those who only put a Zwischenfrage."""
+    r = conn.execute(
+        "SELECT id, date FROM sitting WHERE wahlperiode = ? ORDER BY date DESC, number DESC LIMIT 1", (WP,)
+    ).fetchone()
+    if r is None:
+        return None
+    speakers = {
+        s["person_id"]
+        for s in conn.execute(
+            "SELECT id, person_id FROM speech WHERE sitting_id = ? AND person_id IS NOT NULL", (r["id"],)
+        )
+        if not re.search(r"-\d+$", s["id"])
+    }
+    y, w, _ = dt.date.fromisoformat(r["date"]).isocalendar()
+    return {"id": r["id"], "date": r["date"], "week": f"{y}-W{w:02d}", "speakers": sorted(speakers)}
+
+
+def index_row(c: dict, government: dict[str, dict] | None = None) -> dict:
+    """What the index page needs to list, search and filter one card, and to seat it in the Plenum view."""
     m = c["mandate"] or {}
+    gov = (government or {}).get(c["id"])
     return {
         "id": c["id"], "name": c["name"], "last": c["last_name"], "kind": c["kind"], "fraction": c["fraction"],
         "role": c["role"], "state": m.get("state"), "type": m.get("type"), "number": m.get("number"),
@@ -501,4 +571,6 @@ def index_row(c: dict) -> dict:
         "office": next((o["role"] for o in c["offices"] if o["to"] is None), None),
         "committees": sorted({x["short"] for x in c["committees"] if x["to"] is None}),
         "reden": len(c["reden"]),
+        "lead": lead_rank([r["role"] for r in c["fraction_roles"] if r["to"] is None]),
+        "gov": gov["office"] if gov else None,
     }  # fmt: skip

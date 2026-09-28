@@ -219,4 +219,30 @@ def conn():
         "INSERT INTO aw_profile VALUES (79001, '1', ?, 107, 95, ?, 'aw politician 79001', '2026-09-28T03:00:00+00:00')",
         (f"{aw}/profile/anna-adler", f"{aw}/api/v2/politicians/79001"),
     )
+    wd = ("https://query.wikidata.org/sparql", "Wikidata P39 2026-09-28", "2026-09-28")
+    c.executemany(
+        "INSERT INTO government_role VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+        [
+            ("g1", "9", "Q1", "Stefanie Hubig", "Bundesministerin der Justiz", "BMJV", "minister", "2025-05-06",
+             None, *wd),
+            ("g2", "2", "Q2", "Bernd Berg", "Parlamentarischer Staatssekretär", "BMI", "parl_sts", "2025-05-06",
+             None, *wd),
+            ("g3", "1", "Q3", "Anna Adler", "Parlamentarische Staatssekretärin", "BMG", "parl_sts", "2025-05-06",
+             "2025-12-31", *wd),  # left office
+            ("g4", None, "Q77", "Rita Roster", "Staatsministerin", "Kanzleramt", "staatsminister", "2025-05-06",
+             None, *wd),  # no person row matched
+            ("g5", None, "Q78", "Bea Beamtin", "Staatssekretärin", "BMF", "beamteter_sts", "2025-05-06", None, *wd),
+        ],
+    )  # fmt: skip
+    c.execute(
+        "INSERT INTO person_photo VALUES ('1', 'https://x/adler.jpg', 'Foto: Jemand', 'https://x/adler', 'https://x/bio',"
+        " 'bundestag.de Biografien', '2026-09-28')"
+    )
     return c
+
+
+@pytest.fixture
+def conn_without_round2(conn):
+    """A store from before the government roster and photos."""
+    conn.executescript("DROP TABLE government_role; DROP TABLE person_photo;")
+    return conn

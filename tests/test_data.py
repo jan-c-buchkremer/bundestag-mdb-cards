@@ -167,3 +167,40 @@ def test_plenum_reactions_and_own_zurufe(conn):
     assert (adler["kind"], adler["to"], adler["to_name"]) == ("gegenruf", "3", "Clara Cohn")
     conn.execute("DROP TABLE interjection")
     assert by_id(conn)[0]["1"]["plenum"] is None
+
+
+def test_government_current_offices_by_rank(conn):
+    gov = data.government(conn)
+    assert [(g["id"], g["kind"]) for g in gov] == [("9", "minister"), ("Q77", "staatsminister"), ("2", "parl_sts")]
+    assert gov[2]["fraction"] == "CDU/CSU"  # from the person's party
+    assert gov[1]["fraction"] is None
+
+
+def test_government_without_table(conn_without_round2):
+    assert data.government(conn_without_round2) == []
+    cards, _ = data.cards(conn_without_round2)  # the rest of the build does not depend on the new tables
+    assert cards
+
+
+def test_last_sitting_speakers_and_week(conn):
+    last = data.last_sitting(conn)
+    assert last["id"] == "21/88" and last["week"] == "2026-W28"
+    assert last["speakers"] == ["1", "2", "3", "9"]  # Cohn for her own rede ID3, not for the Zwischenfrage
+
+
+def test_lead_rank():
+    assert data.lead_rank(["Vorsitzende"]) == 0
+    assert data.lead_rank(["Erste Parlamentarische Geschäftsführerin"]) == 1
+    assert data.lead_rank(["Erster Stellvertr. Vorsitzender und Vorsitzender der CSU-Landesgruppe"]) == 2
+    assert data.lead_rank(["Stellvertretender Erster Parlamentarischer Geschäftsführer"]) == 3
+    assert data.lead_rank(["Vorstandsmitglied", "Justiziar"]) is None
+    assert data.lead_rank([]) is None
+
+
+def test_index_row_seat_fields(conn):
+    cards, _ = by_id(conn)
+    gov = {g["id"]: g for g in data.government(conn)}
+    berg = data.index_row(cards["2"], gov)
+    assert berg["lead"] == 3 and berg["gov"] == "Parlamentarischer Staatssekretär"
+    assert data.index_row(cards["1"], gov)["gov"] is None  # office ended
+    assert data.index_row(cards["1"])["lead"] is None

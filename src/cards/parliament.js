@@ -58,7 +58,7 @@
 .pm .pm-seat:focus { outline: none; }
 .pm .pm-empty { fill: var(--pm-empty); }
 .pm .pm-furniture { fill: var(--pm-empty); }
-.pm .pm-label { font: 500 3.4px Inter, system-ui, sans-serif; fill: var(--faint, #a1a1aa); letter-spacing: .02em; text-anchor: middle; }
+.pm .pm-label { font: 500 4.2px Inter, system-ui, sans-serif; fill: var(--faint, #a1a1aa); letter-spacing: .02em; text-anchor: middle; }
 .pm-tip { position: absolute; z-index: 20; pointer-events: none; max-width: min(280px, 90%); background: var(--card, #fff); color: var(--text, #1f2328);
   border: 1px solid var(--line, #e7e7e3); border-radius: 9px; padding: 6px 10px; font-size: 12.5px; line-height: 1.4;
   box-shadow: 0 4px 14px rgba(0,0,0,.12); white-space: normal; }

@@ -7,7 +7,7 @@ import time
 from collections import Counter
 from pathlib import Path
 
-from cards import build, data, photos
+from cards import build, data, photos, questions, sources
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -42,6 +42,7 @@ def main(argv: list[str] | None = None) -> None:
         cards, meta, args.out, wks, gov, data.last_sitting(conn),
         decided, data.roll_call_members(conn), data.sittings(conn, decided), clusters,
     )  # fmt: skip
+    written |= questions.write(conn, args.out) | sources.write(conn, args.out, meta)
     print(f"wrote {len(cards)} card pages, " + ", ".join(f"{v} pages in {k}/" for k, v in written.items()))
 
 

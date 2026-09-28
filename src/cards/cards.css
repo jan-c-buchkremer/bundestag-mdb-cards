@@ -17,8 +17,10 @@ header { height: 52px; display: flex; align-items: center; gap: 16px; padding: 0
 header .home { font-size: 15px; font-weight: 600; color: inherit; letter-spacing: -.01em; white-space: nowrap; }
 header .home span { color: var(--faint); font-weight: 500; margin-left: 4px; }
 header .home:hover { text-decoration: none; }
-nav.site { flex: 1; display: flex; justify-content: flex-end; gap: 2px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+nav.site { flex: 1; display: flex; justify-content: flex-start; gap: 2px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
 nav.site::-webkit-scrollbar { display: none; }
+/* right-aligned while it fits; when it overflows, the first link stays reachable (flex-end would cut it off) */
+nav.site a:first-child { margin-left: auto; }
 nav.site a { flex: none; color: var(--muted); font-size: 13.5px; font-weight: 500; padding: 6px 10px; border-radius: 8px; white-space: nowrap; }
 nav.site a:hover { background: var(--bg); color: var(--text); text-decoration: none; }
 nav.site a.on { color: var(--text); background: var(--bg); }

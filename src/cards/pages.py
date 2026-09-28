@@ -31,6 +31,7 @@ NAV = (
     ("sittings", "sitzungen/index.html", "Sitzungen"),
     ("questions", "regierung/index.html", "Fragen"),
     ("data", "daten.html", "Daten"),
+    ("search", "suche.html", "Suche"),
 )
 FOOTER = (
     "Daten: Deutscher Bundestag (Plenarprotokolle, namentliche Abstimmungen), Deutscher Bundestag/Bundesrat – DIP, "
@@ -99,6 +100,12 @@ def shell(*, root: str, kind: str, active: str, title: str, desc: str, body: str
 
 
 # ---------------------------------------------------------------- building blocks
+
+
+def search_marks(kind: str, date: str | None, **filters: str | None) -> str:
+    """Hidden Pagefind filters for a page (search.py): its kind, its month and whatever else is given."""
+    marks = {"Art": kind, "Monat": f"{MONTHS[int(date[5:7]) - 1]} {date[:4]}" if date else None, **filters}
+    return "".join(f'<span hidden data-pagefind-filter="{k}">{e(v)}</span>' for k, v in marks.items() if v)
 
 
 def badge(result: str | None) -> str:
@@ -250,8 +257,9 @@ def vote_page(d: dict, members: list[list] | None) -> str:
     desc = (f"{'Namentliche Abstimmung' if rc else 'Abstimmung per Handzeichen'} im Bundestag am "
             f"{long_date(d['date'])}: {d['title']} – {d['result'] or 'ohne Ergebnis'}.")  # fmt: skip
     head = '<script src="../parliament.js"></script>' if "members" in data or "house" in data else ""
+    body = f"<div data-pagefind-body>{search_marks('Abstimmung', d['date'])}{chr(10).join(parts[:-1])}</div>{parts[-1]}"
     return shell(root="../", kind="p-vote", active="votes", title=d["title"][:90], desc=desc, head=head,
-                 body="\n".join(parts), data=data)  # fmt: skip
+                 body=body, data=data)  # fmt: skip
 
 
 def fraction_table_rc(d: dict, members: list[list]) -> str:
@@ -411,7 +419,7 @@ def sitting_page(s: dict, clusters: dict[str, dict] | None = None) -> str:
 <h2>Tagesordnung</h2>
 <nav class="toc">{toc}</nav>"""  # noqa: E501
     items = "".join(agenda_item(i, s, clusters or {}) for i in s["items"])
-    body = f"{head}{items}<footer>{FOOTER}</footer>"
+    body = f"<div data-pagefind-body>{search_marks('Sitzung', s['date'])}{head}{items}</div><footer>{FOOTER}</footer>"
     desc = f"{s['number']}. Sitzung des 21. Deutschen Bundestages am {long_date(s['date'])}: Tagesordnung, Reden und Beschlüsse."  # noqa: E501
     title = f"{s['number']}. Sitzung, {short_date(s['date'])}"
     data = {"kind": "sitting", "id": s["id"]}
@@ -515,13 +523,14 @@ def avatar(sp: dict) -> str:
 
 def speech_row(sp: dict, s: dict) -> str:
     who = e(sp["role"]) if sp["role"] else e(sp["fraction"] or "")
-    land = (f'<a class="go" href="{LANDSCAPE}{e(s["week"])}.html#open={e(sp["id"])}" '
+    land = (f' · <a href="{LANDSCAPE}{e(s["week"])}.html#open={e(sp["id"])}" '
             'title="Diese Rede in der Themenlandschaft">Themenlandschaft ↗</a>' if sp["on_map"] else "")  # fmt: skip
+    links = f'<span class="go"><a href="../reden/{e(sp["id"])}.html" title="Der Text dieser Rede">Text</a>{land}</span>'
     return (
         f'<div class="sp"><span class="av" style="--c:var(--{TOKEN.get(sp["fraction"] or "", "reg")})">'
         f"{avatar(sp)}</span>"
         f'<span class="who"><a href="../{e(sp["person"])}.html">{e(sp["name"])}</a> '
-        f'<span class="sub">{who} · {n(sp["words"])} Wörter</span></span>{land}</div>'
+        f'<span class="sub">{who} · {n(sp["words"])} Wörter</span></span>{links}</div>'
     )
 
 

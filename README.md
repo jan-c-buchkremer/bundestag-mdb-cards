@@ -22,6 +22,17 @@ Without `BDF_DB` the store is looked for at `../bundestag-data-foundation/data/b
 "label"}}`, written by the landscape build); with it each agenda item on the sitting pages gets a "Worum ging es" block
 with its speeches' topic clusters. Without it the block is left out.
 
+Every rede has its own page in `reden/<speech id>.html`: the full text as the protocol prints it, with Beifall, Zurufe
+and the chair's words inline, the Zwischenfragen in their place, and links to the card, the agenda item on the sitting
+page and the protocol PDF. `LANDSCAPE_NEIGHBOURS` points to a JSON `{"<speech id>": ["<speech id>", …]}` of similar
+speeches (most similar first); with it each speech page lists up to five "Ähnliche Reden", without it the list is left
+out. The last build step is the full-text search: [Pagefind](https://pagefind.app) (the Python package brings its
+binary) indexes speeches, cards, vote and sitting pages into `pagefind/`, and `suche.html` is the search page.
+
+```sh
+uv run python scripts/check_links.py data/out --anchors   # every internal href/src in the built HTML resolves
+```
+
 The index opens on **Plenum**, a seating chart of the house (`parliament.js`, shared with the vote pages) that the
 search and chips filter, with a toggle for everyone who spoke in the latest sitting and a link to that week in the
 Themenlandschaft. **Abgeordnete** is the searchable list, **Wahlkreise** the list of all 299 Wahlkreise next to a map.

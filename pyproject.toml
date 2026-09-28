@@ -5,6 +5,7 @@ description = "One info card per member of the 21st Bundestag, every fact linked
 requires-python = ">=3.12"
 license = "MIT"
 dependencies = [
+    "pagefind[extended]>=1.5.2",
     "pillow>=12.3.0",
 ]
 

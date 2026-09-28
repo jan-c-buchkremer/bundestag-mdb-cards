@@ -231,7 +231,7 @@ def page(decisions: list[dict], members: dict[str, list[list]]) -> str:
 <footer>{FOOTER}</footer>{FILTER}"""  # noqa: E501
     desc = (f"Wie geschlossen die Fraktionen des 21. Deutschen Bundestages in {len(votes)} namentlichen Abstimmungen "
             "gestimmt haben, und jede Abweichung von der Fraktionslinie, mit Quelle.")  # fmt: skip
-    return shell(root="../", kind="p-cohesion", active="cohesion", title="Geschlossenheit der Fraktionen", desc=desc,
+    return shell(root="../", kind="p-cohesion", active="votes", title="Geschlossenheit der Fraktionen", desc=desc,
                  head=STYLE, body=body, data={"kind": "cohesion"})  # fmt: skip
 
 

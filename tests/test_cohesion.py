@@ -42,8 +42,8 @@ def test_page(conn, tmp_path):
     assert 'href="../6.html"' in rows and 'href="21-88-1.html"' in rows
     assert "statt Ja" in rows
     assert 'href="21-88-2.html"' in page  # the split vote is a hollow point in the SPD timeline
-    assert 'href="../abstimmungen/geschlossenheit.html"' in (tmp_path / "sitzungen" / "21-88.html").read_text()
-    assert 'href="abstimmungen/geschlossenheit.html"' in (tmp_path / "index.html").read_text()
+    # linked from the votes overview, not from the site nav
+    assert 'href="geschlossenheit.html"' in (tmp_path / "abstimmungen" / "index.html").read_text()
 
 
 def test_no_page_without_lists(tmp_path):

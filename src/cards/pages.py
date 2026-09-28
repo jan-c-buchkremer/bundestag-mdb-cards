@@ -27,7 +27,6 @@ TOKEN = {"CDU/CSU": "cdu", "SPD": "spd", "AfD": "afd", "BÜNDNIS 90/DIE GRÜNEN"
 NAV = (
     ("cards", "index.html", "Abgeordnete"),
     ("votes", "abstimmungen/index.html", "Abstimmungen"),
-    ("cohesion", "abstimmungen/geschlossenheit.html", "Geschlossenheit"),
     ("sittings", "sitzungen/index.html", "Sitzungen"),
     ("questions", "regierung/index.html", "Fragen"),
     ("debate", "debatte/index.html", "Debattenkultur"),
@@ -354,7 +353,7 @@ def votes_index(decisions: list[dict], meta: dict) -> str:
                    f'<div class="rows">{rows}</div></section>')  # fmt: skip
     first_date = min((d["date"] for d in decisions), default=meta["sittings"]["from"])
     body = f"""<h1>Abstimmungen</h1>
-<p class="lead">{n(len(decisions))} Beschlüsse seit {e(long_date(first_date))}: {n(kinds["namentlich"])} namentliche Abstimmungen mit der Stimme jedes Mitglieds, {n(kinds["handzeichen"])} Abstimmungen per Handzeichen, bei denen das Protokoll nur festhält, wie die Fraktionen gestimmt haben. {n(results["angenommen"])} angenommen, {n(results["abgelehnt"])} abgelehnt. Überweisungen an Ausschüsse, Wahlen und Fragen der Tagesordnung sind keine Beschlüsse in der Sache und fehlen hier.</p>
+<p class="lead">{n(len(decisions))} Beschlüsse seit {e(long_date(first_date))}: {n(kinds["namentlich"])} namentliche Abstimmungen mit der Stimme jedes Mitglieds, {n(kinds["handzeichen"])} Abstimmungen per Handzeichen, bei denen das Protokoll nur festhält, wie die Fraktionen gestimmt haben. {n(results["angenommen"])} angenommen, {n(results["abgelehnt"])} abgelehnt. Überweisungen an Ausschüsse, Wahlen und Fragen der Tagesordnung sind keine Beschlüsse in der Sache und fehlen hier. Wie geschlossen die Fraktionen in den namentlichen Abstimmungen gestimmt haben und wer wann abgewichen ist, zeigt die Seite <a href="geschlossenheit.html">Geschlossenheit der Fraktionen</a>.</p>
 <div class="filters">
   <input type="search" id="q" placeholder="Titel, Drucksache oder Tagesordnungspunkt …" autocomplete="off">
   <select id="kind"><option value="">namentlich und per Handzeichen</option><option value="namentlich">nur namentlich</option><option value="handzeichen">nur per Handzeichen</option></select>

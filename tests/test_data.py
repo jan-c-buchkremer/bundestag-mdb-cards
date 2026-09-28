@@ -263,7 +263,7 @@ def test_government_roles_with_source_kind(conn):
              "https://x/21088.xml", "BT-PlPr. 21/88", "2026-09-28", "protocol"),
             # an office only the protocols know: dated by the evidence
             ("p2", "3", None, "Clara Cohn", "Parlamentarische Staatssekretärin", "BMAS", "parl_sts", "2026-07-08",
-             None, "https://x/21088.xml", "BT-PlPr. 21/88", "2026-09-28", "protocol"),
+             "2026-07-08", "https://x/21088.xml", "BT-PlPr. 21/88", "2026-09-28", "protocol"),
         ],
     )  # fmt: skip
     roles = data.government_roles(conn)
@@ -272,6 +272,9 @@ def test_government_roles_with_source_kind(conn):
     assert [s["kind"] for s in hubig["sources"]] == ["wikidata", "wikidata", "protocol"]
     (cohn,) = roles["3"]
     assert (cohn["from"], cohn["evidence"], cohn["sources"][0]["doc"]) == ("2026-07-08", True, "BT-PlPr. 21/88")
+    # the last evidence date is not the end of the office: still on the Regierungsbank
+    assert data.in_office(cohn, "2030-01-01")
+    assert "3" in {g["id"] for g in data.government(conn)}
 
 
 def test_government_cards_without_roster(conn_without_round2):

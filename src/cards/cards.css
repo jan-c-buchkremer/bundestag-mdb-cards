@@ -48,6 +48,12 @@ footer a { color: var(--muted); }
 .context b { font-weight: 600; }
 .context .note { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
 .context.left { background: var(--bg); }
+.govbox .k { display: block; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+.govbox .office + .office { margin-top: 6px; }
+.govbox .office.ended { color: var(--muted); }
+.govbox .dep { color: var(--muted); }
+.govbox .when { color: var(--muted); font-size: 12.5px; }
+.govbox .note { margin-top: 8px; }
 .committees { margin-top: 14px; font-size: 13.5px; }
 .committees .k { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); margin-right: 8px; }
 .facts { list-style: none; margin: 18px 0 0; padding: 16px 0 0; border-top: 1px solid var(--line); }

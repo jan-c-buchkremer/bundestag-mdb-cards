@@ -38,7 +38,11 @@ const C = CARD;
 const member = C.kind === 'member';
 const current = xs => xs.filter(x => !x.to);
 const offices = current(C.offices);
-const govOffice = offices.find(o => GOVERNMENT.test(o.role));
+const today = new Date().toISOString().slice(0, 10);
+// offices in the federal government (foundation government_role: Wikidata, Stammdaten, protocol evidence)
+const ended = o => !o.evidence && o.to && o.to < today;  // protocol evidence has no end date, only a last sighting
+const govNow = C.government.filter(o => !ended(o));
+const govOffice = govNow.length ? { role: govNow[0].office } : offices.find(o => GOVERNMENT.test(o.role));
 const presidium = offices.find(o => PRESIDIUM.test(o.role));
 const votesCast = C.votes.filter(v => v.vote in { yes: 1, no: 1, abstain: 1 });
 const withLine = votesCast.filter(v => v.line);
@@ -94,7 +98,9 @@ function contextBox() {
   if (member && !C.in_stammdaten) {
     parts.push(`<div class="context left"><b>Neu im Bundestag.</b><div class="note">Die Stammdaten des Bundestages (${esc(META.stammdaten.doc)}) führen dieses Mandat noch nicht; Wahlkreis, Ausschüsse und Lebensdaten fehlen deshalb vorerst. Die Mitgliedschaft ergibt sich aus den Abstimmungslisten.</div></div>`);
   }
-  if (govOffice) {
+  if (C.government.length) {
+    parts.push(officeBlock());
+  } else if (govOffice) {
     parts.push(`<div class="context"><b>${esc(govOffice.role)}</b> · ${esc(govOffice.name)} ${period(govOffice.from)}<div class="note">Wer ein Amt in der Bundesregierung hat, spricht im Plenum meist für die Regierung und stellt keine Anfragen an sie. Die Zahlen unten sind vor diesem Hintergrund zu lesen.</div></div>`);
   } else if (presidium) {
     parts.push(`<div class="context"><b>${esc(presidium.role)}</b> ${period(presidium.from)}<div class="note">Das Präsidium leitet die Plenarsitzungen. Sitzungsleitung zählt nicht als Rede.</div></div>`);
@@ -107,6 +113,24 @@ function contextBox() {
   const fr = current(C.fraction_roles);
   if (fr.length) parts.push(`<div class="committees"><span class="k">Fraktion</span>${fr.map(r => `${esc(r.role)} der Fraktion ${esc(r.name)}`).join(' · ')}</div>`);
   return parts.join('');
+}
+
+const SOURCE = { wikidata: 'Wikidata', stammdaten: 'Stammdaten', protocol: 'Plenarprotokoll' };
+function officeWhen(o) {
+  const kinds = [...new Map(o.sources.map(x => [x.kind, x])).values()];
+  const links = kinds.map(x => x.url ? `<a href="${esc(x.url)}" title="${esc(x.doc)}">${SOURCE[x.kind] || esc(x.kind)}</a>` : SOURCE[x.kind] || esc(x.kind));
+  // protocol rows only show that the office was held on the days someone spoke in it, not the term
+  if (o.evidence) return `belegt ab ${shortDate(o.from)} (${links.join(', ')})`;
+  return `${period(o.from, o.to)} · laut ${links.join(', ')}`;
+}
+
+function officeBlock() {
+  const rows = C.government.map(o => `<div class="office${ended(o) ? ' ended' : ''}"><b>${esc(o.office)}</b>${o.department && !o.office.includes(o.department) ? ` <span class="dep">· ${esc(o.department)}</span>` : ''}<div class="when">${officeWhen(o)}</div></div>`);
+  const civil = C.government.every(o => o.kind === 'beamteter_sts');
+  const note = civil ? 'Beamtete Staatssekretärinnen und Staatssekretäre leiten ein Ministerium mit, gehören aber nicht der Bundesregierung an und sitzen nicht auf der Regierungsbank.'
+    : member ? 'Wer ein Amt in der Bundesregierung hat, spricht im Plenum meist für die Regierung und stellt keine Anfragen an sie. Die Zahlen unten sind vor diesem Hintergrund zu lesen.'
+    : 'Mitglied der Bundesregierung ohne Bundestagsmandat: Regierungsmitglieder dürfen im Bundestag jederzeit sprechen.';
+  return `<div class="context govbox"><span class="k">${civil ? 'Bundesverwaltung' : govNow.length ? 'Bundesregierung' : 'Früher in der Bundesregierung'}</span>${rows.join('')}<div class="note">${note}${member ? '' : ' Ohne Mandat gibt es keine Abstimmungen, Ausschüsse oder Drucksachen.'}</div></div>`;
 }
 
 function committeeLine() {
@@ -183,15 +207,17 @@ function renderCard() {
 }
 
 // ---------------------------------------------------------------- layer 2: tabs
+const heard = C.reden.length + C.kurz.length + C.fragen.length + C.befragung.length;
 const TABS = [
-  ['reden', 'Reden', () => C.reden.length, renderReden],
+  // a card without a mandate shows only the sections that have data (a beamteter Staatssekretär may never speak)
+  ...(member || heard ? [['reden', 'Reden', () => C.reden.length, renderReden]] : []),
   ...(member ? [
     ['abstimmungen', 'Abstimmungen', () => C.votes.length, renderVotes],
     ['drucksachen', 'Drucksachen', () => C.authored.length, renderDocuments],
     ['ausschuesse', 'Ausschüsse & Funktionen', () => C.committees.length + C.offices.length, renderMemberships],
     ['laufbahn', 'Laufbahn', () => C.career.length, renderCareer],
   ] : []),
-  ...(C.plenum ? [['plenum', 'Im Plenum', () => C.plenum.made.length, renderPlenum]] : []),
+  ...(C.plenum && (member || C.plenum.made.length || Object.keys(C.plenum.received).length) ? [['plenum', 'Im Plenum', () => C.plenum.made.length, renderPlenum]] : []),
   ['quellen', 'Quellen', () => '', renderSources],
 ];
 
@@ -376,6 +402,7 @@ function renderSources(el) {
       ${member ? `<li>Listen der namentlichen Abstimmungen (XLSX und PDF), je Abstimmung verlinkt. © Deutscher Bundestag</li>` : ''}
       ${member && hasDip ? `<li>DIP, Dokumentations- und Informationssystem für Parlamentsmaterialien: Drucksachen, Urheber und Sachgebiete (${META.dip.n} Drucksachen vom ${shortDate(META.dip.from)} bis ${shortDate(META.dip.to)}). © Deutscher Bundestag/Bundesrat – DIP</li>` : ''}
       ${member && META.election.length ? `<li>Bundestagswahl 2025: ${META.election.map(s => `<a href="${esc(s.url)}">${esc(s.doc)}</a>`).join(', ')}. © Die Bundeswahlleiterin, Wiesbaden 2025, <a href="https://www.govdata.de/dl-de/by-2-0">dl-de/by-2-0</a></li>` : ''}
+      ${C.government.length ? `<li>Ämter in der Bundesregierung: ${[...new Set(C.government.flatMap(o => o.sources.map(x => x.kind)))].map(k => k === 'wikidata' ? 'Wikidata („Position inne“, CC0 1.0)' : k === 'stammdaten' ? 'Stammdaten des Bundestages' : 'Plenarprotokolle, in denen die Person in diesem Amt spricht').join('; ')}. Jede Angabe oben ist mit ihrer Quelle verlinkt.</li>` : ''}
       ${C.wikidata ? `<li>Wikidata: <a href="https://www.wikidata.org/wiki/${esc(C.wikidata)}">${esc(C.wikidata)}</a> (CC0 1.0)</li>` : ''}
       ${C.aw ? `<li>abgeordnetenwatch.de: <a href="${esc(C.aw.url)}">Profil</a> mit Bürgerfragen und Antworten (Stand ${shortDate(C.aw.retrieved)}, CC0 1.0)</li>` : C.aw_id ? `<li>abgeordnetenwatch.de: <a href="https://www.abgeordnetenwatch.de/api/v2/politicians/${esc(C.aw_id)}">Datensatz ${esc(C.aw_id)}</a> (CC0 1.0)</li>` : ''}
       ${C.photo ? `<li>Foto: ${esc(C.photo.credit || '')}${C.photo.url ? `, <a href="${esc(C.photo.url)}">${/wikimedia/.test(C.photo.url) ? 'Wikimedia Commons' : 'Biografie auf bundestag.de'}</a>` : ''}; verkleinert auf 240 Pixel Breite.</li>` : ''}
@@ -411,4 +438,4 @@ window.addEventListener('hashchange', () => {
 
 renderCard();
 renderTabs();
-document.getElementById('foot').innerHTML = `Daten: Deutscher Bundestag${member && META.election.length ? ', Die Bundeswahlleiterin' : ''}${C.aw_id ? ', abgeordnetenwatch.de (CC0 1.0)' : ''}. Code: <a href="${REPO}">bundestag-mdb-cards</a> (MIT). Keine Rangliste, keine Bewertung: Zahlen stehen immer mit ihrem Zusammenhang.`;
+document.getElementById('foot').innerHTML = `Daten: Deutscher Bundestag${member && META.election.length ? ', Die Bundeswahlleiterin' : ''}${C.aw_id ? ', abgeordnetenwatch.de (CC0 1.0)' : ''}${C.government.length ? ', Wikidata (CC0 1.0)' : ''}. Code: <a href="${REPO}">bundestag-mdb-cards</a> (MIT). Keine Rangliste, keine Bewertung: Zahlen stehen immer mit ihrem Zusammenhang.`;

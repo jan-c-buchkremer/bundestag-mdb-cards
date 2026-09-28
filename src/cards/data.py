@@ -257,6 +257,10 @@ def drucksachen(conn: sqlite3.Connection) -> dict[str, dict[str, list]]:
 ELECTION = "btw25"  # the election that formed WP 21
 
 
+def _has_column(conn: sqlite3.Connection, table: str, column: str) -> bool:
+    return any(r[1] == column for r in conn.execute(f"PRAGMA table_info({table})"))
+
+
 def has_table(conn: sqlite3.Connection, name: str) -> bool:
     return conn.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (name,)).fetchone() is not None
 
@@ -463,8 +467,13 @@ def government_roles(conn: sqlite3.Connection) -> dict[str, list[dict]]:
         )  # fmt: skip
     today = dt.date.today().isoformat()
     for offices in grouped.values():
-        offices.sort(key=lambda o: (o["to"] is None or o["to"] >= today, o["from"] or ""), reverse=True)
+        offices.sort(key=lambda o: (in_office(o, today), o["from"] or ""), reverse=True)
     return dict(grouped)
+
+
+def in_office(o: dict, today: str) -> bool:
+    """Protocol evidence has no end: its last date is only the last time the person spoke in the office."""
+    return o["evidence"] or o["to"] is None or o["to"] >= today
 
 
 def _source_kind(r: sqlite3.Row) -> str:
@@ -621,10 +630,12 @@ def government(conn: sqlite3.Connection) -> list[dict]:
     government_role table yet (foundation before the Wikidata source)."""
     if not has_table(conn, "government_role"):
         return []
+    # protocol rows (foundation `source_kind`) date evidence, not a term: their last date does not end the office
+    evidence = "OR g.source_kind = 'protocol'" if _has_column(conn, "government_role", "source_kind") else ""
     rows = conn.execute(
-        """SELECT g.person_id, g.wikidata_qid, g.name, g.office, g.department, g.kind, g.from_date, p.party, p.gender
+        f"""SELECT g.person_id, g.wikidata_qid, g.name, g.office, g.department, g.kind, g.from_date, p.party, p.gender
            FROM government_role g LEFT JOIN person p ON p.id = g.person_id
-           WHERE g.to_date IS NULL OR g.to_date >= date('now')"""
+           WHERE g.to_date IS NULL OR g.to_date >= date('now') {evidence}"""
     ).fetchall()
     best: dict[str, sqlite3.Row] = {}
     rank = {k: i for i, k in enumerate(GOVERNMENT_KINDS)}

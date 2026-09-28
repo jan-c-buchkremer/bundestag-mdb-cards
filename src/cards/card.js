@@ -13,7 +13,6 @@ const OLD_STATES = { BAY: 'Bayern', BLN: 'Berlin', BLW: 'Berlin (West)', BRA: 'B
 const stateName = s => STATES[s] || OLD_STATES[s] || '';
 const MONTHS = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
 const VOTE = { yes: 'Ja', no: 'Nein', abstain: 'Enthaltung', absent: 'nicht abgestimmt', invalid: 'ungültig' };
-const VOTE_COLORS = { yes: '#4c9a5f', no: '#d0485a', abstain: '#c9a72c', absent: '#d4d4d0' };
 const GOVERNMENT = /Bundeskanzler|Bundesminister|Staatssekretär|Staatsminister/;
 const PRESIDIUM = /präsident/i;
 
@@ -237,9 +236,37 @@ function renderReden(el) {
   input.oninput = () => { el.dataset.q = input.value; renderReden(el); const i = el.querySelector('input'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); };
 }
 
-function split(t) {
-  const total = t.yes + t.no + t.abstain + t.absent;
-  return `<div class="split" title="${['yes', 'no', 'abstain', 'absent'].map(k => `${VOTE[k]}: ${t[k]}`).join(', ')}">${['yes', 'no', 'abstain', 'absent'].map(k => `<i style="width:${100 * t[k] / total}%;background:${VOTE_COLORS[k]}"></i>`).join('')}</div>`;
+// the vote's own page (abstimmungen/, built from the foundation's decision table): "21/90/7" -> 21-90-7.html
+const votePage = id => `abstimmungen/${id.replaceAll('/', '-')}.html`;
+const CAST = ['yes', 'no', 'abstain'];
+
+function outcomeBadge(v) {
+  if (!v.outcome) return '';
+  const how = v.outcome_from === 'count' ? 'aus den Stimmen der Liste gezählt, einfache Mehrheit' : 'wie im Plenarprotokoll verkündet';
+  return `<span class="outcome ${v.outcome}" title="${how}">${v.outcome}</span>`;
+}
+
+// the fraction comparison, small and secondary: the own vote is the headline, the house's result the context
+function fractionMark(v) {
+  const t = v.fraction_tally;
+  const tally = `Fraktion ${v.fraction}: ${t.yes} Ja, ${t.no} Nein, ${t.abstain} Enthaltung, ${t.absent} nicht abgestimmt`;
+  if (v.fraction === 'fraktionslos') return '<span class="mark">fraktionslos</span>';
+  if (!v.line) return `<span class="mark" title="${esc(tally)}">Fraktion uneinig</span>`;
+  if (v.deviates) return `<span class="mark dev" title="${esc(tally)}">abweichend</span>`;
+  if (CAST.includes(v.vote)) return `<span class="mark" title="${esc(tally)}">wie Fraktion</span>`;
+  return `<span class="mark" title="${esc(tally)}">Fraktion: ${VOTE[v.line]}</span>`;
+}
+
+function voteStats() {
+  const count = (xs, f) => xs.filter(f).length;
+  const passed = count(C.votes, v => v.outcome === 'angenommen'), failed = count(C.votes, v => v.outcome === 'abgelehnt');
+  const own = [...CAST, 'absent'].map(k => [k, count(C.votes, v => v.vote === k)]).filter(x => x[1]);
+  const same = count(withLine, v => !v.deviates);
+  return `<div class="vstats">
+    <div><span class="k">Ergebnis im Bundestag</span><b>${n(passed)}</b> angenommen · <b>${n(failed)}</b> abgelehnt</div>
+    <div><span class="k">Eigene Stimme</span>${own.map(([k, x]) => `<b>${n(x)}</b> ${VOTE[k]}`).join(' · ')}</div>
+    ${C.fraction !== 'fraktionslos' && withLine.length ? `<div><span class="k">Mit der eigenen Fraktion</span><b>${n(same)}</b>-mal wie die Mehrheit · <b>${n(deviations.length)}</b>-mal abweichend</div>` : ''}
+  </div>`;
 }
 
 function renderVotes(el) {
@@ -247,16 +274,15 @@ function renderVotes(el) {
   const shown = C.votes.filter(v => !only || v.deviates).slice().sort(byDateDesc);
   const absent = C.votes.filter(v => v.vote === 'absent').length;
   const rows = shown.map(v => {
-    const t = v.fraction_tally;
-    const line = v.line ? `Fraktion ${esc(v.fraction)} mehrheitlich <b>${VOTE[v.line]}</b>` : v.fraction === 'fraktionslos' ? 'fraktionslos' : `Fraktion ${esc(v.fraction)} ohne klare Mehrheit`;
-    return `<div class="row${v.deviates ? ' hi' : ''}"><div class="d">${shortDate(v.date)}</div>
-      <div class="t">${esc(v.title)}${v.drucksache ? ` <span class="tag">Drs. ${esc(v.drucksache)}</span>` : ''}
-        <div class="sub">${line}${v.fraction !== 'fraktionslos' ? ` (${t.yes} Ja, ${t.no} Nein, ${t.abstain} Enth., ${t.absent} nicht abg.)` : ''} · Bundestag: ${v.result.yes} Ja, ${v.result.no} Nein, ${v.result.abstain} Enth.</div>
-        ${v.fraction !== 'fraktionslos' ? split(t) : ''}</div>
-      <div class="l"><span class="vote ${v.vote}">${VOTE[v.vote]}</span><div style="margin-top:6px"><a href="${esc(v.pdf || v.xlsx)}">Liste</a></div></div></div>`;
+    const r = v.result;
+    return `<div class="row vrow${v.deviates ? ' hi' : ''}"><div class="d">${shortDate(v.date)}</div>
+      <div class="t">${outcomeBadge(v)}<a class="vt" href="${votePage(v.id)}">${esc(v.title)}</a>
+        <div class="sub">${r.yes} Ja · ${r.no} Nein · ${r.abstain} Enthaltung${v.drucksache ? ` · Drs. ${esc(v.drucksache)}` : ''} · <a href="${esc(v.pdf || v.xlsx)}">Liste</a></div></div>
+      <div class="l"><span class="vote ${v.vote}">${VOTE[v.vote]}</span><div>${fractionMark(v)}</div></div></div>`;
   });
   el.innerHTML = `
-    <p class="explain">Namentlich abgestimmt wird nur, wenn eine Fraktion oder 5 % der Mitglieder es verlangen: ${META.votes}-mal seit ${longDate(META.sittings.from)}. Jede Zeile zeigt die eigene Stimme neben der Mehrheit der eigenen Fraktion und dem Ergebnis im ganzen Haus.</p>
+    <p class="explain">Namentlich abgestimmt wird nur, wenn eine Fraktion oder 5 % der Mitglieder es verlangen: ${META.votes}-mal seit ${longDate(META.sittings.from)}. Jede Zeile zeigt zuerst das Ergebnis im ganzen Haus, rechts die eigene Stimme und darunter klein, ob sie der Mehrheit der eigenen Fraktion entsprach. Der Titel führt zur Seite der Abstimmung.</p>
+    ${voteStats()}
     ${absent ? `<p class="explain">„Nicht abgestimmt“ (${n(absent)}-mal) sagt nichts über den Grund: Krankheit, Elternzeit, Dienstreisen und Pairing-Absprachen stehen nicht in den Listen.</p>` : ''}
     <div class="tools"><label><input type="checkbox"${only ? ' checked' : ''}> nur Abweichungen von der Fraktionsmehrheit (${n(deviations.length)})</label></div>
     ${list(rows, only ? 'Keine Abweichungen von der Fraktionsmehrheit.' : 'Keine namentlichen Abstimmungen.', 100)}`;

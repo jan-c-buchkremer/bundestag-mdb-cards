@@ -300,6 +300,67 @@ def election_sources(conn: sqlite3.Connection) -> list[dict]:
     ]
 
 
+# ---------------------------------------------------------------- interjections (Im Plenum)
+
+REACTIONS = ("beifall", "zuruf", "gegenruf", "lachen", "heiterkeit", "widerspruch", "zustimmung")
+MAX_TEXT = 300  # a Zuruf is a sentence or two; the few long ones are cut on the page
+
+
+def plenum(conn: sqlite3.Connection) -> dict[str, dict]:
+    """Per person: reactions the protocol records on their own contributions, by fraction, and the Zurufe they
+    made themselves. Empty when the store has no interjection table yet."""
+    if not has_table(conn, "interjection"):
+        return {}
+    out: dict[str, dict] = defaultdict(lambda: {"received": {}, "house": 0, "made": []})
+    for r in conn.execute(
+        """SELECT s.person_id, i.kind, i.actor, i.fraction, count(*) AS n
+           FROM interjection i JOIN speech s ON s.id = i.speech_id JOIN sitting st ON st.id = s.sitting_id
+           WHERE st.wahlperiode = ? AND i.kind IN ({})
+             AND (i.person_id IS NULL OR i.person_id != s.person_id)
+           GROUP BY 1, 2, 3, 4""".format(",".join("?" * len(REACTIONS))),
+        (WP, *REACTIONS),
+    ):
+        p = out[r["person_id"]]
+        if r["actor"] == "house":
+            p["house"] += r["n"]
+            continue
+        if not r["fraction"]:
+            continue
+        f = p["received"].setdefault(r["fraction"], {"beifall": 0, "beifall_members": 0, "zurufe": 0, "lachen": 0,
+                                                     "widerspruch": 0})  # fmt: skip
+        if r["kind"] == "beifall":
+            f["beifall" if r["actor"] == "fraction" else "beifall_members"] += r["n"]
+        elif r["kind"] in ("zuruf", "gegenruf"):
+            f["zurufe"] += r["n"]
+        elif r["kind"] in ("lachen", "heiterkeit"):
+            f["lachen"] += r["n"]
+        elif r["kind"] == "widerspruch":
+            f["widerspruch"] += r["n"]
+    for r in conn.execute(
+        """SELECT i.person_id, i.kind, i.text, i.to_person_id, i.to_name, s.id AS speech_id, s.person_id AS speaker,
+                  s.speaker_name, st.date, st.id AS sitting, a.title, a.top_id
+           FROM interjection i JOIN speech s ON s.id = i.speech_id JOIN sitting st ON st.id = s.sitting_id
+           LEFT JOIN agenda_item a ON a.id = s.agenda_item_id
+           WHERE st.wahlperiode = ? AND i.actor = 'person' AND i.kind IN ('zuruf', 'gegenruf')
+             AND i.person_id IS NOT NULL
+           ORDER BY st.date, s.position, i.paragraph, i.part""",
+        (WP,),
+    ):
+        text = r["text"] or ""
+        out[r["person_id"]]["made"].append(
+            {
+                "date": r["date"], "id": r["speech_id"], "kind": r["kind"],
+                "text": text[:MAX_TEXT] + ("…" if len(text) > MAX_TEXT else ""),
+                "speaker": r["speaker"], "speaker_name": display_speaker(r),
+                "to": r["to_person_id"], "to_name": r["to_name"],
+                # the page builds the protocol link and "BT-PlPr. 21/94" from the sitting; repeating them on every
+                # row doubled the size of the pages of frequent interjectors
+                "title": short_title(r["title"], r["top_id"] or ""), "sitting": r["sitting"],
+            }
+        )  # fmt: skip
+    return out
+
+
 # ---------------------------------------------------------------- abgeordnetenwatch
 
 
@@ -333,6 +394,7 @@ def cards(conn: sqlite3.Connection) -> tuple[list[dict], dict]:
     docs = drucksachen(conn)
     elected = elections(conn)
     aw = aw_profiles(conn)
+    heard = plenum(conn)
     vote_rows, n_votes = votes(conn)
     mandates: dict[str, list[sqlite3.Row]] = defaultdict(list)
     for r in conn.execute("SELECT * FROM mandate ORDER BY wahlperiode"):
@@ -395,6 +457,7 @@ def cards(conn: sqlite3.Connection) -> tuple[list[dict], dict]:
                     for m in mandates[pid]
                 ],
                 "aw_id": p["aw_politician_id"], "wikidata": p["wikidata_qid"], "aw": aw.get(pid),
+                "plenum": heard.get(pid, {"received": {}, "house": 0, "made": []}) if heard else None,
             }
         )  # fmt: skip
     return out, meta(conn, n_votes)

@@ -207,3 +207,19 @@ CREATE TABLE aw_profile (
     source_url TEXT NOT NULL, source_document_id TEXT NOT NULL, retrieved_at TEXT NOT NULL
 );
 
+CREATE TABLE interjection (
+    id TEXT PRIMARY KEY,                -- "<speech_id>/<paragraph>/<part>/<actor>"
+    speech_id TEXT NOT NULL REFERENCES speech(id),
+    paragraph INTEGER NOT NULL,         -- speech_paragraph.position of the comment
+    part INTEGER NOT NULL,              -- order of the part within the comment
+    kind TEXT NOT NULL,                 -- beifall | zuruf | gegenruf | lachen | heiterkeit | widerspruch
+                                        -- | zustimmung | unruhe | other
+    actor TEXT NOT NULL,                -- fraction | members (some of the fraction) | person | house | unknown
+    fraction TEXT,
+    person_id TEXT REFERENCES person(id),
+    name TEXT,                          -- printed name of a person
+    text TEXT,                          -- the words of a Zuruf / Gegenruf, when printed
+    to_person_id TEXT REFERENCES person(id),  -- addressee named in the comment ("an den Abg. …");
+    to_name TEXT                        -- NULL: aimed at the speaker of speech_id
+);
+

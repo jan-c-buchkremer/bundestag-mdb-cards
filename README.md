@@ -18,6 +18,10 @@ uv run pytest && uv run ruff check .
 
 Without `BDF_DB` the store is looked for at `../bundestag-data-foundation/data/bundestag.sqlite`.
 
+`LANDSCAPE_CLUSTERS` points to the Themenlandschaft's `speech_clusters.json` (`{"<speech id>": {"week", "cluster_id",
+"label"}}`, written by the landscape build); with it each agenda item on the sitting pages gets a "Worum ging es" block
+with its speeches' topic clusters. Without it the block is left out.
+
 The index opens on **Plenum**, a seating chart of the house (`parliament.js`, shared with the vote pages) that the
 search and chips filter, with a toggle for everyone who spoke in the latest sitting and a link to that week in the
 Themenlandschaft. **Abgeordnete** is the searchable list, **Wahlkreise** the list of all 299 Wahlkreise next to a map.

@@ -1,5 +1,5 @@
 // The interactive parts of the vote and sitting pages (written as HTML by pages.py): the seating chart of a vote
-// and the filters of the votes overview. Reads PAGE. German UI, see docs/plan.md.
+// the filters of the votes overview and the long speech lists of a sitting. Reads PAGE. German UI, see docs/plan.md.
 'use strict';
 
 (function () {
@@ -108,7 +108,22 @@
     apply();
   }
 
+  // agenda items with many speeches: open and close the rest; closing keeps the button where it was on screen
+  function sitting() {
+    for (const box of document.querySelectorAll('.sp-list')) {
+      const btn = box.querySelector('.sp-more');
+      btn.onclick = () => {
+        const open = !box.classList.contains('open'), before = btn.getBoundingClientRect().top;
+        box.classList.toggle('open', open);
+        btn.setAttribute('aria-expanded', String(open));
+        btn.textContent = open ? 'weniger Reden zeigen' : `alle ${box.dataset.n} Reden zeigen`;
+        if (!open) window.scrollBy(0, btn.getBoundingClientRect().top - before);
+      };
+    }
+  }
+
   if (PAGE.kind === 'vote' && PAGE.members) rollCall();
   else if (PAGE.kind === 'vote' && PAGE.house) hands();
   else if (PAGE.kind === 'votes') votes();
+  else if (PAGE.kind === 'sitting') sitting();
 })();

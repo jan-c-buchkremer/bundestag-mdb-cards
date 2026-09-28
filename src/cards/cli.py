@@ -34,10 +34,13 @@ def main(argv: list[str] | None = None) -> None:
     decided = data.decisions(conn)
     if not decided:
         print("no decision table in the store: sitting pages without decisions, no vote pages")
+    clusters = data.speech_clusters()
+    if clusters:
+        print(f"{len(clusters)} speeches with a Themenlandschaft cluster: sitting pages with 'Worum ging es'")
     write_photos(conn, cards, args.out / "fotos")
     written = build.write_site(
         cards, meta, args.out, wks, gov, data.last_sitting(conn),
-        decided, data.roll_call_members(conn), data.sittings(conn, decided),
+        decided, data.roll_call_members(conn), data.sittings(conn, decided), clusters,
     )  # fmt: skip
     print(f"wrote {len(cards)} card pages, " + ", ".join(f"{v} pages in {k}/" for k, v in written.items()))
 

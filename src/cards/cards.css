@@ -3,7 +3,9 @@
   --bg: #f6f6f4; --card: #ffffff; --text: #1f2328; --muted: #6b7280; --faint: #a1a1aa; --line: #e7e7e3; --accent: #2563eb; --accent-soft: #e8efff;
   --warn: #b45309; --warn-soft: #fef3e2;
   --v-yes: #4c9a5f; --v-no: #d0485a; --v-abstain: #c9a72c; --v-absent: #d4d4d0; --v-invalid: #8a8a8a; --v-unknown: #c9c9c4;
-  --cdu: #2f2f2f; --spd: #d7263d; --afd: #1f8fd6; --gru: #3f9a3f; --lin: #c0397d; --frl: #8a8a8a; --reg: #a08a2e;
+  --cdu: #2f2f2f; --spd: #d7263d; --afd: #1f8fd6; --gru: #3f9a3f; --lin: #c0397d; --frl: #8a8a8a;
+  /* the government: a neutral slate that is no party's colour and reads on light and dark backgrounds */
+  --reg: #64748b; --reg-text: #334155; --reg-soft: #e2e8f0;
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.55 Inter, system-ui, -apple-system, sans-serif; }
@@ -67,8 +69,15 @@ footer a { color: var(--muted); }
 .last .k { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); margin-right: 8px; }
 
 /* ---- tabs (layer 2) */
-nav.tabs { position: sticky; top: 0; z-index: 5; display: flex; gap: 4px; overflow-x: auto; margin: 22px -4px 14px; padding: 8px 4px; background: var(--bg); scrollbar-width: none; }
-nav.tabs a { flex: none; color: var(--muted); font-size: 13.5px; font-weight: 500; padding: 6px 12px; border-radius: 8px; }
+nav.tabs { position: sticky; top: 0; z-index: 5; margin: 22px -4px 14px; padding: 6px 0; background: var(--bg); }
+nav.tabs .tabs-in { display: flex; gap: 4px; overflow-x: auto; padding: 2px 4px 3px; scrollbar-width: none; overscroll-behavior-x: contain; }
+nav.tabs .tabs-in::-webkit-scrollbar { display: none; }
+/* more tabs behind an edge: a fade and a chevron on that side (card.js sets more-l / more-r) */
+nav.tabs::before, nav.tabs::after { content: ''; position: absolute; top: 0; bottom: 0; width: 44px; pointer-events: none; opacity: 0; transition: opacity .15s; z-index: 1; }
+nav.tabs::before { left: 0; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 12'%3E%3Cpath d='M6.5 1 1.5 6l5 5' fill='none' stroke='%236b7280' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat 6px center / 8px 12px, linear-gradient(to right, var(--bg) 35%, transparent); }
+nav.tabs::after { right: 0; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 12'%3E%3Cpath d='M1.5 1l5 5-5 5' fill='none' stroke='%236b7280' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 6px center / 8px 12px, linear-gradient(to left, var(--bg) 35%, transparent); }
+nav.tabs.more-l::before, nav.tabs.more-r::after { opacity: 1; }
+nav.tabs a { flex: none; color: var(--muted); font-size: 13.5px; font-weight: 500; padding: 6px 12px; border-radius: 8px; white-space: nowrap; }
 nav.tabs a:hover { background: #ecece8; text-decoration: none; }
 nav.tabs a.on { background: var(--card); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
 nav.tabs a .n { color: var(--faint); font-weight: 400; margin-left: 4px; font-size: 12px; }

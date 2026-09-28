@@ -235,6 +235,12 @@ def test_feminine_office_labels():
     assert data.feminine("Parlamentarischer Staatssekretär") == "Parlamentarische Staatssekretärin"
     assert data.feminine("Chef des Bundeskanzleramtes") == "Chefin des Bundeskanzleramtes"
     assert data.feminine("Bundeskanzler der BRD") == "Bundeskanzlerin der BRD"
+    # only the holder's title: the Kanzler and the Minister named after "beim" stay as they are
+    assert data.feminine("Staatsminister beim Bundeskanzler") == "Staatsministerin beim Bundeskanzler"
+    assert (
+        data.feminine("Parlamentarischer Staatssekretär beim Bundesminister der Finanzen")
+        == "Parlamentarische Staatssekretärin beim Bundesminister der Finanzen"
+    )
 
 
 def test_government_offices_on_cards(conn):
@@ -274,7 +280,9 @@ def test_government_roles_with_source_kind(conn):
     assert (cohn["from"], cohn["evidence"], cohn["sources"][0]["doc"]) == ("2026-07-08", True, "BT-PlPr. 21/88")
     # the last evidence date is not the end of the office: still on the Regierungsbank
     assert data.in_office(cohn, "2030-01-01")
-    assert "3" in {g["id"] for g in data.government(conn)}
+    gov = {g["id"]: g for g in data.government(conn)}
+    assert (gov["3"]["evidence"], gov["3"]["seen"]) == (True, "2026-07-08")  # "zuletzt belegt", not an end date
+    assert (gov["9"]["evidence"], gov["9"]["seen"]) == (False, None)  # Wikidata has the term
 
 
 def test_government_cards_without_roster(conn_without_round2):

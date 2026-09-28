@@ -50,6 +50,11 @@ Regierungsbefragung per fraction; **Daten** (`daten.html`) lists sources, licenc
 `FOUNDATION_EXPORT` points to the foundation's `bdf export` folder; the build copies it to `daten/` and lists the files
 there as downloads. Without it the page says that no export is included.
 
+**Gesetze** (`gesetze/`) has one page per DIP Vorgang of type Gesetzgebung with its status, Drucksachen, the agenda
+items that name them (with their speeches), the decisions and roll-call votes and a timeline. The timeline is DIP's
+Vorgangsablauf when the store has the foundation's `vorgang_position`, else it is made from Drucksachen, debates and
+decisions.
+
 The map outlines in `src/cards/wahlkreise.json` are made once, not in the daily build:
 
 ```sh

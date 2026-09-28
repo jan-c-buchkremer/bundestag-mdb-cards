@@ -11,7 +11,7 @@ from pathlib import Path
 from cards.data import index_row
 
 HERE = Path(__file__).parent
-ASSETS = ("cards.css", "card.js")
+ASSETS = ("cards.css", "card.js", "parliament.js")
 
 
 def _json(payload: object) -> str:

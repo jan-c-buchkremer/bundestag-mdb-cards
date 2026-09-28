@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import argparse
+import time
 from collections import Counter
 from pathlib import Path
 
-from cards import build, data
+from cards import build, data, photos
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -19,7 +20,11 @@ def main(argv: list[str] | None = None) -> None:
     conn = data.connect()
     cards, meta = data.cards(conn)
     kinds = Counter(c["kind"] for c in cards)
-    print(f"{kinds['member']} member cards, {kinds['speaker']} speaker cards; {meta['votes']} roll-call votes")
+    in_gov = sum(1 for c in cards if c["government"])
+    print(
+        f"{kinds['member']} member cards, {kinds['speaker']} speaker cards, {in_gov} of them with a government office;"
+        f" {meta['votes']} roll-call votes"
+    )
     wks = data.constituencies(conn)
     if not wks:
         print("no election tables in the store: cards without vote shares and list positions")
@@ -29,11 +34,27 @@ def main(argv: list[str] | None = None) -> None:
     decided = data.decisions(conn)
     if not decided:
         print("no decision table in the store: sitting pages without decisions, no vote pages")
+    write_photos(conn, cards, args.out / "fotos")
     written = build.write_site(
         cards, meta, args.out, wks, gov, data.last_sitting(conn),
         decided, data.roll_call_members(conn), data.sittings(conn, decided),
     )  # fmt: skip
     print(f"wrote {len(cards)} card pages, " + ", ".join(f"{v} pages in {k}/" for k, v in written.items()))
+
+
+def write_photos(conn, cards: list[dict], out: Path) -> None:
+    """Downscale the portraits of everyone with a card; a card whose photo could not be made shows initials."""
+    raw = photos.raw_dir()
+    ids = {c["id"] for c in cards}
+    sources = {pid: p["path"] for pid, p in data.photos(conn).items() if pid in ids}
+    if sources and not raw.is_dir():
+        print(f"raw folder {raw} not found (set BDF_RAW): cards without photos")
+    start = time.perf_counter()
+    have, encoded = photos.write_photos(sources, raw, out)
+    for c in cards:
+        if c["photo"] and c["id"] not in have:
+            c["photo"] = None
+    print(f"{len(have)} photos in {out} ({encoded} made, {time.perf_counter() - start:.1f} s)")
 
 
 if __name__ == "__main__":

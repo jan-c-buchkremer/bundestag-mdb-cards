@@ -21,7 +21,7 @@ Without `BDF_DB` the store is looked for at `../bundestag-data-foundation/data/b
 The index opens on **Plenum**, a seating chart of the house (`parliament.js`, shared with the vote pages) that the
 search and chips filter, with a toggle for everyone who spoke in the latest sitting and a link to that week in the
 Themenlandschaft. **Abgeordnete** is the searchable list, **Wahlkreise** the list of all 299 Wahlkreise next to a map.
-The Regierungsbank, the "Regierung" badge and filter appear once the store has the foundation's `government_role`
+Cards show portraits (downscaled into `fotos/` from the foundation's raw folder: `BDF_RAW`, else `raw/` next to the store) and, for members of the government, their offices. The Regierungsbank, the "Regierung" badge and filter appear once the store has the foundation's `government_role`
 table.
 
 The map outlines in `src/cards/wahlkreise.json` are made once, not in the daily build:

@@ -159,9 +159,34 @@ def majority(tally: Counter) -> str | None:
     return ranked[0][1]
 
 
+def vote_outcomes(conn: sqlite3.Connection) -> dict[str, str]:
+    """Roll-call vote id -> "angenommen" | "abgelehnt" as the chair announced it (foundation `decision`)."""
+    if not has_table(conn, "decision"):
+        return {}
+    return {
+        r["roll_call_vote_id"]: r["result"]
+        for r in conn.execute(
+            "SELECT roll_call_vote_id, result FROM decision WHERE roll_call_vote_id IS NOT NULL AND result IS NOT NULL"
+        )
+    }
+
+
+def outcome(announced: str | None, result: dict[str, int]) -> tuple[str | None, str | None]:
+    """The overall result and where it comes from: the chair's announcement ("protocol"), else counted from the
+    list as a simple majority of yes over no ("count"; a tie rejects). Votes that need more than a simple majority
+    (Kanzlerwahl, Grundgesetz) are announced, so the count is only a fallback."""
+    if announced:
+        return announced, "protocol"
+    if not result["yes"] and not result["no"]:
+        return None, None
+    return ("angenommen" if result["yes"] > result["no"] else "abgelehnt"), "count"
+
+
 def votes(conn: sqlite3.Connection) -> tuple[dict[str, list[dict]], int]:
-    """Per person, every roll-call vote with the own vote next to the fraction's line; and the number of votes."""
+    """Per person, every roll-call vote with the overall result, the own vote and the fraction's line; and the
+    number of votes."""
     rows = conn.execute(_SQL_VOTE).fetchall()
+    announced = vote_outcomes(conn)
     tally: dict[tuple[str, str], Counter] = defaultdict(Counter)
     for r in rows:
         tally[(r["vote_id"], r["fraction"])][r["vote"]] += 1
@@ -171,13 +196,15 @@ def votes(conn: sqlite3.Connection) -> tuple[dict[str, list[dict]], int]:
             continue
         t = tally[(r["vote_id"], r["fraction"])]
         line = None if r["fraction"] == NO_FRACTION else majority(t)
+        result = {c: r[c] for c in (*VOTE_CHOICES, "absent")}
+        decided, decided_from = outcome(announced.get(r["vote_id"]), result)
         out[r["person_id"]].append(
             {
                 "id": r["vote_id"], "date": r["date"], "title": r["title"], "vote": r["vote"],
                 "fraction": r["fraction"], "line": line,
                 "deviates": line is not None and r["vote"] in VOTE_CHOICES and r["vote"] != line,
                 "fraction_tally": {c: t[c] for c in (*VOTE_CHOICES, "absent")},
-                "result": {c: r[c] for c in (*VOTE_CHOICES, "absent")},
+                "result": result, "outcome": decided, "outcome_from": decided_from,
                 "drucksache": r["drucksache_number"], "pdf": r["pdf_url"], "xlsx": r["xlsx_url"],
             }
         )  # fmt: skip
@@ -228,6 +255,10 @@ def drucksachen(conn: sqlite3.Connection) -> dict[str, dict[str, list]]:
 # ---------------------------------------------------------------- election (Bundeswahlleiterin)
 
 ELECTION = "btw25"  # the election that formed WP 21
+
+
+def _has_column(conn: sqlite3.Connection, table: str, column: str) -> bool:
+    return any(r[1] == column for r in conn.execute(f"PRAGMA table_info({table})"))
 
 
 def has_table(conn: sqlite3.Connection, name: str) -> bool:
@@ -379,6 +410,77 @@ def aw_profiles(conn: sqlite3.Connection) -> dict[str, dict]:
     }  # fmt: skip
 
 
+# ---------------------------------------------------------------- photos and government offices
+
+
+def photos(conn: sqlite3.Connection) -> dict[str, dict]:
+    """Per person: the portrait's credit and the page it comes from (bundestag.de biography or Commons file), and
+    its download under the foundation's raw folder (`path`, for the build only). Empty without `person_photo`."""
+    if not has_table(conn, "person_photo"):
+        return {}
+    return {
+        r["person_id"]: {"credit": r["credit"], "url": r["bio_url"] or r["source_url"], "path": r["local_path"]}
+        for r in conn.execute("SELECT * FROM person_photo")
+    }
+
+
+_MALE_ADJ = re.compile(r"\b(Parlamentarisch|beamtet)er\b")
+_MALE_TITLE = re.compile(r"\b(Bundeskanzler|Bundesminister|Staatsminister|Staatssekretär|Chef)\b")
+_FEMALE_ROLE = re.compile(r"(Kanzlerin|Ministerin|Staatssekretärin)\b")
+# which source dates an office when several name it: Wikidata and the Stammdaten give the term, the protocols
+# only show that the office was held on the days someone spoke in it
+SOURCE_RANK = {"wikidata": 0, "stammdaten": 1, "protocol": 2}
+
+
+def feminine(office: str) -> str:
+    """Wikidata labels positions in the masculine ("Bundesminister der Finanzen") whoever holds them."""
+    return _MALE_TITLE.sub(r"\1in", _MALE_ADJ.sub(r"\1e", office))
+
+
+def _office_key(office: str) -> str:
+    return " ".join(feminine(office).lower().split())
+
+
+def government_roles(conn: sqlite3.Connection) -> dict[str, list[dict]]:
+    """Per person: offices in the federal government (foundation `government_role`), newest first. Rows naming
+    the same office for an overlapping time (Wikidata, Stammdaten, protocol evidence) become one office with
+    every source, dated by the best one. Works with and without the `source_kind` column; empty without the table."""
+    if not has_table(conn, "government_role"):
+        return {}
+    grouped: dict[str, list[dict]] = defaultdict(list)
+    rows = conn.execute("SELECT * FROM government_role WHERE person_id IS NOT NULL ORDER BY from_date, id").fetchall()
+    for r in sorted(rows, key=lambda r: SOURCE_RANK.get(_source_kind(r), 9)):
+        src = {"kind": _source_kind(r), "url": r["source_url"], "doc": r["source_document_id"],
+               "from": r["from_date"], "to": r["to_date"]}  # fmt: skip
+        same = next(
+            (o for o in grouped[r["person_id"]] if _office_key(o["office"]) == _office_key(r["office"])
+             and (o["from"] or "") <= (r["to_date"] or "9999") and (r["from_date"] or "") <= (o["to"] or "9999")),
+            None,
+        )  # fmt: skip
+        if same is not None:
+            same["sources"].append(src)
+            same["department"] = same["department"] or r["department"]
+            continue
+        grouped[r["person_id"]].append(
+            {"office": r["office"], "department": r["department"], "kind": r["kind"], "from": r["from_date"],
+             "to": r["to_date"], "evidence": src["kind"] == "protocol", "sources": [src]}
+        )  # fmt: skip
+    today = dt.date.today().isoformat()
+    for offices in grouped.values():
+        offices.sort(key=lambda o: (in_office(o, today), o["from"] or ""), reverse=True)
+    return dict(grouped)
+
+
+def in_office(o: dict, today: str) -> bool:
+    """Protocol evidence has no end: its last date is only the last time the person spoke in the office."""
+    return o["evidence"] or o["to"] is None or o["to"] >= today
+
+
+def _source_kind(r: sqlite3.Row) -> str:
+    # sqlite3.Row: `in` tests the values, not the column names
+    return (r["source_kind"] if "source_kind" in r.keys() else None) or "wikidata"  # noqa: SIM118
+
+
 # ---------------------------------------------------------------- persons
 
 
@@ -390,13 +492,16 @@ def cards(conn: sqlite3.Connection) -> tuple[list[dict], dict]:
     """One payload per card, and facts shared by all pages (sources, coverage).
 
     Members: everyone with a WP 21 mandate, plus members who vote but are not yet in the Stammdaten (moved up
-    after the snapshot). Speakers: everyone else who spoke in a WP 21 sitting (D9)."""
+    after the snapshot). Speakers: everyone else who spoke in a WP 21 sitting (D9), and every member of the
+    government in `government_role` without a mandate, even one who never spoke (kind "speaker" with offices)."""
     by_person = speeches(conn)
     docs = drucksachen(conn)
     elected = elections(conn)
     aw = aw_profiles(conn)
     heard = plenum(conn)
     vote_rows, n_votes = votes(conn)
+    portraits = photos(conn)
+    gov_roles = government_roles(conn)
     mandates: dict[str, list[sqlite3.Row]] = defaultdict(list)
     for r in conn.execute("SELECT * FROM mandate ORDER BY wahlperiode"):
         mandates[r["person_id"]].append(r)
@@ -404,8 +509,9 @@ def cards(conn: sqlite3.Connection) -> tuple[list[dict], dict]:
     for r in conn.execute("SELECT * FROM membership WHERE wahlperiode = ? ORDER BY from_date, id", (WP,)):
         members[r["person_id"]].append(r)
 
-    ids = {pid for pid, ms in mandates.items() if ms[-1]["wahlperiode"] == WP} | set(vote_rows) | set(by_person)
     persons = {r["id"]: r for r in conn.execute("SELECT * FROM person")}
+    ids = {pid for pid, ms in mandates.items() if ms[-1]["wahlperiode"] == WP} | set(vote_rows) | set(by_person)
+    ids |= {pid for pid in gov_roles if pid in persons}  # every member of the government, even if never heard
     out = []
     for pid in sorted(ids, key=lambda i: (persons[i]["last_name"], persons[i]["first_name"], i)):
         p = persons[pid]
@@ -422,6 +528,12 @@ def cards(conn: sqlite3.Connection) -> tuple[list[dict], dict]:
             fraction = None
         sp = by_person.get(pid, {"reden": [], "kurz": [], "fragen": [], "befragung": []})
         roles = [r["role"] for r in sp["reden"] + sp["befragung"] if r["role"]]
+        female = p["gender"] == "weiblich" or any(_FEMALE_ROLE.search(r) for r in roles)
+        offices_held = [
+            {**o, "office": feminine(o["office"]) if female else o["office"]} for o in gov_roles.get(pid, [])
+        ]
+        latest_office = offices_held[0]["office"] if offices_held else None  # current ones sort first
+        photo = portraits.get(pid)
         out.append(
             {
                 "id": pid,
@@ -430,8 +542,10 @@ def cards(conn: sqlite3.Connection) -> tuple[list[dict], dict]:
                 "first_name": p["first_name"], "last_name": p["last_name"],
                 "birth_date": p["birth_date"], "birth_place": p["birth_place"],
                 "gender": p["gender"], "party": p["party"], "fraction": fraction,
-                # speakers: their office as the protocol names it; the latest one if it changed
-                "role": (roles[-1] if roles else p["role"]) if not is_member else None,
+                # speakers: their office as the protocol names it (the latest one if it changed), else the government's
+                "role": None if is_member else roles[-1] if roles else latest_office or p["role"],
+                "government": offices_held,
+                "photo": {"credit": photo["credit"], "url": photo["url"]} if photo else None,
                 "mandate": None if wp21 is None else {
                     "type": wp21["mandate_type"], "number": wp21["constituency_number"],
                     "constituency": wp21["constituency_name"], "state": wp21["state"],
@@ -516,10 +630,12 @@ def government(conn: sqlite3.Connection) -> list[dict]:
     government_role table yet (foundation before the Wikidata source)."""
     if not has_table(conn, "government_role"):
         return []
+    # protocol rows (foundation `source_kind`) date evidence, not a term: their last date does not end the office
+    evidence = "OR g.source_kind = 'protocol'" if _has_column(conn, "government_role", "source_kind") else ""
     rows = conn.execute(
-        """SELECT g.person_id, g.wikidata_qid, g.name, g.office, g.department, g.kind, g.from_date, p.party
+        f"""SELECT g.person_id, g.wikidata_qid, g.name, g.office, g.department, g.kind, g.from_date, p.party, p.gender
            FROM government_role g LEFT JOIN person p ON p.id = g.person_id
-           WHERE g.to_date IS NULL OR g.to_date >= date('now')"""
+           WHERE g.to_date IS NULL OR g.to_date >= date('now') {evidence}"""
     ).fetchall()
     best: dict[str, sqlite3.Row] = {}
     rank = {k: i for i, k in enumerate(GOVERNMENT_KINDS)}
@@ -532,7 +648,8 @@ def government(conn: sqlite3.Connection) -> list[dict]:
             best[pid] = r
     out = [
         {
-            "id": pid, "name": r["name"], "office": r["office"], "department": r["department"], "kind": r["kind"],
+            "id": pid, "name": r["name"], "department": r["department"], "kind": r["kind"],
+            "office": feminine(r["office"]) if r["gender"] == "weiblich" else r["office"],
             "fraction": PARTY_TO_FRACTION.get(r["party"], r["party"]) if r["party"] else None,
         }
         for pid, r in best.items()
@@ -573,6 +690,7 @@ def index_row(c: dict, government: dict[str, dict] | None = None) -> dict:
         "reden": len(c["reden"]),
         "lead": lead_rank([r["role"] for r in c["fraction_roles"] if r["to"] is None]),
         "gov": gov["office"] if gov else None,
+        "photo": bool(c.get("photo")),
     }  # fmt: skip
 
 

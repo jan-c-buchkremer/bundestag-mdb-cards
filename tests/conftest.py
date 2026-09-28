@@ -8,8 +8,8 @@ PLPR = "BT-PlPr. 21/88"
 STAMM = ("https://www.bundestag.de/resource/blob/472878/MdB-Stammdaten.zip", "MDB_STAMMDATEN 2026-04-29", "2026-09-27")
 
 
-def person(pid, first, last, party, is_mdb=1, title=None, role=None):
-    return (pid, first, last, None, title, "1970-01-02", "Rostock", "weiblich", party, is_mdb, role, None, None, None,
+def person(pid, first, last, party, is_mdb=1, title=None, role=None, gender="weiblich"):
+    return (pid, first, last, None, title, "1970-01-02", "Rostock", gender, party, is_mdb, role, None, None, None,
             *STAMM)  # fmt: skip
 
 
@@ -39,7 +39,7 @@ def conn():
         "INSERT INTO person VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         [
             person("1", "Anna", "Adler", "SPD"),
-            person("2", "Bernd", "Berg", "CSU", title="Dr."),
+            person("2", "Bernd", "Berg", "CSU", title="Dr.", gender="männlich"),
             person("3", "Clara", "Cohn", "DIE LINKE."),
             person("4", "Dora", "Dahl", "CDU"),  # moved up after the Stammdaten snapshot: WP 20 mandate only
             person("9", "Stefanie", "Hubig", None, is_mdb=0, role="Bundesministerin der Justiz"),
@@ -234,15 +234,36 @@ def conn():
             ("g5", None, "Q78", "Bea Beamtin", "Staatssekretärin", "BMF", "beamteter_sts", "2025-05-06", None, *wd),
         ],
     )  # fmt: skip
+    c.execute("INSERT INTO person VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+              ("Q79", "Bruno", "Böhm", None, None, "1978-06-02", None, None, "SPD", 0, "beamteter Staatssekretär",
+               None, None, "Q79", "https://www.wikidata.org/wiki/Q79", "Wikidata Q79", "2026-09-28"))  # fmt: skip
+    c.executemany(
+        "INSERT INTO government_role VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'wikidata')",
+        [
+            ("g6", "Q79", "Q79", "Bruno Böhm", "beamteter Staatssekretär", "Bundesministerium der Finanzen",
+             "beamteter_sts", "2025-05-06", None, *wd),  # never spoke, no mandate: a card only for the office
+            ("g7", "9", "Q1", "Stefanie Hubig", "Bundesminister der Justiz", "BMJV", "minister", "2025-05-06",
+             None, *wd),  # the same office again in Wikidata's masculine label
+        ],
+    )  # fmt: skip
+    c.executemany(
+        "INSERT INTO person_photo VALUES (?,?,?,?,?,?,?,?)",
+        [
+            ("1", "https://x/adler.jpg", "Jemand/SPD-Fraktion", "https://x/adler", "bundestag/fotos/adler.jpg",
+             "https://x/bio", "bundestag.de Biografie Adler, Anna", "2026-09-28"),
+            ("9", "https://x/hubig.png", "Sandro Halank, CC BY-SA 4.0", None, "wikidata/fotos/hubig.png",
+             "https://commons.wikimedia.org/wiki/File:Hubig.png", "Wikimedia Commons File:Hubig.png", "2026-09-28"),
+        ],
+    )  # fmt: skip
     c.execute(
-        "INSERT INTO person_photo VALUES ('1', 'https://x/adler.jpg', 'Foto: Jemand', 'https://x/adler',"
-        " 'bundestag/fotos/1.jpg', 'https://x/bio', 'bundestag.de Biografien', '2026-09-28')"
+        "INSERT INTO decision VALUES ('21/88/1', '21/88', '21/88/2', 1, 1, 'namentlich', 'Antrag', NULL, 'angenommen',"
+        " '21/88/1', 'Damit ist der Antrag angenommen.', 'https://x/21088.xml', 'BT-PlPr. 21/88', '2026-09-27')"
     )
     return c
 
 
 @pytest.fixture
 def conn_without_round2(conn):
-    """A store from before the government roster and photos."""
-    conn.executescript("DROP TABLE government_role; DROP TABLE person_photo;")
+    """A store from before the government roster, photos and decisions."""
+    conn.executescript("DROP TABLE government_role; DROP TABLE person_photo; DROP TABLE decision;")
     return conn

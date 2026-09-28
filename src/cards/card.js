@@ -392,7 +392,15 @@ function renderCareer(el) {
   const gaps = [];
   for (let i = 1; i < C.career.length; i++) if (C.career[i].wp - C.career[i - 1].wp > 1) gaps.push(`zwischen der ${C.career[i - 1].wp}. und der ${C.career[i].wp}. Wahlperiode`);
   const rows = C.career.slice().reverse().map(m => `<div class="row"><div class="t">${m.wp}. Wahlperiode<div class="sub">${m.wp === META.wp && C.election ? electionLine(C.election) + (C.election.via === 'constituency' && C.election.list_position ? `; abgesichert auf Platz ${C.election.list_position} der Landesliste ${STATES[C.election.list_state] || esc(C.election.list_state)}` : '') : where(m)}</div></div><div class="d">${period(m.from, m.to)}</div></div>`);
+  // WP 21 at a glance: first speech (careers.annotate), fraction changes, government offices
+  const now = [];
+  const fs = C.first_speech;
+  if (fs) now.push(`<div class="row"><div class="t">Erste Rede in der ${META.wp}. Wahlperiode${fs.maiden && C.periods.length <= 1 ? ' · Jungfernrede' : ''}<div class="sub">${esc(fs.title || '')}${fs.maiden ? ' · laut Sitzungsleitung die erste Rede' : ''} · ${textLink(fs)}</div></div><div class="d">${shortDate(fs.date)}</div></div>`);
+  if (new Set(C.fractions.map(f => f.name)).size > 1 || (C.fractions.length && C.fractions.every(f => f.to) && !(C.mandate && C.mandate.to)))
+    C.fractions.forEach(f => now.push(`<div class="row"><div class="t">Fraktion ${esc(f.name)}</div><div class="d">${period(f.from, f.to)}</div></div>`));
+  C.government.forEach(o => now.push(`<div class="row"><div class="t">${esc(o.office)}<div class="sub">${officeWhen(o)}</div></div></div>`));
   el.innerHTML = `
+    ${now.length ? `<div class="rows memb">${now.join('')}</div>` : ''}
     <p class="explain">Alle Mandate seit der ersten Wahlperiode laut Stammdaten des Bundestages (${esc(META.stammdaten.doc)}).</p>
     ${gaps.length ? `<p class="explain">Nicht im Bundestag ${gaps.join(', ')}.</p>` : ''}
     ${C.in_stammdaten ? '' : `<p class="explain">Das aktuelle Mandat fehlt in diesem Stand der Stammdaten; Mitglied spätestens seit ${longDate(C.first_vote)}.</p>`}

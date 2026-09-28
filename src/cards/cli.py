@@ -7,7 +7,7 @@ import time
 from collections import Counter
 from pathlib import Path
 
-from cards import bills, build, data, debate, photos, questions, search, sources, speeches
+from cards import bills, build, careers, data, debate, photos, questions, search, sources, speeches
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -38,12 +38,14 @@ def main(argv: list[str] | None = None) -> None:
     if clusters:
         print(f"{len(clusters)} speeches with a Themenlandschaft cluster: sitting pages with 'Worum ging es'")
     write_photos(conn, cards, args.out / "fotos")
+    careers.annotate(conn, cards)
     written = build.write_site(
         cards, meta, args.out, wks, gov, data.last_sitting(conn),
         decided, data.roll_call_members(conn), data.sittings(conn, decided), clusters,
     )  # fmt: skip
     written |= questions.write(conn, args.out) | sources.write(conn, args.out, meta)
     written |= debate.write(conn, args.out)
+    written |= careers.write(conn, args.out)
     print(f"wrote {len(cards)} card pages, " + ", ".join(f"{v} pages in {k}/" for k, v in written.items()))
     similar = speeches.neighbours()
     n_speeches = speeches.write_pages(args.out, speeches.load(conn), {c["id"] for c in cards}, clusters, similar)

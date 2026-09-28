@@ -14,7 +14,7 @@ from pathlib import Path
 from cards.data import NO_FRACTION, PARTY_TO_FRACTION, WP, drucksache_pdf, has_table
 from cards.pages import FOOTER, MONTHS, SHORT, TOKEN, agenda_href, dot, e, fraction_order, n, shell, short_date
 
-DEADLINE = 14  # § 104 Abs. 2 GO-BT: answers to Kleine Anfragen in der Regel within 14 days
+DEADLINE = 14  # § 104 Abs. 2 GO-BT: the government is asked to answer within 14 days, extendable
 _ASKED = re.compile(r"Drucksache\s+(\d+)\s*/\s*(\d+)")
 STYLE = """<style>
 .qs table.plenum td.l { text-align: left; white-space: normal; }
@@ -265,8 +265,9 @@ def _ka_section(ka: dict) -> str:
     return (
         "<h2>Kleine Anfragen</h2>"
         '<p class="explain">Eine Kleine Anfrage stellt eine Fraktion (oder fünf Prozent der Abgeordneten) schriftlich '
-        f"an die Bundesregierung. Nach § 104 Abs. 2 der Geschäftsordnung des Bundestages soll sie in der Regel "
-        f"innerhalb von {DEADLINE} Tagen antworten; die Frist kann verlängert werden. Gezählt werden Kalendertage "
+        f"an die Bundesregierung. Nach § 104 Abs. 2 der Geschäftsordnung des Bundestages wird die Bundesregierung "
+        f"aufgefordert, innerhalb von {DEADLINE} Tagen zu antworten; im Benehmen mit den Fragestellern kann die Frist "
+        "verlängert werden. Gezählt werden Kalendertage "
         "zwischen dem Datum der Anfrage-Drucksache und dem der Antwort-Drucksache (Quelle: DIP). Offen heißt: im "
         f"Datenbestand noch keine Antwort, Stand {short_date(ka['as_of'])}. Fraktionen ohne Kleine Anfrage "
         "fehlen in der Tabelle.</p>"

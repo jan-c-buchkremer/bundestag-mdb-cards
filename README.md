@@ -33,6 +33,12 @@ binary) indexes speeches, cards, vote and sitting pages into `pagefind/`, and `s
 uv run python scripts/check_links.py data/out --anchors   # every internal href/src in the built HTML resolves
 ```
 
+**Debattenkultur** (`debatte/`) compares groups, never single members: words spoken per fraction against seats,
+by gender, age and first term, the government apart; the chair's Ordnungsrufe and Rügen, Zwischenfragen and
+interruptions; applause and Zurufe between fractions. `LANDSCAPE_THEMES` may point to a JSON
+`{"<speech id>": {"theme_id", "label"}}`; with it the page adds words per theme and fraction, without it the table is
+left out.
+
 The index opens on **Plenum**, a seating chart of the house (`parliament.js`, shared with the vote pages) that the
 search and chips filter, with a toggle for everyone who spoke in the latest sitting and a link to that week in the
 Themenlandschaft. **Abgeordnete** is the searchable list, **Wahlkreise** the list of all 299 Wahlkreise next to a map.

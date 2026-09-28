@@ -30,6 +30,7 @@ NAV = (
     ("cohesion", "abstimmungen/geschlossenheit.html", "Geschlossenheit"),
     ("sittings", "sitzungen/index.html", "Sitzungen"),
     ("questions", "regierung/index.html", "Fragen"),
+    ("debate", "debatte/index.html", "Debattenkultur"),
     ("data", "daten.html", "Daten"),
     ("search", "suche.html", "Suche"),
 )

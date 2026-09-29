@@ -85,7 +85,7 @@ def conn():
         ],
     )
     c.executemany(
-        "INSERT INTO speech VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+        "INSERT INTO speech VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'rede')",
         [
             # Regierungsbefragung: every question and answer is its own rede
             speech("ID10", 1, "9", "Stefanie Hubig, Bundesministerin", LONG, "21/88/1", role="Bundesministerin"),
@@ -168,7 +168,9 @@ def conn():
         ],
     )
     c.executemany(
-        "INSERT INTO vorgang VALUES (?,21,'Antrag',?,NULL,?,'[]',?,?,?)",
+        "INSERT INTO vorgang (id, wahlperiode, type, title, status, subjects, initiators, source_url, "
+        "source_document_id, "
+        "retrieved_at) VALUES (?,21,'Antrag',?,NULL,?,'[]',?,?,?)",
         [("v1", "Mieten", '["Wohnen", "Recht"]', *dip), ("v2", "Pflege", '["Gesundheit"]', *dip)],
     )
     c.executemany("INSERT INTO vorgang_drucksache VALUES (?,?)", [("v1", "d1"), ("v2", "d1"), ("v2", "d2")])

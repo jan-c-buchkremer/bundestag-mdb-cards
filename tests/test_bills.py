@@ -1,12 +1,6 @@
 from cards import bills
 
 DIP = ("https://search.dip.bundestag.de/api/v1/vorgang/1", "DIP Vorgang 1", "2026-09-27")
-POSITION = """CREATE TABLE vorgang_position (
-    id TEXT PRIMARY KEY, vorgang_id TEXT NOT NULL, date TEXT NOT NULL, position TEXT NOT NULL, chamber TEXT,
-    document_kind TEXT, document_number TEXT, document_type TEXT, pdf_url TEXT, pages TEXT,
-    originators TEXT NOT NULL, ressort TEXT, decisions TEXT,
-    source_url TEXT NOT NULL, source_document_id TEXT NOT NULL, retrieved_at TEXT NOT NULL
-)"""
 
 
 def add_bills(c):
@@ -21,7 +15,9 @@ def add_bills(c):
         ],
     )
     c.executemany(
-        "INSERT INTO vorgang VALUES (?,21,?,?,?,?,?,?,?,?)",
+        "INSERT INTO vorgang (id, wahlperiode, type, title, status, subjects, initiators, source_url, "
+        "source_document_id, "
+        "retrieved_at) VALUES (?,21,?,?,?,?,?,?,?,?)",
         [
             ("g1", "Gesetzgebung", "Mietrechtsgesetz", "Verkündet", '["Recht"]', '["Bundesregierung"]', *DIP),
             ("g2", "Gesetzgebung", "Anderes Gesetz", None, "[]", "[]", *DIP),
@@ -43,6 +39,7 @@ def add_bills(c):
 
 
 def test_load_without_positions(conn):
+    conn.execute("DROP TABLE vorgang_position")  # a store from before the foundation fetched them
     add_bills(conn)
     got = {b["id"]: b for b in bills.load(conn)}
     assert set(got) == {"g1", "g2"}
@@ -65,7 +62,6 @@ def test_load_without_positions(conn):
 
 def test_timeline_from_positions(conn):
     add_bills(conn)
-    conn.execute(POSITION)
     conn.executemany(
         "INSERT INTO vorgang_position VALUES (?,'g1',?,?,?,?,?,?,?,?,'[]',NULL,?,'u','d','t')",
         [
@@ -87,6 +83,7 @@ def test_timeline_from_positions(conn):
 
 
 def test_write(conn, tmp_path):
+    conn.execute("DROP TABLE vorgang_position")  # a store from before the foundation fetched them
     add_bills(conn)
     (tmp_path / "abstimmungen").mkdir()
     (tmp_path / "abstimmungen" / "21-88-h1.html").write_text("")

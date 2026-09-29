@@ -67,7 +67,8 @@ CREATE TABLE IF NOT EXISTS agenda_item (
 );
 
 CREATE TABLE IF NOT EXISTS speech (
-    id TEXT PRIMARY KEY,                -- XML rede/@id, "-2", "-3" … when split
+    id TEXT PRIMARY KEY,                -- XML rede/@id, "-2", "-3" … when split; Fragestunde:
+                                        -- "<agenda_item_id>/f<n>" (synthetic, docs/decisions.md)
     sitting_id TEXT NOT NULL REFERENCES sitting(id),
     agenda_item_id TEXT REFERENCES agenda_item(id),
     position INTEGER NOT NULL,          -- order within the sitting
@@ -76,7 +77,9 @@ CREATE TABLE IF NOT EXISTS speech (
     speaker_role TEXT,
     fraction TEXT,
     text TEXT NOT NULL,                 -- clean text: paragraphs of kind 'text', blank-line joined
-    source_url TEXT NOT NULL, source_document_id TEXT NOT NULL, retrieved_at TEXT NOT NULL
+    source_url TEXT NOT NULL, source_document_id TEXT NOT NULL, retrieved_at TEXT NOT NULL,
+    kind TEXT NOT NULL DEFAULT 'rede'   -- rede | fragestunde: a Fragestunde question, answer or
+                                        -- Nachfrage; shown, but left out of speech counts and shares
 );
 
 CREATE TABLE IF NOT EXISTS speech_paragraph (
@@ -135,6 +138,8 @@ CREATE TABLE IF NOT EXISTS vorgang (
     status TEXT,                        -- beratungsstand
     subjects TEXT NOT NULL,             -- JSON array (sachgebiet)
     initiators TEXT NOT NULL,           -- JSON array (initiative)
+    verkuendung TEXT,                   -- JSON array of DIP verkuendung objects (BGBl reference), NULL if none
+    inkrafttreten TEXT,                 -- JSON array of {datum, erlaeuterung} objects, NULL if none
     source_url TEXT NOT NULL, source_document_id TEXT NOT NULL, retrieved_at TEXT NOT NULL
 );
 
@@ -142,6 +147,23 @@ CREATE TABLE IF NOT EXISTS vorgang_drucksache (
     vorgang_id TEXT NOT NULL REFERENCES vorgang(id),
     drucksache_id TEXT NOT NULL REFERENCES drucksache(id),
     PRIMARY KEY (vorgang_id, drucksache_id)
+);
+
+CREATE TABLE IF NOT EXISTS vorgang_position (
+    id TEXT PRIMARY KEY,                -- DIP id of the Vorgangsposition (one step of a Vorgang)
+    vorgang_id TEXT NOT NULL,           -- DIP id of the Vorgang; not every Vorgang is in table vorgang
+    date TEXT NOT NULL,                 -- datum
+    position TEXT NOT NULL,             -- vorgangsposition, e.g. "Gesetzentwurf", "1. Beratung", "Antwort"
+    chamber TEXT,                       -- zuordnung: BT | BR | BV | …
+    document_kind TEXT,                 -- fundstelle.dokumentart: Drucksache | Plenarprotokoll
+    document_number TEXT,               -- fundstelle.dokumentnummer: "21/304" (Drucksache), "21/13" (protocol)
+    document_type TEXT,                 -- fundstelle.drucksachetyp
+    pdf_url TEXT,                       -- fundstelle.pdf_url
+    pages TEXT,                         -- "1234-1236" (fundstelle.anfangsseite-endseite), protocols only
+    originators TEXT NOT NULL,          -- JSON array of urheber titles
+    ressort TEXT,                       -- JSON array of objects {titel, federfuehrend}, NULL if none
+    decisions TEXT,                     -- JSON array of beschlussfassung objects as in DIP, NULL if none
+    source_url TEXT NOT NULL, source_document_id TEXT NOT NULL, retrieved_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS roll_call_vote (
@@ -180,6 +202,28 @@ CREATE TABLE IF NOT EXISTS aw_profile (
     url TEXT NOT NULL,                  -- the public profile page
     questions INTEGER,                  -- citizen questions on the profile, all periods (statistic_questions)
     questions_answered INTEGER,
+    source_url TEXT NOT NULL, source_document_id TEXT NOT NULL, retrieved_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS side_job (
+    id INTEGER PRIMARY KEY,             -- abgeordnetenwatch sidejob id
+    wahlperiode INTEGER NOT NULL,
+    person_id TEXT REFERENCES person(id), -- via aw mandate -> politician; NULL if the politician is unmatched
+    aw_mandate_id INTEGER NOT NULL,
+    label TEXT NOT NULL,                -- the entry as published, e.g. "Mitglied des Beirates, ehrenamtlich (ab …)"
+    job_title_extra TEXT,
+    category TEXT,                      -- Bundestag category (Verhaltensregeln), label of aw's code
+    income_level INTEGER,               -- published Stufe 0..10; NULL: none published
+    income_range TEXT,                  -- the Stufe's range, e.g. "1.000 € bis 3.500 €"
+    income REAL,                        -- amount as published by aw (`income`); NULL if none
+    interval TEXT,                      -- einmalig | monatlich | jährlich
+    additional_information TEXT,        -- aw's free text (may contain HTML)
+    organization_id INTEGER,            -- aw sidejob_organization id
+    organization TEXT,
+    city TEXT,
+    topics TEXT,                        -- JSON list of aw topic labels
+    created TEXT,                       -- date first recorded by aw
+    data_change_date TEXT,              -- date aw last changed the record
     source_url TEXT NOT NULL, source_document_id TEXT NOT NULL, retrieved_at TEXT NOT NULL
 );
 
@@ -308,5 +352,8 @@ CREATE INDEX IF NOT EXISTS author_person ON drucksache_author(person_id);
 CREATE INDEX IF NOT EXISTS author_dip_person ON drucksache_author(dip_person_id);
 CREATE INDEX IF NOT EXISTS drucksache_date ON drucksache(date);
 CREATE INDEX IF NOT EXISTS person_dip ON person(dip_person_id);
+CREATE INDEX IF NOT EXISTS vorgang_position_vorgang ON vorgang_position(vorgang_id);
+CREATE INDEX IF NOT EXISTS vorgang_position_date ON vorgang_position(date);
 CREATE INDEX IF NOT EXISTS candidacy_person ON election_candidacy(person_id);
+CREATE INDEX IF NOT EXISTS municipality_constituency ON constituency_municipality(election, constituency_number);
 CREATE INDEX IF NOT EXISTS government_role_person ON government_role(person_id);

@@ -20,7 +20,9 @@ def add_questions(c):
         ],
     )  # fmt: skip
     c.executemany(
-        "INSERT INTO vorgang VALUES (?,21,?,?,NULL,'[]','[]',?,?,?)",
+        "INSERT INTO vorgang (id, wahlperiode, type, title, status, subjects, initiators, source_url, "
+        "source_document_id, "
+        "retrieved_at) VALUES (?,21,?,?,NULL,'[]','[]',?,?,?)",
         [("vk1", "Kleine Anfrage", "Brücken", *DIP), ("vs1", "Schriftliche Frage", "A", *DIP),
          ("vs2", "Schriftliche Frage", "B", *DIP)],
     )  # fmt: skip

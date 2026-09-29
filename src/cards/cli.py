@@ -7,7 +7,20 @@ import time
 from collections import Counter
 from pathlib import Path
 
-from cards import bills, build, careers, data, debate, photos, questions, search, sources, speeches, weekly
+from cards import (
+    bills,
+    build,
+    careers,
+    data,
+    debate,
+    photos,
+    questions,
+    search,
+    sources,
+    speeches,
+    wahlkreissuche,
+    weekly,
+)
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -37,16 +50,22 @@ def main(argv: list[str] | None = None) -> None:
     clusters = data.speech_clusters()
     if clusters:
         print(f"{len(clusters)} speeches with a Themenlandschaft cluster: sitting pages with 'Worum ging es'")
+    has_gemeinden = data.has_table(conn, "constituency_municipality")
     write_photos(conn, cards, args.out / "fotos")
     careers.annotate(conn, cards)
     sittings = data.sittings(conn, decided)
     written = build.write_site(
         cards, meta, args.out, wks, gov, data.last_sitting(conn),
         decided, data.roll_call_members(conn), sittings, clusters,
+        gemeinde_search=has_gemeinden,
     )  # fmt: skip
     written |= questions.write(conn, args.out) | sources.write(conn, args.out, meta)
     written |= debate.write(conn, args.out)
     written |= careers.write(conn, args.out)
+    if has_gemeinden:
+        written |= wahlkreissuche.write(conn, args.out, cards, wks)
+    else:
+        print("no constituency_municipality table in the store: no wahlkreise/suche.html")
     print(f"wrote {len(cards)} card pages, " + ", ".join(f"{v} pages in {k}/" for k, v in written.items()))
     similar = speeches.neighbours()
     n_speeches = speeches.write_pages(args.out, speeches.load(conn), {c["id"] for c in cards}, clusters, similar)

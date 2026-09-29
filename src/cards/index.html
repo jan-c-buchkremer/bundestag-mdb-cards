@@ -138,7 +138,7 @@ __HEADER__
 <script>
 'use strict';
 const DATA = __DATA__;
-const { cards: CARDS, meta: META, constituencies: WAHLKREISE } = DATA;
+const { cards: CARDS, meta: META, constituencies: WAHLKREISE, gemeinde_search: GEMEINDE_SEARCH } = DATA;
 const GOVERNMENT = DATA.government || [];
 const LAST = DATA.last_sitting;
 const LANDSCAPE = 'https://jan-c-buchkremer.github.io/bundestag-topic-landscape/';
@@ -320,7 +320,7 @@ function renderWahlkreise() {
     return `<span class="k">kein direktes Mandat: die meisten Erststimmen (${esc(o.first_party)}, ${pct(o.first_percent)}) waren nicht durch Zweitstimmen gedeckt</span>`;
   };
   const official = WAHLKREISE.length > 0;
-  $('list').innerHTML = `<p class="explain">Zu jedem Wahlkreis: wer ihn direkt gewonnen hat, und wer dort kandidiert hat und über die Landesliste in den Bundestag kam. Seit der Wahlrechtsreform 2023 erhält ein Wahlkreissieger nur einen Sitz, wenn die Zweitstimmen seiner Partei im Land dafür reichen (Zweitstimmendeckung)${official ? `; ${WAHLKREISE.filter(w => !w.seat_party).length} Wahlkreise haben deshalb kein direkt gewähltes Mitglied. Ergebnisse: Die Bundeswahlleiterin, Bundestagswahl 2025` : ''}.</p>
+  $('list').innerHTML = `<p class="explain">Zu jedem Wahlkreis: wer ihn direkt gewonnen hat, und wer dort kandidiert hat und über die Landesliste in den Bundestag kam. Seit der Wahlrechtsreform 2023 erhält ein Wahlkreissieger nur einen Sitz, wenn die Zweitstimmen seiner Partei im Land dafür reichen (Zweitstimmendeckung)${official ? `; ${WAHLKREISE.filter(w => !w.seat_party).length} Wahlkreise haben deshalb kein direkt gewähltes Mitglied. Ergebnisse: Die Bundeswahlleiterin, Bundestagswahl 2025` : ''}.${GEMEINDE_SEARCH ? ' <a href="wahlkreise/suche.html">Wahlkreis per Gemeinde oder Stadt suchen →</a>' : ''}</p>
     <div class="rows wk">${shown.map(w => `<div class="row${state.wk === w.nr ? ' sel' : ''}" id="wk-${w.nr}" data-nr="${w.nr}"><div class="nr">${w.nr}</div><div class="t">${esc(w.name)} <span class="faint">· ${STATES[w.state] || w.state}${w.official?.turnout ? ` · Wahlbeteiligung ${pct(w.official.turnout)}` : ''}</span>
       <div class="who">${w.direct.length ? `<span class="k">direkt</span>${w.direct.map(person).join('')}` : noSeat(w)}${w.list.length ? `<span class="k">über die Liste</span>${w.list.map(person).join('')}` : ''}</div></div></div>`).join('') || '<div class="empty">Keine Treffer.</div>'}</div>`;
   styleMap();

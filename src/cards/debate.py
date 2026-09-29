@@ -15,7 +15,7 @@ import sqlite3
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from cards.data import MIN_CHARS, NO_FRACTION, PARTY_TO_FRACTION, WP, _houses, after_speaker, page_id
+from cards.data import MIN_CHARS, NO_FRACTION, PARTY_TO_FRACTION, WP, _houses, after_speaker, kind_filter, page_id
 from cards.pages import FOOTER, MONTHS, ORDER, SHORT, TOKEN, dot, e, n, shell, short_date
 from cards.speeches import rede_id
 
@@ -83,8 +83,9 @@ def _speeches(conn: sqlite3.Connection) -> list[dict]:
         {"id": r[0], "sitting": r[1], "date": r[2], "person": r[3], "group": speaker_group(r[4], r[5]),
          "words": words(r[6])}
         for r in conn.execute(
-            """SELECT s.id, s.sitting_id, st.date, s.person_id, s.speaker_role, s.fraction, s.text FROM speech s
-               JOIN sitting st ON st.id = s.sitting_id WHERE st.wahlperiode = ? ORDER BY st.date, s.position""",
+            f"""SELECT s.id, s.sitting_id, st.date, s.person_id, s.speaker_role, s.fraction, s.text FROM speech s
+               JOIN sitting st ON st.id = s.sitting_id WHERE st.wahlperiode = ? {kind_filter(conn)}
+               ORDER BY st.date, s.position""",
             (WP,),
         )
     ]  # fmt: skip
@@ -307,7 +308,7 @@ def interruptions(conn: sqlite3.Connection) -> dict[str, dict[str, list[int]]]:
     for r in conn.execute(
         f"""SELECT st.date, s.speaker_role, s.fraction, i.fraction, i.speech_id, i.paragraph FROM interjection i
             JOIN speech s ON s.id = i.speech_id JOIN sitting st ON st.id = s.sitting_id
-            WHERE st.wahlperiode = ? AND i.kind IN ({marks}) AND i.to_person_id IS NULL""",
+            WHERE st.wahlperiode = ? AND i.kind IN ({marks}) AND i.to_person_id IS NULL {kind_filter(conn)}""",
         (WP, *INTERRUPTIONS),
     ):
         g = speaker_group(r[1], r[2])
@@ -326,8 +327,8 @@ def network(conn: sqlite3.Connection) -> dict:
     the applause notes (whole fraction or some members) and how many of them cross a fraction line."""
     speeches = {}
     for r in conn.execute(
-        """SELECT s.id, st.date, s.speaker_role, s.fraction, length(s.text) FROM speech s
-           JOIN sitting st ON st.id = s.sitting_id WHERE st.wahlperiode = ?""",
+        f"""SELECT s.id, st.date, s.speaker_role, s.fraction, length(s.text) FROM speech s
+           JOIN sitting st ON st.id = s.sitting_id WHERE st.wahlperiode = ? {kind_filter(conn)}""",
         (WP,),
     ):
         g = speaker_group(r[2], r[3])
@@ -479,7 +480,7 @@ def section_order(ms: list[dict], qs: list[dict], ints: dict[str, dict[str, list
         f'<li><span class="d">{sitting_link(m["sitting"], m["date"])}</span> <b>{e(m["kind"])}</b> · '
         f"{dot(m['fraction']) if m['fraction'] in TOKEN else ''}{e(label(m['fraction']))}"
         f'<div class="q">„{e(m["text"][:280])}{"…" if len(m["text"]) > 280 else ""}“ '
-        f'<a href="../reden/{e(rede_id(m["speech"]))}.html#{e(m["speech"])}">in der Rede →</a></div></li>'
+        f'<a href="../reden/{e(page_id(rede_id(m["speech"])))}.html#{e(m["speech"])}">in der Rede →</a></div></li>'
         for m in reversed(ms)
     )
     unclear = sum(1 for m in ms if m["fraction"] == UNCLEAR)

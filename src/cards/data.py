@@ -43,9 +43,13 @@ def committee_short(name: str) -> str:
 
 # ---------------------------------------------------------------- speeches
 
-_SQL_SPEECH = """
+
+def _sql_speech(conn: sqlite3.Connection) -> str:
+    kind_col = "s.kind" if has_speech_kind(conn) else "'rede' AS kind"
+    return f"""
 SELECT s.id, s.position, s.person_id, s.speaker_name, s.speaker_role, s.fraction, s.text, s.source_document_id,
-       st.id AS sitting_id, st.date, st.pdf_url, p.party, a.id AS agenda_item_id, a.top_id, a.title AS agenda_title
+       st.id AS sitting_id, st.date, st.pdf_url, p.party, a.id AS agenda_item_id, a.top_id, a.title AS agenda_title,
+       {kind_col}
 FROM speech s
 JOIN sitting st ON st.id = s.sitting_id
 JOIN person p ON p.id = s.person_id
@@ -106,10 +110,12 @@ def speeches(conn: sqlite3.Connection) -> dict[str, dict[str, list]]:
     else are that person's Zwischenfrage or Kurzintervention (the chair's words before it decide which)."""
     applause, chair = _paragraph_stats(conn)
     rede: dict[str, list[sqlite3.Row]] = defaultdict(list)
-    for r in conn.execute(_SQL_SPEECH, (WP,)):
+    for r in conn.execute(_sql_speech(conn), (WP,)):
         rede[re.sub(r"-\d+$", "", r["id"])].append(r)
 
-    out: dict[str, dict[str, list]] = defaultdict(lambda: {"reden": [], "kurz": [], "fragen": [], "befragung": []})
+    out: dict[str, dict[str, list]] = defaultdict(
+        lambda: {"reden": [], "kurz": [], "fragen": [], "befragung": [], "fragestunde": []}
+    )
     for parts in rede.values():
         first = parts[0]
         where = {
@@ -117,6 +123,15 @@ def speeches(conn: sqlite3.Connection) -> dict[str, dict[str, list]]:
             "title": short_title(first["agenda_title"], first["top_id"] or ""),
             "pdf": first["pdf_url"], "cite": first["source_document_id"],
         }  # fmt: skip
+        if first["kind"] == "fragestunde":
+            # a Fragestunde question, answer or Nachfrage: shown on the card, but not a Rede (docs/decisions.md) -
+            # not counted towards "reden"/"kurz" or included in any speaking share
+            for p in parts:
+                out[p["person_id"]]["fragestunde"].append(
+                    {"id": p["id"], **where, "words": len(p["text"].split()), "role": p["speaker_role"],
+                     "fraction": _fraction(p), "on_map": False}
+                )  # fmt: skip
+            continue
         if BEFRAGUNG in (first["agenda_title"] or ""):
             for p in parts:
                 out[p["person_id"]]["befragung"].append(
@@ -283,6 +298,17 @@ ELECTION = "btw25"  # the election that formed WP 21
 
 def _has_column(conn: sqlite3.Connection, table: str, column: str) -> bool:
     return any(r[1] == column for r in conn.execute(f"PRAGMA table_info({table})"))
+
+
+def has_speech_kind(conn: sqlite3.Connection) -> bool:
+    """False for a store ingested before speech.kind existed: every speech is then a 'rede'."""
+    return _has_column(conn, "speech", "kind")
+
+
+def kind_filter(conn: sqlite3.Connection, alias: str = "s") -> str:
+    """SQL to AND into a WHERE clause on `speech alias`, excluding Fragestunde turns from speech counts and
+    speaking shares (docs/decisions.md): empty for a store without the column, so every speech counts there."""
+    return f"AND {alias}.kind != 'fragestunde'" if has_speech_kind(conn) else ""
 
 
 def has_table(conn: sqlite3.Connection, name: str) -> bool:
@@ -553,8 +579,8 @@ def cards(conn: sqlite3.Connection) -> tuple[list[dict], dict]:
             fraction = vote_rows[pid][-1]["fraction"]
         else:
             fraction = None
-        sp = by_person.get(pid, {"reden": [], "kurz": [], "fragen": [], "befragung": []})
-        roles = [r["role"] for r in sp["reden"] + sp["befragung"] if r["role"]]
+        sp = by_person.get(pid, {"reden": [], "kurz": [], "fragen": [], "befragung": [], "fragestunde": []})
+        roles = [r["role"] for r in sp["reden"] + sp["befragung"] + sp["fragestunde"] if r["role"]]
         female = p["gender"] == "weiblich" or any(_FEMALE_ROLE.search(r) for r in roles)
         offices_held = [
             {**o, "office": feminine(o["office"]) if female else o["office"]} for o in gov_roles.get(pid, [])
@@ -591,6 +617,7 @@ def cards(conn: sqlite3.Connection) -> tuple[list[dict], dict]:
                 ],
                 "other": [_dated(m) for m in ms if m["kind"] == "other" and not OFFICE.search(m["role"] or "")],
                 "reden": sp["reden"], "kurz": sp["kurz"], "fragen": sp["fragen"], "befragung": sp["befragung"],
+                "fragestunde": sp["fragestunde"],
                 "votes": vote_rows.get(pid, []),
                 **docs.get(pid, {"authored": [], "reported": []}),
                 "career": [
@@ -702,7 +729,8 @@ def last_sitting(conn: sqlite3.Connection) -> dict | None:
     speakers = {
         s["person_id"]
         for s in conn.execute(
-            "SELECT id, person_id FROM speech WHERE sitting_id = ? AND person_id IS NOT NULL", (r["id"],)
+            f"SELECT id, person_id FROM speech s WHERE sitting_id = ? AND person_id IS NOT NULL {kind_filter(conn)}",
+            (r["id"],),
         )
         if not re.search(r"-\d+$", s["id"])
     }
@@ -958,9 +986,11 @@ def iso_week(date: str) -> str:
     return f"{y}-W{w:02d}"
 
 
-_SQL_SITTING_SPEECH = """
+def _sql_sitting_speech(conn: sqlite3.Connection) -> str:
+    kind_col = "s.kind" if has_speech_kind(conn) else "'rede' AS kind"
+    return f"""
 SELECT s.id, s.agenda_item_id, s.person_id, s.speaker_role, s.fraction, s.text, p.party, p.first_name, p.last_name,
-       p.academic_title, p.name_prefix
+       p.academic_title, p.name_prefix, {kind_col}
 FROM speech s JOIN person p ON p.id = s.person_id
 WHERE s.sitting_id = ?
 ORDER BY s.position
@@ -985,6 +1015,7 @@ def sittings(conn: sqlite3.Connection, decided: list[dict] | None = None) -> lis
         {r[0] for r in conn.execute("SELECT person_id FROM person_photo")} if has_table(conn, "person_photo") else set()
     )
     rows = conn.execute("SELECT * FROM sitting WHERE wahlperiode = ? ORDER BY date, number", (WP,)).fetchall()
+    sql_speech = _sql_sitting_speech(conn)
     out = []
     for i, st in enumerate(rows):
         items = {
@@ -993,13 +1024,18 @@ def sittings(conn: sqlite3.Connection, decided: list[dict] | None = None) -> lis
                 "title": short_title(a["title"], a["top_id"]),
                 "segments": [s.strip() for s in (a["title"] or "").split("|") if s.strip()],
                 "drucksachen": [drucksache_ref(n, dip) for n in json.loads(a["drucksache_numbers"])],
-                "speeches": [], "decisions": by_item.get(a["id"], []),
+                "speeches": [], "fragestunde": 0, "decisions": by_item.get(a["id"], []),
                 "referred": referred.get(a["id"]),
             }
             for a in conn.execute("SELECT * FROM agenda_item WHERE sitting_id = ? ORDER BY position", (st["id"],))
         }  # fmt: skip
         rede: dict[str, list[sqlite3.Row]] = defaultdict(list)
-        for s in conn.execute(_SQL_SITTING_SPEECH, (st["id"],)):
+        for s in conn.execute(sql_speech, (st["id"],)):
+            if s["kind"] == "fragestunde":
+                # counted apart: a Fragestunde turn is not a Rede (docs/decisions.md)
+                if s["agenda_item_id"] in items:
+                    items[s["agenda_item_id"]]["fragestunde"] += 1
+                continue
             rede[re.sub(r"-\d+$", "", s["id"])].append(s)
         for parts in rede.values():
             first = parts[0]

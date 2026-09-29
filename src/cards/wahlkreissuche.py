@@ -71,7 +71,7 @@ JS = """<script>
     const stateName = STATES[meta.state] || meta.state || '';
     const others = (PAGE.list_by_state[meta.state] || []).filter(m => !cs.some(c => c.id === m.id));
     return `<div class="wkblock"><h2>Wahlkreis ${esc(nr)} · ${esc(meta.name || '')} <span class="faint">· ${esc(stateName)}</span></h2>
-      <div class="row2"><span class="k">direkt gewählt</span>${d ? memberLink(d) : '<span class="faint">kein direkt gewähltes Mitglied</span>'}</div>
+      <div class="row2"><span class="k">direkt gewählt</span>${d ? memberLink(d) : '<span class="faint">kein Mitglied: Nach dem Wahlrecht von 2023 bekommt ein Wahlkreissieger nur einen Sitz, wenn die Zweitstimmen seiner Partei im Land dafür reichen (Zweitstimmendeckung). 2025 blieben so 23 Wahlkreise ohne direkt gewähltes Mitglied.</span>'}</div>
       ${cs.length ? `<div class="row2"><span class="k">Landesliste, hier kandidiert</span>${cs.map(memberLink).join('')}</div>` : ''}
       ${others.length ? `<details class="open"><summary>${others.length} weitere Landeslisten-Abgeordnete aus ${esc(stateName)}</summary><div class="list">${others.map(memberLink).join('')}</div></details>` : ''}
       </div>`;
@@ -139,7 +139,8 @@ JS = """<script>
 
 def municipalities(conn: sqlite3.Connection) -> list[dict] | None:
     """Compact Gemeinde -> Wahlkreis(e) index, one entry per (name, Kreis, Land); a split Gemeinde carries
-    several Wahlkreis numbers. None when the foundation has not filled `constituency_municipality` yet."""
+    several Wahlkreis numbers. None when the foundation has not filled `constituency_municipality` yet (the table
+    exists in every store, empty until the Wahlkreiseinteilung was fetched)."""
     if not has_table(conn, "constituency_municipality"):
         return None
     grouped: dict[tuple[str, str, str], list[int]] = defaultdict(list)
@@ -149,6 +150,8 @@ def municipalities(conn: sqlite3.Connection) -> list[dict] | None:
         (ELECTION,),
     ):
         grouped[(r["name"], r["district"], r["state"])].append(r["constituency_number"])
+    if not grouped:
+        return None
     return [
         {"n": name, "d": district, "s": state, "w": sorted(set(numbers))}
         for (name, district, state), numbers in grouped.items()

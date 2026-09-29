@@ -9,6 +9,10 @@ def test_municipalities_none_without_table(conn):
     assert wahlkreissuche.municipalities(conn) is None
 
 
+def test_municipalities_none_while_table_empty(conn):
+    assert wahlkreissuche.municipalities(conn) is None  # the schema has the table before the file was fetched
+
+
 def add_municipalities(conn):
     conn.executemany(
         "INSERT INTO constituency_municipality VALUES (?,?,?,?,?,?,?,?,?,?,?)",

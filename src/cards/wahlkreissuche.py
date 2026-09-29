@@ -5,7 +5,8 @@ Per Gemeinde: its Wahlkreis, or several for the 18 Gemeinden the Bundeswahlleite
 Wahlkreise (the file names only a running Gemeindeteil number, not which streets belong where — a finer lookup
 needs another source, see docs/decisions.md). Per Wahlkreis: the directly elected member, the list members who
 stood there as candidates (`election_candidacy.constituency_number`), and the other list members of the Land,
-collapsed. No postcodes this round: they cannot be mapped to a Gemeinde without a further source (OpenPLZ)."""
+collapsed; for the first two also their number of Reden and the latest one. No postcodes this round: they cannot
+be mapped to a Gemeinde without a further source (OpenPLZ)."""
 
 from __future__ import annotations
 
@@ -13,7 +14,7 @@ import sqlite3
 from collections import defaultdict
 from pathlib import Path
 
-from cards.data import ELECTION, has_table
+from cards.data import ELECTION, has_table, page_id
 from cards.pages import FOOTER, shell
 
 STYLE = """<style>
@@ -38,6 +39,9 @@ STYLE = """<style>
   text-transform: uppercase; color: var(--faint); vertical-align: top; }
 .wks .row2 a { display: inline-flex; align-items: center; gap: 6px; margin: 0 12px 4px 0; }
 .wks .wkblock .dot { width: 8px; height: 8px; }
+.wks .mem { display: inline-block; vertical-align: top; margin: 0 12px 6px 0; }
+.wks .mem > a { margin: 0; }
+.wks .act { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
 .wks details.open { margin-top: 8px; font-size: 13.5px; }
 .wks details.open summary { cursor: pointer; color: var(--muted); }
 .wks details.open .list { margin-top: 8px; }
@@ -64,6 +68,14 @@ JS = """<script>
     return `<a href="../${esc(m.id)}.html"><span class="dot" style="background:${color(m.fraction)}"></span>${esc(m.name)}${m.left ? ' <span class="faint">(ausgeschieden)</span>' : ''}</a>`;
   }
 
+  const DATE = new Intl.DateTimeFormat('de-DE', { day: 'numeric', month: 'long', year: 'numeric' });
+  function activity(m) {
+    if (!m.reden) return '<div class="act">Noch keine Rede in dieser Wahlperiode.</div>';
+    const l = m.last;
+    return `<div class="act">${m.reden === 1 ? '1 Rede' : `${m.reden} Reden`} in dieser Wahlperiode, zuletzt am ${esc(DATE.format(new Date(l.date)))}: <a href="../reden/${esc(l.page)}.html">${esc(l.title || 'Rede')}</a></div>`;
+  }
+  const withActivity = m => `<div class="mem">${memberLink(m)}${activity(m)}</div>`;
+
   function wkBlock(nr) {
     const meta = PAGE.wk[nr] || {};
     const d = PAGE.direct[nr];
@@ -71,8 +83,8 @@ JS = """<script>
     const stateName = STATES[meta.state] || meta.state || '';
     const others = (PAGE.list_by_state[meta.state] || []).filter(m => !cs.some(c => c.id === m.id));
     return `<div class="wkblock"><h2>Wahlkreis ${esc(nr)} · ${esc(meta.name || '')} <span class="faint">· ${esc(stateName)}</span></h2>
-      <div class="row2"><span class="k">direkt gewählt</span>${d ? memberLink(d) : '<span class="faint">kein Mitglied: Nach dem Wahlrecht von 2023 bekommt ein Wahlkreissieger nur einen Sitz, wenn die Zweitstimmen seiner Partei im Land dafür reichen (Zweitstimmendeckung). 2025 blieben so 23 Wahlkreise ohne direkt gewähltes Mitglied.</span>'}</div>
-      ${cs.length ? `<div class="row2"><span class="k">Landesliste, hier kandidiert</span>${cs.map(memberLink).join('')}</div>` : ''}
+      <div class="row2"><span class="k">direkt gewählt</span>${d ? withActivity(d) : '<span class="faint">kein Mitglied: Nach dem Wahlrecht von 2023 bekommt ein Wahlkreissieger nur einen Sitz, wenn die Zweitstimmen seiner Partei im Land dafür reichen (Zweitstimmendeckung). 2025 blieben so 23 Wahlkreise ohne direkt gewähltes Mitglied.</span>'}</div>
+      ${cs.length ? `<div class="row2"><span class="k">Landesliste, hier kandidiert</span>${cs.map(withActivity).join('')}</div>` : ''}
       ${others.length ? `<details class="open"><summary>${others.length} weitere Landeslisten-Abgeordnete aus ${esc(stateName)}</summary><div class="list">${others.map(memberLink).join('')}</div></details>` : ''}
       </div>`;
   }
@@ -158,6 +170,16 @@ def municipalities(conn: sqlite3.Connection) -> list[dict] | None:
     ]
 
 
+def activity(c: dict) -> dict:
+    """What a member did lately, as facts to click through, not a score: the Reden of the Wahlperiode and the
+    latest one with its speech page."""
+    reden = sorted(c.get("reden") or [], key=lambda r: (r["date"], r["id"]))
+    if not reden:
+        return {"reden": 0}
+    last = reden[-1]
+    return {"reden": len(reden), "last": {"date": last["date"], "title": last["title"], "page": page_id(last["id"])}}
+
+
 def member_index(cards: list[dict]) -> dict:
     """Per Wahlkreis: the directly elected member and the list members who stood there; per Land: every current
     list member. Built from each card's `election` (btw25 `election_candidacy`), not the Stammdaten mandate, so
@@ -170,7 +192,7 @@ def member_index(cards: list[dict]) -> dict:
         if not el:
             continue
         left = bool((c.get("mandate") or {}).get("to"))
-        ref = {"id": c["id"], "name": c["name"], "fraction": c["fraction"], "left": left}
+        ref = {"id": c["id"], "name": c["name"], "fraction": c["fraction"], "left": left, **activity(c)}
         if el["via"] == "constituency" and el["number"] is not None:
             direct[str(el["number"])] = ref
         elif el["via"] == "list":
@@ -187,7 +209,8 @@ def page(gemeinden: list[dict], members: dict, wks: list[dict]) -> str:
     body = (
         '<section class="card"><h1>Meinen Wahlkreis finden</h1><div class="lines">'
         "Gemeinde oder Stadt eingeben: der Wahlkreis der Bundestagswahl 2025, wer ihn direkt gewonnen hat, wer dort "
-        "über die Landesliste kandidiert hat, und die übrigen Landeslisten-Abgeordneten des Landes. "
+        "über die Landesliste kandidiert hat, wie oft sie geredet haben und worüber zuletzt, und die übrigen "
+        "Landeslisten-Abgeordneten des Landes. "
         '<a href="../daten.html">Über die Daten</a></div></section>'
         '<div class="wks">'
         '<div class="field"><input type="search" id="gq" placeholder="Gemeinde oder Stadt …" autocomplete="off" '

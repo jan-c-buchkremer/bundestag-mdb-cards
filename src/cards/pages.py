@@ -550,12 +550,14 @@ def sittings_index(sittings: list[dict]) -> str:
             for s in sorted(ss, key=lambda s: s["number"])
         )
         y, w = week.split("-W")
-        out.append(f'<section class="grp"><h3>Sitzungswoche {int(w)}/{y} · <a href="{LANDSCAPE}{e(week)}.html">'
-                   f'Themenlandschaft ↗</a></h3><div class="rows">{rows}</div></section>')  # fmt: skip
+        out.append(f'<section class="grp"><h3>Sitzungswoche {int(w)}/{y} · <a href="../woche/{e(week)}.html">Die Woche'
+                   f'</a> · <a href="{LANDSCAPE}{e(week)}.html">Themenlandschaft ↗</a></h3><div class="rows">{rows}'
+                   "</div></section>")  # fmt: skip
     body = (
         f'<h1>Sitzungen</h1><p class="lead">{len(sittings)} Sitzungen des 21. Bundestages seit '
         f"{e(long_date(sittings[0]['date'])) if sittings else ''}, die neueste zuerst. Jede Sitzung mit ihrer "
         "Tagesordnung, den Reden, den Beschlüssen und dem Plenarprotokoll.</p>"
+        '<p><a href="../woche/index.html">Die Woche im Bundestag: jede Sitzungswoche in wenigen Sätzen →</a></p>'
         f"{''.join(out)}<footer>{FOOTER}</footer>"
     )
     return shell(root="../", kind="p-sittings", active="sittings", title="Sitzungen des Bundestages",

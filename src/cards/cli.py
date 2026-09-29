@@ -7,7 +7,7 @@ import time
 from collections import Counter
 from pathlib import Path
 
-from cards import bills, build, careers, data, debate, photos, questions, search, sources, speeches
+from cards import bills, build, careers, data, debate, photos, questions, search, sources, speeches, weekly
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -39,9 +39,10 @@ def main(argv: list[str] | None = None) -> None:
         print(f"{len(clusters)} speeches with a Themenlandschaft cluster: sitting pages with 'Worum ging es'")
     write_photos(conn, cards, args.out / "fotos")
     careers.annotate(conn, cards)
+    sittings = data.sittings(conn, decided)
     written = build.write_site(
         cards, meta, args.out, wks, gov, data.last_sitting(conn),
-        decided, data.roll_call_members(conn), data.sittings(conn, decided), clusters,
+        decided, data.roll_call_members(conn), sittings, clusters,
     )  # fmt: skip
     written |= questions.write(conn, args.out) | sources.write(conn, args.out, meta)
     written |= debate.write(conn, args.out)
@@ -52,6 +53,7 @@ def main(argv: list[str] | None = None) -> None:
     print(f"wrote {n_speeches} speech pages in reden/" + (f", {len(similar)} with similar speeches" if similar else ""))
     n_bills = bills.write(conn, args.out).get("gesetze", 0)
     print(f"wrote {n_bills} pages in gesetze/" if n_bills else "no Gesetzgebung in the store: no gesetze/ pages")
+    print(f"wrote {weekly.write(conn, args.out, sittings, decided, clusters).get('woche', 0)} pages in woche/")
     search.write_index(args.out)  # last: indexes everything written above
 
 

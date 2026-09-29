@@ -83,11 +83,9 @@ def test_links_to_speech_pages(conn, tmp_path):
     check_links = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(check_links)
     (tmp_path / "suche.html").write_text(search.search_page())
-    (tmp_path / "pagefind").mkdir()
-    for f in ("pagefind-ui.js", "pagefind-ui.css"):
-        (tmp_path / "pagefind" / f).write_text("")
+    # search.js is a build.py asset (site() above already wrote it); the real pagefind/ comes from write_index
     # the portraits and the pages of other modules are written by the CLI, not here
-    ours = ("reden", "sitzungen", "abstimmungen/2", "suche", "pagefind")
+    ours = ("reden", "sitzungen", "abstimmungen/2", "suche")
     broken = [(p, link) for p, link in check_links.check(tmp_path, anchors=True) if any(x in link for x in ours)]
     assert broken == []
     (tmp_path / "reden" / "ID3.html").unlink()
@@ -97,6 +95,6 @@ def test_links_to_speech_pages(conn, tmp_path):
 def test_search_index(conn, tmp_path):
     site(conn, tmp_path)
     search.write_index(tmp_path)
-    assert (tmp_path / "pagefind" / "pagefind-ui.js").exists()
+    assert (tmp_path / "pagefind" / "pagefind.js").exists()
     assert list((tmp_path / "pagefind").glob("pagefind.de*.pf_meta"))
-    assert 'src="pagefind/pagefind-ui.js"' in (tmp_path / "suche.html").read_text()
+    assert 'type="module" src="search.js"' in (tmp_path / "suche.html").read_text()

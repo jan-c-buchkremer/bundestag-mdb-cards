@@ -13,7 +13,7 @@ from cards.data import index_row
 
 HERE = Path(__file__).parent
 # wahlkreise.json: the map, fetched on demand
-ASSETS = ("cards.css", "card.js", "pages.js", "parliament.js", "wahlkreise.json")
+ASSETS = ("cards.css", "card.js", "pages.js", "parliament.js", "wahlkreise.json", "search.js")
 
 
 def _json(payload: object) -> str:

@@ -1,9 +1,11 @@
 """Full-text search: the search page `suche.html` and the Pagefind index in `pagefind/`.
 
 Pagefind (the `pagefind` package ships its binary) indexes the built site as the last step of the build and writes
-a static index plus its default UI; the browser loads only the index chunks a query needs. Pages opt in with
+a static index; the browser loads only the index chunks a query needs. `suche.html` carries its own UI (`search.js`)
+built on the Pagefind JS API, styled like the rest of the site, not Pagefind's default UI. Pages opt in with
 `data-pagefind-body`: speech pages (their text, not the protocol's comments), cards, vote and sitting pages.
-Filters come from `data-pagefind-filter`."""
+Filters come from `data-pagefind-filter`; `search.js` reads their live counts from Pagefind's own `filters()` and
+`search()` results, so the panel never needs its own count logic."""
 
 from __future__ import annotations
 
@@ -17,30 +19,25 @@ from cards.pages import FOOTER, e, search_marks, shell
 BODY = f"""<h1>Suche</h1>
 <p class="lead">Volltextsuche in allen Reden der 21. Wahlperiode, in den Karten der Abgeordneten, den Abstimmungen
 und den Sitzungen. Die Filter grenzen nach Art, Fraktion, Person, Monat und Thema ein.</p>
-<div id="search"></div>
+<div class="search" id="search">
+  <div class="s-bar">
+    <input type="search" id="sq" placeholder="Reden, Namen, Themen durchsuchen …" autocomplete="off" aria-label="Suche">
+    <button type="button" id="sf-toggle" class="sf-toggle" aria-expanded="false" aria-controls="sf-panel">Filter
+    </button>
+  </div>
+  <div class="s-count" id="s-count" aria-live="polite"></div>
+  <div class="s-layout">
+    <aside class="s-filters" id="sf-panel" aria-label="Filter"></aside>
+    <div class="rows" id="s-results"></div>
+  </div>
+  <button type="button" class="more" id="s-more" hidden>Weitere Treffer</button>
+</div>
 <noscript><p>Die Suche braucht JavaScript.</p></noscript>
 <footer>{FOOTER}</footer>
-<script src="pagefind/pagefind-ui.js"></script>
-<script>
-(function () {{
-  const ui = new PagefindUI({{
-    element: '#search', showSubResults: true, showImages: false, resetStyles: false, pageSize: 10,
-    translations: {{
-      placeholder: 'Reden, Namen, Themen durchsuchen …', clear_search: 'Löschen', load_more: 'Weitere Treffer',
-      search_label: 'Diese Seite durchsuchen', filters_label: 'Filter', zero_results: 'Keine Treffer für [SEARCH_TERM]',
-      many_results: '[COUNT] Treffer für [SEARCH_TERM]', one_result: '[COUNT] Treffer für [SEARCH_TERM]',
-      alt_search: 'Keine Treffer für [SEARCH_TERM]. Stattdessen Treffer für [DIFFERENT_TERM]',
-      search_suggestion: 'Keine Treffer für [SEARCH_TERM]. Versuchen Sie eine der folgenden Suchen:',
-      searching: 'Suche nach [SEARCH_TERM] …',
-    }},
-  }});
-  const q = new URLSearchParams(location.search).get('q');
-  if (q) ui.triggerSearch(q);
-}})();
-</script>"""
+<script type="module" src="search.js"></script>"""
 
 
-HEAD = '<link rel="stylesheet" href="pagefind/pagefind-ui.css"><link rel="stylesheet" href="reden.css">'
+HEAD = '<link rel="stylesheet" href="reden.css">'
 
 
 def card_block(c: dict, desc: str) -> str:

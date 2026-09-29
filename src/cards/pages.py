@@ -30,6 +30,7 @@ NAV = (
     ("sittings", "sitzungen/index.html", "Sitzungen"),
     ("questions", "regierung/index.html", "Fragen"),
     ("debate", "debatte/index.html", "Debattenkultur"),
+    ("mentions", "erwaehnungen/index.html", "Erwähnungen"),
     ("bills", "gesetze/index.html", "Gesetze"),
     ("careers", "karrieren/index.html", "Karrieren"),
     ("data", "daten.html", "Daten"),

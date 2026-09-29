@@ -221,6 +221,13 @@ def conn():
         "INSERT INTO aw_profile VALUES (79001, '1', ?, 107, 95, ?, 'aw politician 79001', '2026-09-28T03:00:00+00:00')",
         (f"{aw}/profile/anna-adler", f"{aw}/api/v2/politicians/79001"),
     )
+    c.execute(
+        "INSERT INTO side_job VALUES (20001, 21, '1', 68001, 'Mitglied des Beirates, ehrenamtlich', NULL, "
+        "'Funktionen in Vereinen, Verbänden und Stiftungen', 1, '1.000 € bis 3.500 €', NULL, 'jährlich', NULL, "
+        "601, 'Musterverein e.V.', 'Berlin', '[]', '2026-01-10', '2026-09-01', ?, 'aw sidejob 20001', "
+        "'2026-09-28T03:00:00+00:00')",
+        (f"{aw}/api/v2/sidejobs/20001",),
+    )
     wd = ("https://query.wikidata.org/sparql", "Wikidata P39 2026-09-28", "2026-09-28")
     c.executemany(
         "INSERT INTO government_role VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'wikidata')",

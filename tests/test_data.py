@@ -149,6 +149,19 @@ def test_aw_profile(conn):
     assert by_id(conn)[0]["1"]["aw"] is None
 
 
+def test_side_jobs(conn):
+    cards, _ = by_id(conn)
+    (job,) = cards["1"]["side_jobs"]
+    assert job["organization"] == "Musterverein e.V."
+    assert job["category"] == "Funktionen in Vereinen, Verbänden und Stiftungen"
+    assert job["income_level"] == 1 and job["income_range"] == "1.000 € bis 3.500 €"
+    assert job["interval"] == "jährlich"
+    assert job["url"] == "https://www.abgeordnetenwatch.de/api/v2/sidejobs/20001"
+    assert cards["2"]["side_jobs"] == []
+    conn.execute("DROP TABLE side_job")
+    assert by_id(conn)[0]["1"]["side_jobs"] == []
+
+
 def test_plenum_reactions_and_own_zurufe(conn):
     cards, _ = by_id(conn)
     berg = cards["2"]["plenum"]

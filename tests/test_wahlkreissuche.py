@@ -74,3 +74,12 @@ def test_write_page_with_table(tmp_path, conn):
     html = (tmp_path / "wahlkreise" / "suche.html").read_text(encoding="utf-8")
     assert "Rostock, Hanse- und Universitätsstadt" in html
     assert '"direct":{"14":{"id":"1"' in html.replace(" ", "")
+
+
+def test_activity_counts_reden_and_links_the_latest():
+    c = {"reden": [{"id": "ID1", "date": "2026-07-08", "title": "Mietpreisbremse"},
+                   {"id": "ID7", "date": "2026-09-10", "title": "Haushalt"}]}  # fmt: skip
+    assert wahlkreissuche.activity(c) == {
+        "reden": 2, "last": {"date": "2026-09-10", "title": "Haushalt", "page": "ID7"}
+    }  # fmt: skip
+    assert wahlkreissuche.activity({"reden": []}) == {"reden": 0}

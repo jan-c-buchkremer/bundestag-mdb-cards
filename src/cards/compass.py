@@ -261,7 +261,7 @@ SCRIPT = """<script>
         .join(' · ');
       const drs = (q.drucksachen || []).map((d) => `<a href="${esc(d.url)}">${esc(d.number)}</a>`).join(', ');
       return `<tr>
-        <td>${esc(q.question)}<div class="note">Eingebracht von: ${esc(q.initiator)}</div>${q.note ? `<div class="note">${esc(q.note)}</div>` : ''}${q.caution ? `<div class="note caution"><b>Vorsicht beim Deuten:</b> ${esc(q.caution)}</div>` : ''}
+        <td>${esc(q.question)}${q.initiator ? `<div class="note">Eingebracht von: ${esc(q.initiator)}</div>` : ''}${q.note ? `<div class="note">${esc(q.note)}</div>` : ''}${q.caution ? `<div class="note caution"><b>Vorsicht beim Deuten:</b> ${esc(q.caution)}</div>` : ''}
           <div class="src"><a href="abstimmungen/${esc(q.page)}.html">Zur Abstimmung</a>${drs ? ' · Drucksache ' + drs : ''}</div>
         </td>
         <td>${VOTE_LABEL[a.answer]}${a.important ? ' (wichtig)' : ''}</td>

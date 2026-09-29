@@ -8,7 +8,7 @@ import json
 import shutil
 from pathlib import Path
 
-from cards import cohesion, pages, search
+from cards import cohesion, compass, pages, search
 from cards.data import index_row
 
 HERE = Path(__file__).parent
@@ -99,7 +99,9 @@ def write_site(
     for name in ASSETS:
         shutil.copyfile(HERE / name, out / name)
     if sittings:
-        written = pages.write_pages(out, decisions or [], members or {}, sittings, meta, clusters)
+        quiz = compass.questions(decisions or [], members or {})
+        written = pages.write_pages(out, decisions or [], members or {}, sittings, meta, clusters, bool(quiz))
         written["abstimmungen"] += cohesion.write_page(out, decisions or [], members or {})
+        written.update(compass.write(out, quiz, cards))
         return written
     return {}

@@ -334,7 +334,16 @@ def vote_sources(d: dict) -> str:
 # ---------------------------------------------------------------- all votes
 
 
-def votes_index(decisions: list[dict], meta: dict) -> str:
+def compass_link(compass: bool) -> str:
+    if not compass:
+        return ""
+    return (
+        " Ausgewählte Abstimmungen als Quiz, um die eigenen Antworten mit den Fraktionen zu vergleichen: "
+        '<a href="../kompass.html">Wer stimmt wie ich?</a>'
+    )
+
+
+def votes_index(decisions: list[dict], meta: dict, compass: bool = False) -> str:
     groups: dict[str, list[dict]] = defaultdict(list)
     for d in decisions:
         groups[d["sitting"] or d["date"]].append(d)
@@ -353,7 +362,7 @@ def votes_index(decisions: list[dict], meta: dict) -> str:
                    f'<div class="rows">{rows}</div></section>')  # fmt: skip
     first_date = min((d["date"] for d in decisions), default=meta["sittings"]["from"])
     body = f"""<h1>Abstimmungen</h1>
-<p class="lead">{n(len(decisions))} Beschlüsse seit {e(long_date(first_date))}: {n(kinds["namentlich"])} namentliche Abstimmungen mit der Stimme jedes Mitglieds, {n(kinds["handzeichen"])} Abstimmungen per Handzeichen, bei denen das Protokoll nur festhält, wie die Fraktionen gestimmt haben. {n(results["angenommen"])} angenommen, {n(results["abgelehnt"])} abgelehnt. Überweisungen an Ausschüsse, Wahlen und Fragen der Tagesordnung sind keine Beschlüsse in der Sache und fehlen hier. Wie geschlossen die Fraktionen in den namentlichen Abstimmungen gestimmt haben und wer wann abgewichen ist, zeigt die Seite <a href="geschlossenheit.html">Geschlossenheit der Fraktionen</a>.</p>
+<p class="lead">{n(len(decisions))} Beschlüsse seit {e(long_date(first_date))}: {n(kinds["namentlich"])} namentliche Abstimmungen mit der Stimme jedes Mitglieds, {n(kinds["handzeichen"])} Abstimmungen per Handzeichen, bei denen das Protokoll nur festhält, wie die Fraktionen gestimmt haben. {n(results["angenommen"])} angenommen, {n(results["abgelehnt"])} abgelehnt. Überweisungen an Ausschüsse, Wahlen und Fragen der Tagesordnung sind keine Beschlüsse in der Sache und fehlen hier. Wie geschlossen die Fraktionen in den namentlichen Abstimmungen gestimmt haben und wer wann abgewichen ist, zeigt die Seite <a href="geschlossenheit.html">Geschlossenheit der Fraktionen</a>.{compass_link(compass)}</p>
 <div class="filters">
   <input type="search" id="q" placeholder="Titel, Drucksache oder Tagesordnungspunkt …" autocomplete="off">
   <select id="kind"><option value="">namentlich und per Handzeichen</option><option value="namentlich">nur namentlich</option><option value="handzeichen">nur per Handzeichen</option></select>
@@ -569,15 +578,15 @@ def sittings_index(sittings: list[dict]) -> str:
                  body=body, data={"kind": "sittings"})  # fmt: skip
 
 
-def write_pages(out: Path, decisions: list[dict], members: dict[str, list[list]], sittings: list[dict],
-                meta: dict, clusters: dict[str, dict] | None = None) -> dict[str, int]:  # fmt: skip
+def write_pages(out: Path, decisions: list[dict], members: dict[str, list[list]], sittings: list[dict], meta: dict,
+                clusters: dict[str, dict] | None = None, compass: bool = False) -> dict[str, int]:  # fmt: skip
     """Write abstimmungen/ and sitzungen/; returns the number of pages written per folder."""
     votes_dir, sit_dir = out / "abstimmungen", out / "sitzungen"
     votes_dir.mkdir(parents=True, exist_ok=True)
     sit_dir.mkdir(parents=True, exist_ok=True)
     for d in decisions:
         (votes_dir / f"{d['page']}.html").write_text(vote_page(d, members.get(d["id"])), encoding="utf-8")
-    (votes_dir / "index.html").write_text(votes_index(decisions, meta), encoding="utf-8")
+    (votes_dir / "index.html").write_text(votes_index(decisions, meta, compass), encoding="utf-8")
     for s in sittings:
         (sit_dir / f"{s['page']}.html").write_text(sitting_page(s, clusters), encoding="utf-8")
     (sit_dir / "index.html").write_text(sittings_index(sittings), encoding="utf-8")

@@ -66,8 +66,8 @@ def members(conn: sqlite3.Connection) -> list[dict]:
         fraction = open_rows[-1]["name"] if open_rows else PARTY_TO_FRACTION.get(r["party"], r["party"])
         out.append(
             {"id": r["person_id"], "name": display_name(r), "last_name": r["last_name"], "gender": r["gender"],
-             "fraction": fraction or NO_FRACTION, "periods": periods[r["person_id"]], "from": r["from_date"],
-             "to": r["to_date"], "state": r["state"], "fractions": [dict(f) for f in rows],
+             "birth_date": r["birth_date"], "fraction": fraction or NO_FRACTION, "periods": periods[r["person_id"]],
+             "from": r["from_date"], "to": r["to_date"], "state": r["state"], "fractions": [dict(f) for f in rows],
              "url": r["source_url"], "doc": r["source_document_id"]}
         )  # fmt: skip
     return sorted(out, key=lambda m: (m["last_name"], m["name"], m["id"]))

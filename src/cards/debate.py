@@ -16,7 +16,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 from cards.data import MIN_CHARS, NO_FRACTION, PARTY_TO_FRACTION, WP, _houses, after_speaker, kind_filter, page_id
-from cards.pages import FOOTER, MONTHS, ORDER, SHORT, TOKEN, dot, e, n, shell, short_date
+from cards.pages import FOOTER, MONTHS, ORDER, SHORT, TOKEN, dot, e, frac_link, n, shell, short_date
 from cards.speeches import rede_id
 
 GOVERNMENT = "Bundesregierung"
@@ -390,7 +390,7 @@ def share_rows(have: dict[str, int], base: dict[str, int], keys: list[str], unit
         tick = (f'<i class="tick" style="left:{100 * b / top:.2f}%" title="{e(base_unit)}: {pct(b)}"></i>'
                 if k in base else "")  # fmt: skip
         rows.append(
-            f'<tr><td>{dot(k) if k in TOKEN else ""}{e(label(k))}</td><td class="bars"><span class="sh">'
+            f'<tr><td>{dot(k) if k in TOKEN else ""}{frac_link(k)}</td><td class="bars"><span class="sh">'
             f'<i style="width:{100 * w / top:.2f}%;background:{colour(k)}"></i>{tick}</span></td>'
             f"<td>{pct(w)}</td><td>{pct(b) if k in base else '–'}</td></tr>"
         )
@@ -472,7 +472,7 @@ def section_order(ms: list[dict], qs: list[dict], ints: dict[str, dict[str, list
         per[m["fraction"]][m["kind"]] += 1
     head = "".join(f"<th>{k}e</th>" if k != "Rüge" else "<th>Rügen</th>" for k in kinds)
     rows = "".join(
-        f"<tr><td>{dot(f) if f in TOKEN else ''}{e(label(f))}</td>" + "".join(f"<td>{per[f][k]}</td>" for k in kinds)
+        f"<tr><td>{dot(f) if f in TOKEN else ''}{frac_link(f)}</td>" + "".join(f"<td>{per[f][k]}</td>" for k in kinds)
         + "</tr>"
         for f in sorted(per, key=group_order)
     )  # fmt: skip

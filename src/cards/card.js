@@ -32,6 +32,10 @@ const isoWeek = d => {
   return `${y}-W${String(w).padStart(2, '0')}`;
 };
 const mapLink = s => s.on_map ? `<a href="${LANDSCAPE}${isoWeek(s.date)}.html#rede=${encodeURIComponent(s.id)}" title="Diese Rede in der Themenlandschaft der Woche">Karte</a>` : '';
+// a fraction's name, linked to its Fraktion page (gremien.py builds fraktionen/<token>.html for the six fractions)
+const fractionLink = f => FRACTION_COLORS[f] ? `<a href="fraktionen/${FRACTION_COLORS[f].slice(2)}.html">${esc(f)}</a>` : esc(f);
+// a committee or other Gremium the card lists (data.py adds "slug"), linked to its gremien/<slug>.html page
+const bodyLink = x => x.slug ? `<a href="gremien/${esc(x.slug)}.html">${esc(x.name)}</a>` : esc(x.name);
 // the speech page is the rede's; a part of it (a Zwischenfrage, a turn in the Befragung) is an anchor there
 const textLink = s => { const r = s.id.replace(/-\d+$/, ''); return `<a href="reden/${encodeURIComponent(r.replaceAll('/', '-'))}.html${r === s.id ? '' : '#' + encodeURIComponent(s.id)}" title="Der Text im Protokoll">Text</a>`; };
 const pdfLink = s => `<a href="${esc(s.pdf)}" title="${esc(s.cite)}, Rede ${esc(s.id)}">Protokoll</a>`;
@@ -114,7 +118,7 @@ function contextBox() {
     parts.push(`<div class="context"><div class="note">${why} Ohne Mandat gibt es keine Abstimmungen, Ausschüsse oder Drucksachen.</div></div>`);
   }
   const fr = current(C.fraction_roles);
-  if (fr.length) parts.push(`<div class="committees"><span class="k">Fraktion</span>${fr.map(r => `${esc(r.role)} der Fraktion ${esc(r.name)}`).join(' · ')}</div>`);
+  if (fr.length) parts.push(`<div class="committees"><span class="k">Fraktion</span>${fr.map(r => `${esc(r.role)} der Fraktion ${fractionLink(r.name)}`).join(' · ')}</div>`);
   return parts.join('');
 }
 
@@ -148,7 +152,7 @@ function committeeLine() {
   const label = c => /Stellvertretende[rs]? Vorsitz/.test(c.role) ? 'stv. Vorsitz' : /Vorsitz/.test(c.role) ? 'Vorsitz' : /Obfrau|Obmann/.test(c.role) ? c.role : /Stellvertretendes/.test(c.role) ? 'stv. Mitglied' : '';
   const best = new Map();  // one line per committee, with the highest role (Obmann and member rows both exist)
   for (const c of cs) if (!best.has(c.short) || rank(c) < rank(best.get(c.short))) best.set(c.short, c);
-  const items = [...best.values()].sort((a, b) => rank(a) - rank(b)).map(c => `${esc(c.short)}${label(c) ? ` <span class="faint">(${label(c)})</span>` : ''}`);
+  const items = [...best.values()].sort((a, b) => rank(a) - rank(b)).map(c => `${c.slug ? `<a href="gremien/${esc(c.slug)}.html">${esc(c.short)}</a>` : esc(c.short)}${label(c) ? ` <span class="faint">(${label(c)})</span>` : ''}`);
   return `<div class="committees"><span class="k">Ausschüsse</span>${items.join(' · ')}</div>`;
 }
 
@@ -201,7 +205,7 @@ function lastSpeech() {
 function renderCard() {
   const initials = (C.first_name[0] || '') + (C.last_name[0] || '');
   const fraction = member ? (C.fraction || 'fraktionslos') : null;
-  const pill = fraction ? `<span class="pill"><span class="dot" style="background:${fractionColor(fraction)}"></span>${esc(fraction)}</span>`
+  const pill = fraction ? `<span class="pill"><span class="dot" style="background:${fractionColor(fraction)}"></span>${fractionLink(fraction)}</span>`
     : '<span class="pill"><span class="dot" style="background:var(--reg)"></span>ohne Mandat</span>';
   document.getElementById('card').innerHTML = `
     <div class="top">
@@ -339,12 +343,14 @@ function renderMemberships(el) {
       <div class="row${x.to ? ' ended' : ''}"><div class="t">${fmt(x)}</div><div class="d">${period(x.from, x.to)}</div></div>`).join('')}</div>`;
   };
   const withRole = x => `${esc(x.name)}${x.role ? `<div class="sub">${esc(x.role)}</div>` : ''}`;
+  const fractionRow = x => `${fractionLink(x.name)}${x.role ? `<div class="sub">${esc(x.role)}</div>` : ''}`;
+  const bodyRow = x => `${bodyLink(x)}${x.role ? `<div class="sub">${esc(x.role)}</div>` : ''}`;
   el.innerHTML = `
     <p class="explain">Stand der Stammdaten des Bundestages: ${esc(META.stammdaten.doc)}. Spätere Wechsel fehlen hier, bis der Bundestag die Stammdaten erneuert.</p>
     ${block('Ämter', C.offices, withRole)}
-    ${block('Fraktion', C.fractions, withRole)}
-    ${block('Ausschüsse', C.committees, withRole)}
-    ${block('Weitere Gremien', C.other, withRole)}
+    ${block('Fraktion', C.fractions, fractionRow)}
+    ${block('Ausschüsse', C.committees, bodyRow)}
+    ${block('Weitere Gremien', C.other, bodyRow)}
     ${!C.offices.length && !C.fractions.length && !C.committees.length && !C.other.length ? '<div class="rows"><div class="empty">Keine Einträge in den Stammdaten.</div></div>' : ''}`;
 }
 
@@ -406,7 +412,7 @@ function renderCareer(el) {
   const fs = C.first_speech;
   if (fs) now.push(`<div class="row"><div class="t">Erste Rede in der ${META.wp}. Wahlperiode${fs.maiden && C.periods.length <= 1 ? ' · Jungfernrede' : ''}<div class="sub">${esc(fs.title || '')}${fs.maiden ? ' · laut Sitzungsleitung die erste Rede' : ''} · ${textLink(fs)}</div></div><div class="d">${shortDate(fs.date)}</div></div>`);
   if (new Set(C.fractions.map(f => f.name)).size > 1 || (C.fractions.length && C.fractions.every(f => f.to) && !(C.mandate && C.mandate.to)))
-    C.fractions.forEach(f => now.push(`<div class="row"><div class="t">Fraktion ${esc(f.name)}</div><div class="d">${period(f.from, f.to)}</div></div>`));
+    C.fractions.forEach(f => now.push(`<div class="row"><div class="t">Fraktion ${fractionLink(f.name)}</div><div class="d">${period(f.from, f.to)}</div></div>`));
   C.government.forEach(o => now.push(`<div class="row"><div class="t">${esc(o.office)}<div class="sub">${officeWhen(o)}</div></div></div>`));
   el.innerHTML = `
     ${now.length ? `<div class="rows memb">${now.join('')}</div>` : ''}

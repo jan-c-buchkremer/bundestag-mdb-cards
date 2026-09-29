@@ -33,6 +33,7 @@ NAV = (
     ("mentions", "erwaehnungen/index.html", "Erwähnungen"),
     ("bills", "gesetze/index.html", "Gesetze"),
     ("careers", "karrieren/index.html", "Karrieren"),
+    ("bodies", "gremien/index.html", "Gremien"),
     ("data", "daten.html", "Daten"),
     ("search", "suche.html", "Suche"),
 )
@@ -73,6 +74,14 @@ def fraction_order(f: str) -> tuple[int, str]:
 
 def dot(f: str | None) -> str:
     return f'<span class="dot" style="background:var(--{TOKEN.get(f or "", "reg")})"></span>'
+
+
+def frac_link(f: str | None, root: str = "../") -> str:
+    """A fraction's name, linked to its page (bodies.py) when it is one of the six fractions; plain text (still
+    short-named) for anything else, e.g. "unbekannt" or a government/other group."""
+    if f in TOKEN:
+        return f'<a href="{root}fraktionen/{TOKEN[f]}.html">{e(SHORT.get(f, f))}</a>'
+    return e(f or "")
 
 
 def site_header(root: str, active: str | None) -> str:
@@ -166,8 +175,8 @@ def positions_line(pos: dict[str, str]) -> str:
     """ "dafür: CDU/CSU, SPD · dagegen: AfD" from the fractions' positions."""
     groups: dict[str, list[str]] = defaultdict(list)
     for f in sorted(pos, key=fraction_order):
-        groups[pos[f]].append(SHORT.get(f, f))
-    return " · ".join(f"{POSITION[p]}: <b>{e(', '.join(groups[p]))}</b>" for p in VOTE_CHOICES if groups[p])
+        groups[pos[f]].append(frac_link(f))
+    return " · ".join(f"{POSITION[p]}: <b>{', '.join(groups[p])}</b>" for p in VOTE_CHOICES if groups[p])
 
 
 def agenda_href(sitting: str, position: int, root: str = "../") -> str:
@@ -285,7 +294,7 @@ def fraction_table_rc(d: dict, members: list[list]) -> str:
             )
             dev_html = f'<tr class="dev"><td colspan="6">Anders als die Fraktionsmehrheit: {names}</td></tr>'
         rows.append(
-            f"<tr><td>{dot(f)} {e(f)}</td>"
+            f"<tr><td>{dot(f)} {frac_link(f)}</td>"
             + "".join(f'<td class="num">{t[k]}</td>' for k in ("yes", "no", "abstain", "absent"))
             + f"<td>{count_bar(dict(t), 'bar')}</td></tr>{dev_html}"
         )
@@ -306,7 +315,7 @@ def fraction_table_hands(d: dict) -> str:
     if not fractions:
         return ""
     rows = "".join(
-        f'<tr><td>{dot(f)} {e(f)}</td><td class="num">{house.get(f, "")}</td>'
+        f'<tr><td>{dot(f)} {frac_link(f)}</td><td class="num">{house.get(f, "")}</td>'
         f"<td>{f'<span class="vote {pos[f]}">{POSITION[pos[f]]}</span>' if f in pos else '<span class="faint">nicht genannt</span>'}</td></tr>"  # noqa: E501
         for f in fractions
     )

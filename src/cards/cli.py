@@ -66,7 +66,10 @@ def main(argv: list[str] | None = None) -> None:
         written |= wahlkreissuche.write(conn, args.out, cards, wks)
     else:
         print("no constituency_municipality table in the store: no wahlkreise/suche.html")
-    print(f"wrote {len(cards)} card pages, " + ", ".join(f"{v} pages in {k}/" for k, v in written.items()))
+    print(
+        f"wrote {len(cards)} card pages, "
+        + ", ".join(f"{v} pages in {k}/" if k != "kompass" else "kompass.html" for k, v in written.items())
+    )
     similar = speeches.neighbours()
     n_speeches = speeches.write_pages(args.out, speeches.load(conn), {c["id"] for c in cards}, clusters, similar)
     print(f"wrote {n_speeches} speech pages in reden/" + (f", {len(similar)} with similar speeches" if similar else ""))

@@ -33,7 +33,7 @@ const isoWeek = d => {
 };
 const mapLink = s => s.on_map ? `<a href="${LANDSCAPE}${isoWeek(s.date)}.html#rede=${encodeURIComponent(s.id)}" title="Diese Rede in der Themenlandschaft der Woche">Karte</a>` : '';
 // the speech page is the rede's; a part of it (a Zwischenfrage, a turn in the Befragung) is an anchor there
-const textLink = s => { const r = s.id.replace(/-\d+$/, ''); return `<a href="reden/${encodeURIComponent(r)}.html${r === s.id ? '' : '#' + encodeURIComponent(s.id)}" title="Der Text im Protokoll">Text</a>`; };
+const textLink = s => { const r = s.id.replace(/-\d+$/, ''); return `<a href="reden/${encodeURIComponent(r.replaceAll('/', '-'))}.html${r === s.id ? '' : '#' + encodeURIComponent(s.id)}" title="Der Text im Protokoll">Text</a>`; };
 const pdfLink = s => `<a href="${esc(s.pdf)}" title="${esc(s.cite)}, Rede ${esc(s.id)}">Protokoll</a>`;
 
 const C = CARD;
@@ -50,6 +50,7 @@ const votesCast = C.votes.filter(v => v.vote in { yes: 1, no: 1, abstain: 1 });
 const withLine = votesCast.filter(v => v.line);
 const deviations = C.votes.filter(v => v.deviates);
 const questions = C.befragung.filter(b => !b.role), answers = C.befragung.filter(b => b.role);
+const fsQuestions = C.fragestunde.filter(b => !b.role), fsAnswers = C.fragestunde.filter(b => b.role);
 const byDateDesc = (a, b) => (b.date + b.id).localeCompare(a.date + a.id);
 const ACTIVITY = { 'Antrag': ['Antrag', 'Anträge'], 'Kleine Anfrage': ['Kleine Anfrage', 'Kleine Anfragen'], 'Entschließungsantrag': ['Entschließungsantrag', 'Entschließungsanträge'],
   'Änderungsantrag': ['Änderungsantrag', 'Änderungsanträge'], 'Gesetzentwurf': ['Gesetzentwurf', 'Gesetzentwürfe'], 'Frage': ['schriftliche Frage', 'schriftliche Fragen'] };
@@ -93,7 +94,7 @@ function mandateLines() {
 function contextBox() {
   const parts = [];
   if (member && C.mandate && C.mandate.to) {
-    const later = [...new Set(C.reden.concat(C.kurz, C.befragung).filter(s => s.date > C.mandate.to && s.role).map(s => s.role))];
+    const later = [...new Set(C.reden.concat(C.kurz, C.befragung, C.fragestunde).filter(s => s.date > C.mandate.to && s.role).map(s => s.role))];
     const note = later.length ? `Abstimmungen und Ausschüsse enden an diesem Tag. Spätere Reden stammen aus einem anderen Amt: ${later.map(esc).join(', ')}.` : 'Abstimmungen und Ausschüsse enden an diesem Tag.';
     parts.push(`<div class="context left"><b>Aus dem Bundestag ausgeschieden am ${longDate(C.mandate.to)}.</b><div class="note">${note}</div></div>`);
   }
@@ -159,6 +160,8 @@ function facts() {
   else li.push('Hat in dieser Wahlperiode noch keine Rede im Plenum gehalten.');
   if (answers.length) li.push(`Hat in der <a href="#reden-befragung">Regierungsbefragung <b>${n(answers.length)}-mal</b> für die Bundesregierung geantwortet</a>.`);
   if (questions.length) li.push(`Hat in der <a href="#reden-befragung">Regierungsbefragung <b>${plural(questions.length, 'Frage', 'Fragen')}</b> gestellt</a>.`);
+  if (fsAnswers.length) li.push(`Hat in der <a href="#reden-fragestunde">Fragestunde <b>${n(fsAnswers.length)}-mal</b> für die Bundesregierung geantwortet</a>.`);
+  if (fsQuestions.length) li.push(`Hat in der <a href="#reden-fragestunde">Fragestunde <b>${plural(fsQuestions.length, 'Frage', 'Fragen')}</b> gestellt</a>.`);
   const zf = C.fragen.filter(f => f.kind === 'zwischenfrage').length, ki = C.fragen.length - zf;
   if (C.fragen.length) li.push(`Hat <a href="#reden-fragen">${[zf && `<b>${plural(zf, 'Zwischenfrage', 'Zwischenfragen')}</b>`, ki && `<b>${plural(ki, 'Kurzintervention', 'Kurzinterventionen')}</b>`].filter(Boolean).join(' und ')}</a> in Reden anderer gestellt.`);
   if (member && META.dip.complete) {
@@ -214,7 +217,7 @@ function renderCard() {
 }
 
 // ---------------------------------------------------------------- layer 2: tabs
-const heard = C.reden.length + C.kurz.length + C.fragen.length + C.befragung.length;
+const heard = C.reden.length + C.kurz.length + C.fragen.length + C.befragung.length + C.fragestunde.length;
 const TABS = [
   // a card without a mandate shows only the sections that have data (a beamteter Staatssekretär may never speak)
   ...(member || heard ? [['reden', 'Reden', () => C.reden.length, renderReden]] : []),
@@ -258,13 +261,18 @@ function renderReden(el) {
     <div class="row"><div class="d">${shortDate(b.date)}</div>
       <div class="t">${b.role ? `Antwort als ${esc(b.role)}` : 'Frage an die Bundesregierung'}<div class="sub">${plural(b.words, 'Wort', 'Wörter')}</div></div>
       <div class="l">${textLink(b)}${mapLink(b)}${pdfLink(b)}</div></div>`);
+  const fst = C.fragestunde.filter(match).sort(byDateDesc).map(b => `
+    <div class="row"><div class="d">${shortDate(b.date)}</div>
+      <div class="t">${b.role ? `Antwort als ${esc(b.role)}` : 'Frage oder Nachfrage in der Fragestunde'}<div class="sub">${plural(b.words, 'Wort', 'Wörter')}</div></div>
+      <div class="l">${textLink(b)}${pdfLink(b)}</div></div>`);
   el.innerHTML = `
     <div class="tools"><input type="search" placeholder="Reden durchsuchen: Tagesordnungspunkt, Datum …" value="${esc(el.dataset.q || '')}"></div>
     <p class="explain">Eine Rede ist ein Redebeitrag zu einem Tagesordnungspunkt, so wie ihn das Plenarprotokoll führt, mit mindestens 500 Zeichen; Zwischenfragen anderer gehören zur Rede, in der sie gestellt wurden. Die Länge ist in Wörtern angegeben, die Redezeit steht nicht im Protokoll. „Karte“ öffnet die Rede in der Themenlandschaft ihrer Sitzungswoche.</p>
     <h2 id="reden-reden">Reden <span class="n">${n(reden.length)}</span></h2>${list(reden, 'Keine Reden.')}
     ${C.kurz.length ? `<h2 id="reden-kurz">Kurze Wortbeiträge <span class="n">${n(kurz.length)}</span></h2><p class="explain">Beiträge unter 500 Zeichen, etwa ein Amtseid, eine Erklärung zur Abstimmung in einem Satz oder ein Hinweis zur Geschäftsordnung. Sie zählen nicht als Rede, so wie in der Themenlandschaft.</p>${list(kurz, 'Keine Treffer.')}` : ''}
     ${C.fragen.length ? `<h2 id="reden-fragen">Zwischenfragen und Kurzinterventionen <span class="n">${n(fragen.length)}</span></h2>${list(fragen, 'Keine Treffer.')}` : ''}
-    ${C.befragung.length ? `<h2 id="reden-befragung">Regierungsbefragung <span class="n">${n(bef.length)}</span></h2><p class="explain">In der Regierungsbefragung ist jede Frage und jede Antwort ein eigener Beitrag im Protokoll; sie zählen deshalb nicht als Reden.</p>${list(bef, 'Keine Treffer.')}` : ''}`;
+    ${C.befragung.length ? `<h2 id="reden-befragung">Regierungsbefragung <span class="n">${n(bef.length)}</span></h2><p class="explain">In der Regierungsbefragung ist jede Frage und jede Antwort ein eigener Beitrag im Protokoll; sie zählen deshalb nicht als Reden.</p>${list(bef, 'Keine Treffer.')}` : ''}
+    ${C.fragestunde.length ? `<h2 id="reden-fragestunde">Fragestunde <span class="n">${n(fst.length)}</span></h2><p class="explain">In der Fragestunde ist jede Frage, jede Antwort und jede Nachfrage ein eigener Beitrag im Protokoll; sie zählen deshalb nicht als Reden.</p>${list(fst, 'Keine Treffer.')}` : ''}`;
   const input = el.querySelector('input');
   input.oninput = () => { el.dataset.q = input.value; renderReden(el); const i = el.querySelector('input'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); };
 }

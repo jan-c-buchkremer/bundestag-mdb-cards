@@ -288,7 +288,7 @@ def bill_page(b: dict, have: set[str]) -> str:
             sp = a["speeches"]
             if sp:
                 lis = "".join(
-                    "<li>" + _link(f"../reden/{e(s['id'])}.html" if f"reden/{s['id']}.html" in have else None,
+                    "<li>" + _link(f"../{e(p)}" if (p := f"reden/{page_id(s['id'])}.html") in have else None,
                                    e(s["name"])) + (f" ({e(s['fraction'])})" if s["fraction"] else "") + "</li>"
                     for s in sp
                 )  # fmt: skip

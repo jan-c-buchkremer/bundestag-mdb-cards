@@ -318,12 +318,16 @@ def _questions_section(wq: dict) -> str:
 
 def _befragung_section(bf: list[dict], fs: tuple[int, int]) -> str:
     gap = ""
-    if fs[0]:
+    if fs[0] and not fs[1]:
         gap = (
             f'<p class="explain"><b>Lücke:</b> Die {n(fs[0])} Fragestunden der Wahlperiode stehen in der '
-            f"Tagesordnung, aber der Datenbestand hat {'keine' if not fs[1] else n(fs[1])} Redebeiträge dazu: Die "
-            "Plenarprotokolle als XML enthalten die mündlichen Antworten nicht als Reden. Die Fragen selbst stehen "
+            "Tagesordnung, aber der Datenbestand hat keine Beiträge dazu. Die Fragen selbst stehen "
             "in den Drucksachen „Fragen für die Fragestunde“ (oben).</p>"
+        )
+    elif fs[0]:
+        gap = (
+            f'<p class="explain">Die {n(fs[0])} Fragestunden der Wahlperiode haben {n(fs[1])} Fragen, Antworten und '
+            "Nachfragen im Protokoll. Sie stehen auf den Karten der Beteiligten und zählen nicht als Reden.</p>"
         )
     if not bf:
         return "<h2>Regierungsbefragung</h2>" + gap

@@ -82,10 +82,10 @@ def page(meta: dict, stale: list[dict], fragestunden: tuple[int, int], files: li
     sit = meta.get("sittings") or {}
     dip = meta.get("dip") or {}
     gaps = []
-    if fragestunden[0]:
+    if fragestunden[0] and not fragestunden[1]:
         gaps.append(
-            f"<li>Fragestunden: {n(fragestunden[0])} stehen in der Tagesordnung, die mündlichen Antworten fehlen im "
-            "Datenbestand (keine Reden im Protokoll-XML).</li>"
+            f"<li>Fragestunden: {n(fragestunden[0])} stehen in der Tagesordnung, die mündlichen Fragen und "
+            "Antworten fehlen im Datenbestand (vor dem nächsten Einlesen der Protokolle).</li>"
         )
     if dip and not dip.get("complete"):
         gaps.append("<li>DIP-Drucksachen sind noch nicht für jeden Sitzungsmonat geladen; Karten nennen deshalb "

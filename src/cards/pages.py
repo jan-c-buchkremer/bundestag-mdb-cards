@@ -11,7 +11,7 @@ import json
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from cards.data import NO_FRACTION, VOTE_CHOICES, majority
+from cards.data import NO_FRACTION, VOTE_CHOICES, majority, page_id
 
 HERE = Path(__file__).parent
 LANDSCAPE = "https://jan-c-buchkremer.github.io/bundestag-topic-landscape/"
@@ -451,6 +451,9 @@ def agenda_item(i: dict, s: dict, clusters: dict[str, dict] | None = None) -> st
                      + (f"Drucksache{'n' if len(drs) > 1 else ''} {', '.join(e(x) for x in drs)} an die Ausschüsse"
                         if drs else "an die Ausschüsse") + "</div>")  # fmt: skip
     parts.append(topics_block(i, clusters or {}))
+    if i.get("fragestunde"):
+        parts.append(f'<p class="explain">{n(i["fragestunde"])} Fragen, Antworten und Nachfragen in der Fragestunde. '
+                     "Sie stehen auf den Karten der Beteiligten und zählen nicht als Reden.</p>")  # fmt: skip
     if i["speeches"]:
         parts.append(speeches_block(i, s))
     parts.append("</section>")
@@ -527,7 +530,8 @@ def speech_row(sp: dict, s: dict) -> str:
     who = e(sp["role"]) if sp["role"] else e(sp["fraction"] or "")
     land = (f' · <a href="{LANDSCAPE}{e(s["week"])}.html#open={e(sp["id"])}" '
             'title="Diese Rede in der Themenlandschaft">Themenlandschaft ↗</a>' if sp["on_map"] else "")  # fmt: skip
-    links = f'<span class="go"><a href="../reden/{e(sp["id"])}.html" title="Der Text dieser Rede">Text</a>{land}</span>'
+    text = f'<a href="../reden/{e(page_id(sp["id"]))}.html" title="Der Text dieser Rede">Text</a>'
+    links = f'<span class="go">{text}{land}</span>'
     return (
         f'<div class="sp"><span class="av" style="--c:var(--{TOKEN.get(sp["fraction"] or "", "reg")})">'
         f"{avatar(sp)}</span>"

@@ -16,17 +16,20 @@ import sqlite3
 from collections import defaultdict
 from pathlib import Path
 
-from cards.data import WP, _fraction, display_speaker, page_id, top_label
+from cards.data import WP, _fraction, display_speaker, has_speech_kind, page_id, top_label
 from cards.pages import FOOTER, LANDSCAPE, TOKEN, e, long_date, n, search_marks, shell, short_date
 from cards.titles import short_title
 
 HERE = Path(__file__).parent
 SIMILAR = 5
 
-_SQL = """
+
+def _sql(conn: sqlite3.Connection) -> str:
+    kind_col = "s.kind" if has_speech_kind(conn) else "'rede' AS kind"
+    return f"""
 SELECT s.id, s.position, s.person_id, s.speaker_name, s.speaker_role, s.fraction, s.text, s.source_document_id,
        st.id AS sitting_id, st.number, st.date, st.pdf_url, p.party, a.position AS top_position, a.top_id,
-       a.title AS agenda_title
+       a.title AS agenda_title, {kind_col}
 FROM speech s
 JOIN sitting st ON st.id = s.sitting_id
 JOIN person p ON p.id = s.person_id
@@ -37,7 +40,8 @@ ORDER BY st.date, st.number, s.position
 
 
 def rede_id(speech_id: str) -> str:
-    """ "ID1-3" -> "ID1": the page a speech part is on."""
+    """ "ID1-3" -> "ID1": the speech a part belongs to. Its page is `reden/<page_id(rede_id)>.html`, since a
+    Fragestunde turn's id ("21/3/5/f1") has slashes."""
     return re.sub(r"-\d+$", "", speech_id)
 
 
@@ -48,7 +52,7 @@ def load(conn: sqlite3.Connection) -> list[dict]:
     for r in conn.execute("SELECT speech_id, kind, text FROM speech_paragraph ORDER BY speech_id, position"):
         paragraphs[r["speech_id"]].append((r["kind"], r["text"]))
     redes: dict[str, dict] = {}
-    for r in conn.execute(_SQL, (WP,)):
+    for r in conn.execute(_sql(conn), (WP,)):
         rid = rede_id(r["id"])
         part = {
             "id": r["id"], "person": r["person_id"], "name": display_speaker(r), "fraction": _fraction(r),
@@ -62,7 +66,7 @@ def load(conn: sqlite3.Connection) -> list[dict]:
             "id": rid, "sitting": r["sitting_id"], "number": r["number"], "date": r["date"], "pdf": r["pdf_url"],
             "cite": r["source_document_id"], "top_position": r["top_position"], "label": top_label(r["top_id"]),
             "title": short_title(r["agenda_title"], r["top_id"] or "") if r["agenda_title"] else None,
-            "parts": [part],
+            "parts": [part], "kind": r["kind"],
         }  # fmt: skip
     return list(redes.values())
 
@@ -110,11 +114,12 @@ def speech_page(r: dict, cards: set[str], clusters: dict[str, dict], similar: li
     words = sum(len(t.split()) for p in r["parts"] if p["person"] == main["person"] for k, t in p["paragraphs"]
                 if k == "text")  # fmt: skip
     cluster = clusters.get(r["id"])
+    fs = r.get("kind") == "fragestunde"  # a question, answer or Nachfrage, searchable apart from the Reden
     links = [f'<a href="{e(r["pdf"])}">Plenarprotokoll {e(r["cite"])} (PDF)</a>']
     if cluster:
         links.append(f'<a href="{LANDSCAPE}{e(cluster["week"])}.html#cluster={e(cluster["cluster_id"])}">Thema: '
                      f'{e(cluster["label"])} ↗</a>')  # fmt: skip
-    marks = search_marks("Rede", r["date"], Person=main["name"], Fraktion=main["fraction"],
+    marks = search_marks("Fragestunde" if fs else "Rede", r["date"], Person=main["name"], Fraktion=main["fraction"],
                          Thema=cluster["label"] if cluster else None)  # fmt: skip
     parts = []
     for p in r["parts"]:
@@ -138,7 +143,8 @@ def speech_page(r: dict, cards: set[str], clusters: dict[str, dict], similar: li
 <p class="explain">Der Text folgt dem Plenarprotokoll. Beifall, Zurufe und andere Vermerke des Protokolls sind grau
 gesetzt, Worte der Sitzungsleitung mit „Präsidium“ markiert.</p>
 <footer>{FOOTER}</footer>"""  # noqa: E501
-    desc = f"Rede von {main['name']} am {long_date(r['date'])} im Bundestag: {clip(topic, 110)}. Volltext mit Quelle."
+    what = "Beitrag in der Fragestunde" if fs else "Rede"
+    desc = f"{what} von {main['name']} am {long_date(r['date'])} im Bundestag: {clip(topic, 110)}. Volltext mit Quelle."
     head = '<link rel="stylesheet" href="../reden.css">'
     return shell(root="../", kind="p-speech", active="sittings", title=clip(f"{main['name']}: {topic}", 100), desc=desc,
                  body=body, data={"kind": "speech"}, head=head)  # fmt: skip
@@ -148,7 +154,8 @@ def similar_block(similar: list[dict]) -> str:
     if not similar:
         return ""
     rows = "".join(
-        f'<a class="row" href="{e(s["id"])}.html"><span class="d">{short_date(s["date"])}</span><span class="t">'
+        f'<a class="row" href="{e(page_id(s["id"]))}.html"><span class="d">{short_date(s["date"])}</span>'
+        '<span class="t">'
         f'<span class="ti">{e(s["title"] or "Plenarsitzung")}</span><span class="sub">'
         f"{e(' · '.join(x for x in (s['parts'][0]['name'], s['parts'][0]['fraction']) if x))}</span></span></a>"
         for s in similar
@@ -168,5 +175,5 @@ def write_pages(out: Path, redes: list[dict], cards: set[str], clusters: dict[st
         # the neighbours may name a part of a rede: its page is the rede's
         near = list({rede_id(x): by_id[rede_id(x)] for x in similar.get(r["id"], []) if rede_id(x) in by_id}.values())
         near = [s for s in near if s is not r][:SIMILAR]
-        (folder / f"{r['id']}.html").write_text(speech_page(r, cards, clusters, near), encoding="utf-8")
+        (folder / f"{page_id(r['id'])}.html").write_text(speech_page(r, cards, clusters, near), encoding="utf-8")
     return len(redes)

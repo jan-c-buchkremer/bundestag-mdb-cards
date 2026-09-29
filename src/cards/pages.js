@@ -1,5 +1,8 @@
 // The interactive parts of the vote and sitting pages (written as HTML by pages.py): the seating chart of a vote
-// the filters of the votes overview and the long speech lists of a sitting. Reads PAGE. German UI, see docs/plan.md.
+// the filters of the votes overview and the long speech lists of a sitting. Reads PAGE. Also highlights the terms
+// of a Pagefind search result link (search.js sets `highlightParam: 'hl'`) on whatever page they lead to, so this
+// runs on every shell()-built page (careers, debate, bills, votes, sittings, speeches, questions, …), not only the
+// ones above. German UI, see docs/plan.md.
 'use strict';
 
 (function () {
@@ -121,6 +124,41 @@
       };
     }
   }
+
+  // marks the terms of a search result link (?hl=wort, one per param, as pagefind's processedUrl appends them)
+  // inside the page's indexed text and scrolls to the first hit; a no-op without a "hl" param or indexed text
+  function highlightQuery() {
+    const terms = [...new Set(new URLSearchParams(location.search).getAll('hl').map(t => t.trim()).filter(Boolean))];
+    const root = document.querySelector('[data-pagefind-body]');
+    if (!terms.length || !root) return;
+    const pattern = terms.sort((a, b) => b.length - a.length)
+      .map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+    const test = new RegExp(pattern, 'iu'), all = new RegExp(pattern, 'giu');
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+      acceptNode: node => node.parentNode && !/^(SCRIPT|STYLE|MARK)$/.test(node.parentNode.tagName) && test.test(node.nodeValue)
+        ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT,
+    });
+    const nodes = [];
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) nodes.push(node);
+    let first = null;
+    for (const textNode of nodes) {
+      const text = textNode.nodeValue, frag = document.createDocumentFragment();
+      let last = 0, m;
+      while ((m = all.exec(text))) {
+        if (m.index > last) frag.appendChild(document.createTextNode(text.slice(last, m.index)));
+        const mark = document.createElement('mark');
+        mark.textContent = m[0];
+        frag.appendChild(mark);
+        first ??= mark;
+        last = m.index + m[0].length;
+      }
+      frag.appendChild(document.createTextNode(text.slice(last)));
+      textNode.parentNode.replaceChild(frag, textNode);
+    }
+    if (first && typeof first.scrollIntoView === 'function') first.scrollIntoView({ block: 'center' });
+  }
+
+  highlightQuery();
 
   if (PAGE.kind === 'vote' && PAGE.members) rollCall();
   else if (PAGE.kind === 'vote' && PAGE.house) hands();

@@ -36,6 +36,7 @@ footer a { color: var(--muted); }
 .muted { color: var(--muted); }
 .faint { color: var(--faint); }
 .num { font-variant-numeric: tabular-nums; }
+mark { background: #fff3a8; color: inherit; border-radius: 2px; padding: 0 1px; }
 
 /* ---- card (layer 1) */
 .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 24px 26px 20px; }

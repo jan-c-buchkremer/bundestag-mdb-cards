@@ -51,7 +51,11 @@ def test_load_without_positions(conn):
     assert not any("-" in s["id"] for s in speeches)  # one entry per rede, Zwischenfragen stay in it
     (d,) = b["decisions"]
     assert d["result"] == "angenommen" and d["fractions"] == {"SPD": "yes", "AfD": "no"}
-    assert [v["id"] for v in b["votes"]] == ["21/88/2"]
+    assert d["counts"] is None and d["house"] == {"SPD": 3}  # handzeichen: no roll-call counts, seats from 21/88/2
+    (v,) = b["votes"]
+    assert v["id"] == "21/88/2"
+    assert v["counts"] == {"yes": 2, "no": 2, "abstain": 0, "absent": 1}
+    assert {m[2] for m in v["members"]} == {"SPD"}  # the vote's individual_vote rows, all SPD in the fixture
     assert [s["what"] for s in b["timeline"]] == [
         "Gesetzentwurf", "Unterrichtung", "Beratung im Plenum (TOP 2)", "Beschluss über 21/500",
         "Namentliche Abstimmung",

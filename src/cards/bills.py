@@ -13,7 +13,17 @@ import sqlite3
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from cards.data import WP, _houses, drucksache_pdf, has_table, house_on, page_id, roll_call_members, top_label
+from cards.data import (
+    WP,
+    _has_column,
+    _houses,
+    drucksache_pdf,
+    has_table,
+    house_on,
+    page_id,
+    roll_call_members,
+    top_label,
+)
 from cards.pages import (
     FOOTER,
     count_bar,
@@ -180,11 +190,15 @@ def _json_list(s: str | None) -> list:
 def load(conn: sqlite3.Connection) -> list[dict]:
     """Every Gesetzgebung Vorgang of the Wahlperiode with its Drucksachen, debates, decisions, roll-call votes and
     positions (None when the store has no `vorgang_position`), newest activity first."""
+    has_verk = _has_column(conn, "vorgang", "verkuendung")  # foundation PR #16, older stores don't have it yet
+    has_inkraft = _has_column(conn, "vorgang", "inkrafttreten")
     bills = {
         r["id"]: {
             "id": r["id"], "title": r["title"], "status": r["status"] or "unbekannt",
             "subjects": _json_list(r["subjects"]), "initiators": _json_list(r["initiators"]),
             "source": r["source_url"], "docs": [], "debates": [], "decisions": [], "votes": [], "positions": None,
+            "verkuendung": _json_list(r["verkuendung"]) if has_verk else [],
+            "inkrafttreten": _json_list(r["inkrafttreten"]) if has_inkraft else [],
         }
         for r in conn.execute("SELECT * FROM vorgang WHERE wahlperiode = ? AND type = ? ORDER BY id", (WP, KIND))
     }  # fmt: skip
@@ -288,7 +302,9 @@ def load(conn: sqlite3.Connection) -> list[dict]:
 
 
 def timeline(b: dict) -> list[dict]:
-    """Steps by date: DIP's positions when the store has them, else Drucksachen, debates and decisions.
+    """Steps by date: DIP's positions when the store has them, else Drucksachen, debates and decisions; plus
+    Verkündung (date, fundstelle, linked to the Bundesgesetzblatt PDF) and Inkrafttreten when the store has them
+    (`vorgang.verkuendung`/`inkrafttreten`, both independent of `vorgang_position`).
     Each step is {date, chamber, what, doc (label, url) or None, sitting (id, position) or None, note}."""
     steps = []
     if b["positions"] is not None:
@@ -311,19 +327,33 @@ def timeline(b: dict) -> list[dict]:
             )  # fmt: skip
             steps.append({"date": p["date"], "chamber": p["chamber"] or "", "what": p["position"], "doc": doc,
                           "sitting": sitting, "note": tenor})  # fmt: skip
-        return steps
-    for d in b["docs"]:
-        steps.append({"date": d["date"], "chamber": d["publisher"], "what": d["type"],
-                      "doc": (f"Drucksache {d['number']}", d["url"]), "sitting": None, "note": ""})  # fmt: skip
-    for a in b["debates"]:
-        steps.append({"date": a["date"], "chamber": "BT", "what": f"Beratung im Plenum ({a['label']})", "doc": None,
-                      "sitting": (a["sitting"], a["position"]), "note": ""})  # fmt: skip
-    for d in b["decisions"]:
-        steps.append({"date": d["date"], "chamber": "BT", "what": "Beschluss" + (f" über {d['number']}" if d["number"]
-                      else ""), "doc": None, "sitting": None, "note": d["result"] or ""})  # fmt: skip
-    for v in b["votes"]:
-        steps.append({"date": v["date"], "chamber": "BT", "what": "Namentliche Abstimmung", "doc": None,
-                      "sitting": None, "note": ""})  # fmt: skip
+    else:
+        for d in b["docs"]:
+            steps.append({"date": d["date"], "chamber": d["publisher"], "what": d["type"],
+                          "doc": (f"Drucksache {d['number']}", d["url"]), "sitting": None, "note": ""})  # fmt: skip
+        for a in b["debates"]:
+            steps.append({"date": a["date"], "chamber": "BT", "what": f"Beratung im Plenum ({a['label']})",
+                          "doc": None, "sitting": (a["sitting"], a["position"]), "note": ""})  # fmt: skip
+        for d in b["decisions"]:
+            what = "Beschluss" + (f" über {d['number']}" if d["number"] else "")
+            steps.append({"date": d["date"], "chamber": "BT", "what": what, "doc": None, "sitting": None,
+                          "note": d["result"] or ""})  # fmt: skip
+        for v in b["votes"]:
+            steps.append({"date": v["date"], "chamber": "BT", "what": "Namentliche Abstimmung", "doc": None,
+                          "sitting": None, "note": ""})  # fmt: skip
+    # `vorgang.verkuendung`/`inkrafttreten` (foundation PR #16): independent of vorgang_position, added either way
+    for v in b["verkuendung"]:
+        if not v.get("verkuendungsdatum"):
+            continue
+        fundstelle = v.get("fundstelle") or "Verkündung"
+        note = f"Ausgefertigt am {short_date(v['ausfertigungsdatum'])}" if v.get("ausfertigungsdatum") else ""
+        steps.append({"date": v["verkuendungsdatum"], "chamber": "", "what": "Verkündet",
+                      "doc": (fundstelle, v.get("pdf_url")), "sitting": None, "note": note})  # fmt: skip
+    for i in b["inkrafttreten"]:
+        if not i.get("datum"):
+            continue
+        steps.append({"date": i["datum"], "chamber": "", "what": "Inkrafttreten", "doc": None, "sitting": None,
+                      "note": i.get("erlaeuterung") or ""})  # fmt: skip
     return sorted(steps, key=lambda s: s["date"])
 
 
@@ -346,7 +376,7 @@ def _breakdown(d: dict) -> str:
         table = fraction_table_hands(d)
     else:
         return ""
-    details = f"<details><summary>Nach Fraktionen</summary>{table}</details>" if table else ""
+    details = f"<details><summary>Einzelheiten</summary>{table}</details>" if table else ""
     return f'<div class="vb">{bar}</div>{details}'
 
 
@@ -384,12 +414,23 @@ def bill_page(b: dict, have: set[str]) -> str:
         + "</li>"
         for s in b["timeline"]
     )
+    has_verk = bool(b["verkuendung"])
     if b["positions"] is not None:
-        how = "Die Schritte stammen aus dem Vorgangsablauf im DIP"
-        if any(p["chamber"] == "BR" for p in b["positions"]):
-            how += ", auch die im Bundesrat."
+        has_br = any(p["chamber"] == "BR" for p in b["positions"])
+        if has_br and has_verk:
+            how = "Die Schritte stammen aus dem Vorgangsablauf im DIP, auch die im Bundesrat und die Verkündung."
+        elif has_br:
+            how = ("Die Schritte stammen aus dem Vorgangsablauf im DIP, auch die im Bundesrat. Die Verkündung ist "
+                   "noch nicht im Datenbestand, sie steht im DIP.")  # fmt: skip
+        elif has_verk:
+            how = ("Die Schritte stammen aus dem Vorgangsablauf im DIP, auch die Verkündung. Schritte im Bundesrat "
+                   "sind noch nicht im Datenbestand, sie stehen im DIP.")  # fmt: skip
         else:
-            how += ". Schritte im Bundesrat und die Verkündung sind noch nicht im Datenbestand, sie stehen im DIP."
+            how = ("Die Schritte stammen aus dem Vorgangsablauf im DIP. Schritte im Bundesrat und die Verkündung "
+                   "sind noch nicht im Datenbestand, sie stehen im DIP.")  # fmt: skip
+    elif has_verk:
+        how = ("Zusammengestellt aus den Daten der Drucksachen, den Tagesordnungspunkten und den Beschlüssen im "
+               "Datenbestand, dazu die Verkündung. Schritte im Bundesrat fehlen hier, sie stehen im DIP.")  # fmt: skip
     else:
         how = (
             "Zusammengestellt aus den Daten der Drucksachen, den Tagesordnungspunkten und den Beschlüssen im "

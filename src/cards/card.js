@@ -225,6 +225,7 @@ const TABS = [
     ['abstimmungen', 'Abstimmungen', () => C.votes.length, renderVotes],
     ['drucksachen', 'Drucksachen', () => C.authored.length, renderDocuments],
     ['ausschuesse', 'Ausschüsse & Funktionen', () => C.committees.length + C.offices.length, renderMemberships],
+    ...(C.side_jobs.length ? [['nebentaetigkeiten', 'Nebentätigkeiten', () => C.side_jobs.length, renderSideJobs]] : []),
     ['laufbahn', 'Laufbahn', () => C.career.length, renderCareer],
   ] : []),
   ...(C.plenum && (member || C.plenum.made.length || Object.keys(C.plenum.received).length) ? [['plenum', 'Im Plenum', () => C.plenum.made.length, renderPlenum]] : []),
@@ -413,6 +414,19 @@ function renderCareer(el) {
     ${gaps.length ? `<p class="explain">Nicht im Bundestag ${gaps.join(', ')}.</p>` : ''}
     ${C.in_stammdaten ? '' : `<p class="explain">Das aktuelle Mandat fehlt in diesem Stand der Stammdaten; Mitglied spätestens seit ${longDate(C.first_vote)}.</p>`}
     <div class="rows memb">${rows.join('') || '<div class="empty">Keine Mandate in den Stammdaten.</div>'}</div>`;
+}
+
+function renderSideJobs(el) {
+  const rows = C.side_jobs.slice().sort((a, b) => (b.changed || '').localeCompare(a.changed || '')).map(j => `
+    <div class="row"><div class="d"></div>
+      <div class="t">${esc(j.label)}<div class="sub">${[
+        j.organization && esc(j.organization), j.category && esc(j.category),
+        j.income_range ? `Stufe ${j.income_level}: ${esc(j.income_range)}${j.interval ? ` · ${esc(j.interval)}` : ''}` : j.interval && esc(j.interval),
+      ].filter(Boolean).join(' · ')}</div></div>
+      <div class="l">${j.url ? `<a href="${esc(j.url)}" title="Der Eintrag als Rohdaten (JSON) bei abgeordnetenwatch.de">Datensatz</a>` : ''}</div></div>`);
+  el.innerHTML = `
+    <p class="explain">Veröffentlichungspflichtige Angaben nach den Verhaltensregeln des Bundestages, wie der Bundestag sie veröffentlicht; zusammengestellt von ${C.aw ? `<a href="${esc(C.aw.url)}">abgeordnetenwatch.de</a>` : 'abgeordnetenwatch.de'} (CC0). Einkünfte stehen als veröffentlichte Stufe mit ihrer Spanne, nicht als genauer Betrag. Die Karte rechnet nichts zusammen und bringt die Angaben nicht mit Reden oder Abstimmungen in Verbindung.</p>
+    ${list(rows, 'Keine Nebentätigkeiten gemeldet.')}`;
 }
 
 function renderSources(el) {

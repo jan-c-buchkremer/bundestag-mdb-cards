@@ -462,6 +462,24 @@ def aw_profiles(conn: sqlite3.Connection) -> dict[str, dict]:
     }  # fmt: skip
 
 
+def side_jobs(conn: sqlite3.Connection) -> dict[str, list[dict]]:
+    """Per person: Nebentätigkeiten (side jobs) reported under the Bundestag's Verhaltensregeln, republished by
+    abgeordnetenwatch, newest change first. Facts as published only: no income totals, no linking to speeches or
+    votes. Empty when the store has no side_job table yet."""
+    if not has_table(conn, "side_job"):
+        return {}
+    out: dict[str, list[dict]] = defaultdict(list)
+    for r in conn.execute("SELECT * FROM side_job WHERE person_id IS NOT NULL ORDER BY data_change_date DESC, id DESC"):
+        out[r["person_id"]].append(
+            {
+                "id": r["id"], "label": r["label"], "category": r["category"], "organization": r["organization"],
+                "income_level": r["income_level"], "income_range": r["income_range"], "interval": r["interval"],
+                "changed": r["data_change_date"], "url": r["source_url"],
+            }
+        )  # fmt: skip
+    return dict(out)
+
+
 # ---------------------------------------------------------------- photos and government offices
 
 
@@ -551,6 +569,7 @@ def cards(conn: sqlite3.Connection) -> tuple[list[dict], dict]:
     docs = drucksachen(conn)
     elected = elections(conn)
     aw = aw_profiles(conn)
+    sj = side_jobs(conn)
     heard = plenum(conn)
     vote_rows, n_votes = votes(conn)
     portraits = photos(conn)
@@ -626,6 +645,7 @@ def cards(conn: sqlite3.Connection) -> tuple[list[dict], dict]:
                     for m in mandates[pid]
                 ],
                 "aw_id": p["aw_politician_id"], "wikidata": p["wikidata_qid"], "aw": aw.get(pid),
+                "side_jobs": sj.get(pid, []),
                 "plenum": heard.get(pid, {"received": {}, "house": 0, "made": []}) if heard else None,
             }
         )  # fmt: skip

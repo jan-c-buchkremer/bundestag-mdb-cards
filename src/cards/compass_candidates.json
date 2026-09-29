@@ -723,11 +723,11 @@
   "initiator": "Bundesregierung",
   "invert": false,
   "yes_on_decision": null,
-  "question": "Soll die Einbürgerung in Deutschland erleichtert werden?",
+  "question": "Soll die Einbürgerung schon nach drei Jahren für besonders gut integrierte Menschen wieder abgeschafft werden?",
   "why": "Staatsbürgerschaftsrecht ist ein großes gesellschaftliches Thema. Sehr breite Mehrheit.",
   "note": null,
   "camp_vote_risk": null,
-  "review": "Der genaue Inhalt der Änderungen sollte anhand der Drucksachen 21/537 und 21/1634 geprüft werden, bevor die Frage freigegeben wird.",
+  "review": "Der genaue Inhalt der Änderungen sollte anhand der Drucksachen 21/537 und 21/1634 geprüft werden, bevor die Frage freigegeben wird. Frage korrigiert: Das Gesetz (Sechstes Gesetz zur Änderung des StAG, verkündet 29.10.2025) schafft die Einbürgerung nach drei Jahren ab; der Entwurf fragte umgekehrt („Soll die Einbürgerung in Deutschland erleichtert werden?“). Die Fraktionspositionen passen dazu: CDU/CSU, SPD und AfD Ja, Grüne und Linke Nein.",
   "selected": false,
   "question_approved": false
  },

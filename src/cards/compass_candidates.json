@@ -464,8 +464,8 @@
   "note": null,
   "camp_vote_risk": null,
   "review": null,
-  "selected": true,
-  "question_approved": true
+  "selected": false,
+  "question_approved": false
  },
  {
   "id": "21/37/2",
@@ -587,8 +587,8 @@
   "note": "Die Linke hat zum Wehrdienst-Gesetz einen eigenen Entschließungsantrag gestellt, der abgelehnt wurde.",
   "camp_vote_risk": null,
   "review": null,
-  "selected": false,
-  "question_approved": false
+  "selected": true,
+  "question_approved": true
  },
  {
   "id": "21/58/h1",

@@ -13,14 +13,119 @@ import sqlite3
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from cards.data import WP, drucksache_pdf, has_table, page_id, top_label
-from cards.pages import FOOTER, e, n, positions_line, shell, short_date
+from cards.data import (
+    WP,
+    _has_column,
+    _houses,
+    drucksache_pdf,
+    has_table,
+    house_on,
+    page_id,
+    roll_call_members,
+    top_label,
+)
+from cards.pages import (
+    FOOTER,
+    count_bar,
+    counts_line,
+    e,
+    fraction_table_hands,
+    fraction_table_rc,
+    hands_bar,
+    n,
+    positions_line,
+    shell,
+    short_date,
+)
 from cards.speeches import rede_id
 from cards.titles import short_title
 
 KIND = "Gesetzgebung"
 _PARTY = re.compile(r"\s*\([^)]*\)\s*$")  # "Stefan Möller (AfD)" -> "Stefan Möller"
 CHAMBER = {"BT": "Bundestag", "BR": "Bundesrat", "BV": "Bundesversammlung", "EP": "Europäisches Parlament"}
+_UMLAUT = str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "Ä": "Ae", "Ö": "Oe", "Ü": "Ue", "ß": "ss"})
+_SLUG = re.compile(r"[^a-z0-9]+")
+
+# DIP's Beratungsstand values for Gesetzgebung (checked against the dev store, 21. WP: 14 values plus the "unbekannt"
+# fallback for a Vorgang without one), in the order of "So entsteht ein Gesetz" below. Sources: see GLOSSARY_SOURCES.
+STATUS_GLOSSARY = {
+    "Noch nicht beraten": "Der Entwurf kommt aus der Mitte des Bundestages – von einer Fraktion oder mindestens "
+        "5 % der Abgeordneten – und wartet auf seine erste Beratung im Plenum.",
+    "Dem Bundestag zugeleitet - Noch nicht beraten": "Der Entwurf kommt von der Bundesregierung oder vom "
+        "Bundesrat und ist dem Bundestag förmlich zugeleitet (Art. 76 GG); bei einem Regierungsentwurf ist dem "
+        "meist der „1. Durchgang“ im Bundesrat vorausgegangen. Die erste Beratung im Plenum steht noch aus.",
+    "1. Durchgang im Bundesrat abgeschlossen": "Ein Regierungsentwurf geht zuerst zur Stellungnahme an den "
+        "Bundesrat, der dafür sechs, bei umfangreichen Vorhaben neun Wochen Zeit hat (Art. 76 Abs. 2 GG). Dieser "
+        "„erste Durchgang“ ist beendet; die Bundesregierung leitet den Entwurf jetzt mit ihrer Gegenäußerung an "
+        "den Bundestag weiter.",
+    "In der Beratung (Einzelheiten siehe Vorgangsablauf)": "Ein Sammelstand des DIP für einen laufenden "
+        "Verfahrensschritt, der sich keinem der anderen Stände zuordnen lässt; die Einzelheiten stehen im Ablauf "
+        "auf dieser Seite oder im Vorgang im DIP.",
+    "Überwiesen": "Nach der ersten Beratung hat der Bundestag den Entwurf zur weiteren Beratung an einen oder "
+        "mehrere Ausschüsse überwiesen. Dort wird er im Detail beraten, oft mit einer öffentlichen Anhörung von "
+        "Sachverständigen, bevor der federführende Ausschuss dem Plenum eine Beschlussempfehlung vorlegt.",
+    "Beschlussempfehlung liegt vor": "Der federführende Ausschuss hat seine Beratung mit einer "
+        "Beschlussempfehlung und einem Bericht an das Plenum abgeschlossen. In der zweiten und dritten Beratung "
+        "stimmt der Bundestag über diese – gegebenenfalls geänderte – Fassung ab, nicht mehr über den "
+        "ursprünglichen Entwurf.",
+    "Verabschiedet": "Der Bundestag hat den Entwurf in der Schlussabstimmung der dritten Beratung beschlossen. "
+        "Er ist noch kein Gesetz: Er geht jetzt zum Bundesrat (der „zweite Durchgang“) und muss danach noch "
+        "ausgefertigt und verkündet werden.",
+    "Abgelehnt": "Der Bundestag hat den Entwurf in der Schlussabstimmung abgelehnt. Das Verfahren ist damit "
+        "beendet.",
+    "Für erledigt erklärt": "Der Bundestag hat die Beratung ausdrücklich beendet, ohne in der Sache zu "
+        "entscheiden, etwa weil ein anderer, weitergehender Entwurf zum selben Thema angenommen wurde. Spätestens "
+        "am Ende der Wahlperiode gilt ohnehin die Diskontinuität (§ 125 GO-BT): Unerledigte Vorlagen verfallen "
+        "dann und müssten im neuen Bundestag neu eingebracht werden.",
+    "Bundesrat hat Vermittlungsausschuss nicht angerufen": "Nach der Verabschiedung im Bundestag konnte der "
+        "Bundesrat den Vermittlungsausschuss anrufen, hat das aber nicht getan. Bei einem Zustimmungsgesetz muss "
+        "er trotzdem noch ausdrücklich zustimmen; bei einem Einspruchsgesetz kann er jetzt keinen Einspruch mehr "
+        "einlegen, denn dafür müsste zuvor ein Vermittlungsverfahren stattgefunden haben.",
+    "Bundesrat hat zugestimmt": "Ein Zustimmungsgesetz braucht die ausdrückliche Zustimmung des Bundesrates, "
+        "sonst kommt es nicht zustande. Der Bundesrat hat zugestimmt; das Gesetz kann jetzt vom Bundespräsidenten "
+        "ausgefertigt und verkündet werden.",
+    "Bundesrat hat Zustimmung versagt": "Der Bundesrat hat die für ein Zustimmungsgesetz nötige Zustimmung "
+        "verweigert. Ohne sie kommt ein Zustimmungsgesetz nicht zustande – anders als bei einem Einspruchsgesetz "
+        "kann der Bundestag das nicht überstimmen. Das Verfahren ist gescheitert.",
+    "Vermittlungsvorschlag liegt vor": "Der Vermittlungsausschuss – mit gleich vielen Mitgliedern aus Bundestag "
+        "und Bundesrat – hat einen Einigungsvorschlag erarbeitet. Darüber muss der Bundestag erneut abstimmen, "
+        "bei einem Zustimmungsgesetz danach auch der Bundesrat.",
+    "Verkündet": "Der Bundespräsident hat das Gesetz nach Gegenzeichnung ausgefertigt, es ist im "
+        "Bundesgesetzblatt verkündet (Art. 82 GG). Das Verfahren ist abgeschlossen; ohne ein anderes Datum im "
+        "Gesetz tritt es 14 Tage nach der Ausgabe des Bundesgesetzblatts in Kraft.",
+    "unbekannt": "Für diesen Vorgang nennt das DIP keinen Beratungsstand.",
+}  # fmt: skip
+GLOSSARY_STEPS = (
+    ("Einbringung", "Ein Gesetzentwurf kommt von der Bundesregierung, aus der Mitte des Bundestages (einer "
+        "Fraktion oder mindestens 5 % der Abgeordneten) oder vom Bundesrat (Art. 76 GG)."),
+    ("1. Beratung", "Erste Lesung im Plenum, meist ohne Sachdebatte; entscheidend ist die Überweisung an die "
+        "Ausschüsse."),
+    ("Ausschuss", "Beratung im Detail, oft mit einer Anhörung von Sachverständigen; endet mit der "
+        "Beschlussempfehlung an das Plenum."),
+    ("2./3. Beratung", "Aussprache und Abstimmung über die Beschlussempfehlung, zuletzt die Schlussabstimmung."),
+    ("Bundesrat", "Zweiter Durchgang: Zustimmung, Anrufung des Vermittlungsausschusses oder – bei einem "
+        "Einspruchsgesetz – Einspruch (Art. 77, 78 GG)."),
+    ("Ausfertigung durch den Bundespräsidenten", "Prüfung, ob das Gesetz verfassungsgemäß zustande gekommen ist, "
+        "dann Unterschrift nach Gegenzeichnung durch Bundeskanzler oder zuständigen Minister (Art. 82 GG)."),
+    ("Verkündung im Bundesgesetzblatt", "Amtliche Bekanntgabe des Gesetzestextes."),
+    ("Inkrafttreten", "Am im Gesetz genannten Tag, sonst am 14. Tag nach der Ausgabe des Bundesgesetzblatts."),
+)  # fmt: skip
+GLOSSARY_SOURCES = (
+    ("https://www.bundestag.de/parlament/aufgaben/gesetzgebung_neu/gesetzgebung/weg-255468",
+     "Bundestag: Weg der Gesetzgebung"),
+    ("https://www.bundestag.de/services/glossar/glossar/G/gesgeb-245440", "Bundestag: Glossar „Gesetzgebung“"),
+    ("https://www.bundestag.de/services/glossar/glossar/B/beschlussempfehlung-245344",
+     "Bundestag: Glossar „Beschlussempfehlung“"),
+    ("https://www.bundesrat.de/DE/aufgaben/gesetzgebung/verfahren/verfahren-node.html",
+     "Bundesrat: Ablauf des Verfahrens"),
+    ("https://www.bundesrat.de/DE/aufgaben/gesetzgebung/zust-einspr/zust-einspr-node.html",
+     "Bundesrat: Zustimmungs- und Einspruchsgesetze"),
+    ("https://www.bundesrat.de/SharedDocs/texte/17/20170719-diskontinuitaet.html", "Bundesrat: Diskontinuität"),
+    ("https://www.gesetze-im-internet.de/gg/art_76.html", "Grundgesetz Art. 76 (Einbringung)"),
+    ("https://www.gesetze-im-internet.de/gg/art_77.html", "Grundgesetz Art. 77 (Vermittlungsausschuss, Einspruch)"),
+    ("https://www.gesetze-im-internet.de/gg/art_78.html", "Grundgesetz Art. 78 (Zustandekommen der Gesetze)"),
+    ("https://www.gesetze-im-internet.de/gg/art_82.html", "Grundgesetz Art. 82 (Ausfertigung, Verkündung)"),
+)  # fmt: skip
 STYLE = """<style>
 .bills .row .l { white-space: normal; max-width: 40vw; }
 .bills .st { display: inline-block; font-size: 12px; padding: 1px 7px; border-radius: 9px;
@@ -33,11 +138,24 @@ STYLE = """<style>
 .bills ol.tl li.BR::before { background: #b45309; }
 .bills ol.tl .d { font-variant-numeric: tabular-nums; color: var(--muted); margin-right: 6px; }
 .bills ol.tl .ch { font-size: 12px; color: var(--muted); }
-.bills .deb details { margin: 4px 0 10px; font-size: 13px; }
-.bills .deb summary { cursor: pointer; color: var(--muted); }
+.bills .deb details, .bills .decl details { margin: 4px 0 10px; font-size: 13px; }
+.bills .deb summary, .bills .decl summary { cursor: pointer; color: var(--muted); }
 .bills .deb ol { padding-left: 20px; margin: 6px 0; }
+.bills .decl li { margin: 0 0 14px; }
+.bills .decl .vb { margin: 4px 0; }
 .bills .meta div { margin: 2px 0; }
+.bills dl.def dt { font-weight: 600; margin-top: 10px; }
+.bills dl.def dd { margin: 2px 0 0; }
+.bills ol.steps { padding-left: 20px; }
+.bills ol.steps li { margin: 0 0 4px; }
+.bills .glossary-sources { font-size: 13px; color: var(--muted); }
 </style>"""
+
+
+def _status_slug(status: str) -> str:
+    return _SLUG.sub("-", status.translate(_UMLAUT).lower()).strip("-")
+
+
 FILTER_JS = """<script>
 (() => {
   const q = document.getElementById("bq"), st = document.getElementById("bst");
@@ -72,11 +190,15 @@ def _json_list(s: str | None) -> list:
 def load(conn: sqlite3.Connection) -> list[dict]:
     """Every Gesetzgebung Vorgang of the Wahlperiode with its Drucksachen, debates, decisions, roll-call votes and
     positions (None when the store has no `vorgang_position`), newest activity first."""
+    has_verk = _has_column(conn, "vorgang", "verkuendung")  # foundation PR #16, older stores don't have it yet
+    has_inkraft = _has_column(conn, "vorgang", "inkrafttreten")
     bills = {
         r["id"]: {
             "id": r["id"], "title": r["title"], "status": r["status"] or "unbekannt",
             "subjects": _json_list(r["subjects"]), "initiators": _json_list(r["initiators"]),
             "source": r["source_url"], "docs": [], "debates": [], "decisions": [], "votes": [], "positions": None,
+            "verkuendung": _json_list(r["verkuendung"]) if has_verk else [],
+            "inkrafttreten": _json_list(r["inkrafttreten"]) if has_inkraft else [],
         }
         for r in conn.execute("SELECT * FROM vorgang WHERE wahlperiode = ? AND type = ? ORDER BY id", (WP, KIND))
     }  # fmt: skip
@@ -124,6 +246,8 @@ def load(conn: sqlite3.Connection) -> list[dict]:
             })  # fmt: skip
 
     rcv = {r["id"]: r for r in conn.execute("SELECT * FROM roll_call_vote")}
+    houses = _houses(conn)  # fraction seats on a roll-call date, for a show-of-hands hands_bar/fraction_table_hands
+    members = roll_call_members(conn)  # vote id -> [person id, name, fraction, vote], for fraction_table_rc
     covered: set[str] = set()
     if has_table(conn, "decision"):
         positions: dict[str, dict[str, str]] = defaultdict(dict)
@@ -142,7 +266,9 @@ def load(conn: sqlite3.Connection) -> list[dict]:
                 bills[vid]["decisions"].append({
                     "id": r["id"], "date": r["date"], "kind": r["kind"], "subject": r["subject"],
                     "number": r["drucksache_number"], "result": r["result"], "fractions": positions.get(r["id"], {}),
-                    "counts": None if v is None else {c: v[c] for c in ("yes", "no", "abstain")},
+                    "counts": None if v is None else {c: v[c] for c in ("yes", "no", "abstain", "absent")},
+                    "members": members.get(v["id"], []) if v is not None else [],
+                    "house": house_on(houses, r["date"]) if v is None and r["kind"] == "handzeichen" else None,
                 })  # fmt: skip
     for v in rcv.values():
         if v["id"] in covered:
@@ -151,8 +277,10 @@ def load(conn: sqlite3.Connection) -> list[dict]:
         if v["vorgang_id"] in bills:
             vids.add(v["vorgang_id"])
         for vid in vids:
-            bills[vid]["votes"].append({"id": v["id"], "date": v["date"], "title": v["title"],
-                                        "counts": {c: v[c] for c in ("yes", "no", "abstain")}})  # fmt: skip
+            bills[vid]["votes"].append({
+                "id": v["id"], "date": v["date"], "title": v["title"], "members": members.get(v["id"], []),
+                "counts": {c: v[c] for c in ("yes", "no", "abstain", "absent")},
+            })  # fmt: skip
 
     if has_table(conn, "vorgang_position"):
         for b in bills.values():
@@ -174,7 +302,9 @@ def load(conn: sqlite3.Connection) -> list[dict]:
 
 
 def timeline(b: dict) -> list[dict]:
-    """Steps by date: DIP's positions when the store has them, else Drucksachen, debates and decisions.
+    """Steps by date: DIP's positions when the store has them, else Drucksachen, debates and decisions; plus
+    Verkündung (date, fundstelle, linked to the Bundesgesetzblatt PDF) and Inkrafttreten when the store has them
+    (`vorgang.verkuendung`/`inkrafttreten`, both independent of `vorgang_position`).
     Each step is {date, chamber, what, doc (label, url) or None, sitting (id, position) or None, note}."""
     steps = []
     if b["positions"] is not None:
@@ -197,19 +327,33 @@ def timeline(b: dict) -> list[dict]:
             )  # fmt: skip
             steps.append({"date": p["date"], "chamber": p["chamber"] or "", "what": p["position"], "doc": doc,
                           "sitting": sitting, "note": tenor})  # fmt: skip
-        return steps
-    for d in b["docs"]:
-        steps.append({"date": d["date"], "chamber": d["publisher"], "what": d["type"],
-                      "doc": (f"Drucksache {d['number']}", d["url"]), "sitting": None, "note": ""})  # fmt: skip
-    for a in b["debates"]:
-        steps.append({"date": a["date"], "chamber": "BT", "what": f"Beratung im Plenum ({a['label']})", "doc": None,
-                      "sitting": (a["sitting"], a["position"]), "note": ""})  # fmt: skip
-    for d in b["decisions"]:
-        steps.append({"date": d["date"], "chamber": "BT", "what": "Beschluss" + (f" über {d['number']}" if d["number"]
-                      else ""), "doc": None, "sitting": None, "note": d["result"] or ""})  # fmt: skip
-    for v in b["votes"]:
-        steps.append({"date": v["date"], "chamber": "BT", "what": "Namentliche Abstimmung", "doc": None,
-                      "sitting": None, "note": ""})  # fmt: skip
+    else:
+        for d in b["docs"]:
+            steps.append({"date": d["date"], "chamber": d["publisher"], "what": d["type"],
+                          "doc": (f"Drucksache {d['number']}", d["url"]), "sitting": None, "note": ""})  # fmt: skip
+        for a in b["debates"]:
+            steps.append({"date": a["date"], "chamber": "BT", "what": f"Beratung im Plenum ({a['label']})",
+                          "doc": None, "sitting": (a["sitting"], a["position"]), "note": ""})  # fmt: skip
+        for d in b["decisions"]:
+            what = "Beschluss" + (f" über {d['number']}" if d["number"] else "")
+            steps.append({"date": d["date"], "chamber": "BT", "what": what, "doc": None, "sitting": None,
+                          "note": d["result"] or ""})  # fmt: skip
+        for v in b["votes"]:
+            steps.append({"date": v["date"], "chamber": "BT", "what": "Namentliche Abstimmung", "doc": None,
+                          "sitting": None, "note": ""})  # fmt: skip
+    # `vorgang.verkuendung`/`inkrafttreten` (foundation PR #16): independent of vorgang_position, added either way
+    for v in b["verkuendung"]:
+        if not v.get("verkuendungsdatum"):
+            continue
+        fundstelle = v.get("fundstelle") or "Verkündung"
+        note = f"Ausgefertigt am {short_date(v['ausfertigungsdatum'])}" if v.get("ausfertigungsdatum") else ""
+        steps.append({"date": v["verkuendungsdatum"], "chamber": "", "what": "Verkündet",
+                      "doc": (fundstelle, v.get("pdf_url")), "sitting": None, "note": note})  # fmt: skip
+    for i in b["inkrafttreten"]:
+        if not i.get("datum"):
+            continue
+        steps.append({"date": i["datum"], "chamber": "", "what": "Inkrafttreten", "doc": None, "sitting": None,
+                      "note": i.get("erlaeuterung") or ""})  # fmt: skip
     return sorted(steps, key=lambda s: s["date"])
 
 
@@ -220,10 +364,20 @@ def _link(href: str | None, text: str) -> str:
     return f'<a href="{e(href)}">{text}</a>' if href else text
 
 
-def _counts(c: dict | None) -> str:
-    if not c:
+def _breakdown(d: dict) -> str:
+    """A decision or roll-call vote's result the way the vote pages show it: a count or hands bar, and the
+    per-fraction breakdown collapsed underneath. Empty when the decision has neither (most show-of-hands
+    decisions: only the fractions' positions, already in `positions_line`, no seats to draw a bar from)."""
+    if d.get("counts"):
+        bar = count_bar(d["counts"])
+        table = fraction_table_rc(d, d["members"]) if d.get("members") else ""
+    elif d.get("house"):
+        bar = hands_bar(d)
+        table = fraction_table_hands(d)
+    else:
         return ""
-    return f" · {n(c['yes'])} Ja, {n(c['no'])} Nein, {n(c['abstain'])} Enthaltungen"
+    details = f"<details><summary>Einzelheiten</summary>{table}</details>" if table else ""
+    return f'<div class="vb">{bar}</div>{details}'
 
 
 def bill_page(b: dict, have: set[str]) -> str:
@@ -239,7 +393,8 @@ def bill_page(b: dict, have: set[str]) -> str:
         path = f"abstimmungen/{page_id(vid)}.html"
         return f"../{path}" if path in have else None
 
-    meta = [f'<div><span class="k">Stand</span> <span class="st">{e(b["status"])}</span></div>']
+    status_href = f"index.html#status-{e(_status_slug(b['status']))}"
+    meta = [f'<div><span class="k">Stand</span> <a class="st" href="{status_href}">{e(b["status"])}</a></div>']
     if b["initiators"]:
         meta.append(f'<div><span class="k">Eingebracht von</span> {e(", ".join(b["initiators"]))}</div>')
     if b["subjects"]:
@@ -259,12 +414,23 @@ def bill_page(b: dict, have: set[str]) -> str:
         + "</li>"
         for s in b["timeline"]
     )
+    has_verk = bool(b["verkuendung"])
     if b["positions"] is not None:
-        how = "Die Schritte stammen aus dem Vorgangsablauf im DIP"
-        if any(p["chamber"] == "BR" for p in b["positions"]):
-            how += ", auch die im Bundesrat."
+        has_br = any(p["chamber"] == "BR" for p in b["positions"])
+        if has_br and has_verk:
+            how = "Die Schritte stammen aus dem Vorgangsablauf im DIP, auch die im Bundesrat und die Verkündung."
+        elif has_br:
+            how = ("Die Schritte stammen aus dem Vorgangsablauf im DIP, auch die im Bundesrat. Die Verkündung ist "
+                   "noch nicht im Datenbestand, sie steht im DIP.")  # fmt: skip
+        elif has_verk:
+            how = ("Die Schritte stammen aus dem Vorgangsablauf im DIP, auch die Verkündung. Schritte im Bundesrat "
+                   "sind noch nicht im Datenbestand, sie stehen im DIP.")  # fmt: skip
         else:
-            how += ". Schritte im Bundesrat und die Verkündung sind noch nicht im Datenbestand, sie stehen im DIP."
+            how = ("Die Schritte stammen aus dem Vorgangsablauf im DIP. Schritte im Bundesrat und die Verkündung "
+                   "sind noch nicht im Datenbestand, sie stehen im DIP.")  # fmt: skip
+    elif has_verk:
+        how = ("Zusammengestellt aus den Daten der Drucksachen, den Tagesordnungspunkten und den Beschlüssen im "
+               "Datenbestand, dazu die Verkündung. Schritte im Bundesrat fehlen hier, sie stehen im DIP.")  # fmt: skip
     else:
         how = (
             "Zusammengestellt aus den Daten der Drucksachen, den Tagesordnungspunkten und den Beschlüssen im "
@@ -307,19 +473,25 @@ def bill_page(b: dict, have: set[str]) -> str:
             how = "namentlich" if d["kind"] == "namentlich" else "per Handzeichen"
             line = positions_line(d["fractions"]) if d["fractions"] else ""
             subj = f"{e(d['subject'])}" + (f" (Drs. {e(d['number'])})" if d["number"] else "")
+            counts = f" · {counts_line(d['counts'])}" if d["counts"] else ""
             rows.append(
                 f"<li><b>{short_date(d['date'])}</b> "
                 + _link(vote_href(d["id"]), f"{e(d['result'] or 'ohne Ergebnis')}, {how}")
-                + f": {subj}{_counts(d['counts'])}"
+                + f": {subj}{counts}"
                 + (f"<br>{line}" if line else "")
+                + _breakdown(d)
                 + "</li>"
             )
         for v in b["votes"]:
-            rows.append(f"<li><b>{short_date(v['date'])}</b> " + _link(vote_href(v["id"]), "namentliche Abstimmung")
-                        + f": {e(v['title'])}{_counts(v['counts'])}</li>")  # fmt: skip
+            rows.append(
+                f"<li><b>{short_date(v['date'])}</b> " + _link(vote_href(v["id"]), "namentliche Abstimmung")
+                + f": {e(v['title'])} · {counts_line(v['counts'])}" + _breakdown(v) + "</li>"
+            )  # fmt: skip
         parts.append(
-            '<h2>Beschlüsse</h2><p class="explain">Beschlüsse des Bundestages über eine Drucksache dieses Vorgangs, '
-            "wie sie im Plenarprotokoll stehen; bei Handzeichen nur die Haltung der Fraktionen.</p>"
+            '<h2>Beschlüsse</h2><p class="explain">Beschlüsse des Bundestages über eine Drucksache dieses '
+            "Vorgangs, wie sie im Plenarprotokoll stehen. Bei einer namentlichen Abstimmung mit Stimmenzahlen und "
+            "bei Handzeichen mit im Protokoll genannten Fraktionen wie auf den Abstimmungsseiten, sonst nur mit "
+            "dem Ergebnis.</p>"
             f'<ul class="decl">{"".join(rows)}</ul>'
         )
     parts.append(f"<footer>{FOOTER}</footer>")
@@ -329,10 +501,33 @@ def bill_page(b: dict, have: set[str]) -> str:
                  head=STYLE)  # fmt: skip
 
 
+def _glossary(statuses: set[str]) -> str:
+    """ "So entsteht ein Gesetz" and the DIP Beratungsstand values that occur in `statuses`, each linkable as
+    "#status-<slug>" from a bill page's status badge. Sources under the glossary, see GLOSSARY_SOURCES."""
+    steps = "".join(f"<li><b>{e(name)}</b> – {e(text)}</li>" for name, text in GLOSSARY_STEPS)
+    known = [s for s in STATUS_GLOSSARY if s in statuses]
+    terms = "".join(f'<dt id="status-{e(_status_slug(s))}">{e(s)}</dt><dd>{e(STATUS_GLOSSARY[s])}</dd>' for s in known)
+    sources = " · ".join(f'<a href="{e(u)}">{e(t)}</a>' for u, t in GLOSSARY_SOURCES)
+    return f"""<section id="glossar"><h2>So entsteht ein Gesetz</h2>
+<ol class="steps">{steps}</ol>
+<h2>Glossar: Beratungsstand im DIP</h2>
+<p class="explain">Was der Stand, den das DIP für einen Gesetzgebungsvorgang festhält, jeweils bedeutet, in der
+Reihenfolge des Verfahrens oben.</p>
+<dl class="def">{terms}</dl>
+<p class="glossary-sources">Quellen: {sources}.</p>
+</section>"""
+
+
+def _status_label(s: str) -> str:
+    """The status, linked to its glossary entry when it has one."""
+    label = e(s)
+    return f'<a href="#status-{e(_status_slug(s))}">{label}</a>' if s in STATUS_GLOSSARY else label
+
+
 def index_page(bills: list[dict]) -> str:
     status = Counter(b["status"] for b in bills)
     options = "".join(f'<option value="{e(s)}">{e(s)} ({k})</option>' for s, k in status.most_common())
-    table = "".join(f'<tr><td class="l">{e(s)}</td><td>{n(k)}</td></tr>' for s, k in status.most_common())
+    table = "".join(f'<tr><td class="l">{_status_label(s)}</td><td>{n(k)}</td></tr>' for s, k in status.most_common())
     rows = "".join(
         f'<a class="row" href="{e(b["id"])}.html" data-status="{e(b["status"])}"><span class="d">'
         f'{short_date(b["latest"]) if b["latest"] else ""}</span><span class="t"><span class="ti">{e(b["title"])}'
@@ -346,7 +541,8 @@ def index_page(bills: list[dict]) -> str:
 <details class="open"><summary>Wie viele Vorhaben in welchem Stand sind</summary><div class="rows"><table class="plenum"><thead><tr><th>Stand im DIP</th><th>Vorgänge</th></tr></thead><tbody>{table}</tbody></table></div></details>
 <div class="filters"><input type="search" id="bq" placeholder="Titel oder Einbringer …" autocomplete="off"><select id="bst"><option value="">jeder Stand</option>{options}</select></div>
 <div class="count" id="bcount"></div>
-<div class="rows" id="bills">{rows}</div></div>
+<div class="rows" id="bills">{rows}</div>
+{_glossary(set(status))}</div>
 <footer>{FOOTER}</footer>
 {FILTER_JS}"""  # noqa: E501
     return shell(root="../", kind="p-bills", active="bills", title="Gesetze im Bundestag",

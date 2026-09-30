@@ -3,10 +3,10 @@
 
 Per Gemeinde: its Wahlkreis, or several for the 18 Gemeinden the Bundeswahlleiterin's file splits across
 Wahlkreise (the file names only a running Gemeindeteil number, not which streets belong where — a finer lookup
-needs another source, see docs/decisions.md). Per Wahlkreis: the directly elected member, the list members who
-stood there as candidates (`election_candidacy.constituency_number`), and the other list members of the Land,
-collapsed; for the first two also their number of Reden and the latest one. No postcodes this round: they cannot
-be mapped to a Gemeinde without a further source (OpenPLZ)."""
+needs another source, see docs/decisions.md). The page is an entry point (D17): it finds the Wahlkreis and leads
+to its place page (`orte/wahlkreis-<nr>.html`, places.py), which lists everyone who represents it; it renders no
+member list of its own. No postcodes this round: they cannot be mapped to a Gemeinde without a further source
+(OpenPLZ, docs/plan.md 11.8)."""
 
 from __future__ import annotations
 
@@ -14,7 +14,8 @@ import sqlite3
 from collections import defaultdict
 from pathlib import Path
 
-from cards.data import ELECTION, has_table, page_id
+from cards import urls
+from cards.data import ELECTION, STATES, has_table, land_slug
 from cards.ui import FOOTER, shell
 
 STYLE = """<style>
@@ -47,52 +48,26 @@ STYLE = """<style>
 .wks details.open .list { margin-top: 8px; }
 </style>"""  # noqa: E501
 
-# kept in sync with the STATES/FRACTION_COLORS maps in index.html
 JS = """<script>
 (function () {
-  const STATES = { BW: 'Baden-Württemberg', BY: 'Bayern', BE: 'Berlin', BB: 'Brandenburg', HB: 'Bremen', HH: 'Hamburg',
-    HE: 'Hessen', MV: 'Mecklenburg-Vorpommern', NI: 'Niedersachsen', NW: 'Nordrhein-Westfalen', RP: 'Rheinland-Pfalz',
-    SL: 'Saarland', SN: 'Sachsen', ST: 'Sachsen-Anhalt', SH: 'Schleswig-Holstein', TH: 'Thüringen' };
-  const FRACTION_COLORS = { 'CDU/CSU': '--cdu', 'SPD': '--spd', 'AfD': '--afd', 'BÜNDNIS 90/DIE GRÜNEN': '--gru',
-    'Die Linke': '--lin', 'fraktionslos': '--frl' };
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
   const $ = id => document.getElementById(id);
-  const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
-  const color = f => FRACTION_COLORS[f] ? css(FRACTION_COLORS[f]) : css('--reg');
   const norm = s => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '');
   const q = $('gq'), suggest = $('suggest'), hint = $('hint'), result = $('result');
   const HAY = PAGE.gemeinden.map((g, i) => { g._i = i; return norm(`${g.n} ${g.d}`); });
+  const land = s => PAGE.lands[s] || { name: s };
   let items = [], hi = -1;
 
-  function memberLink(m) {
-    return `<a href="../${esc(m.id)}.html"><span class="dot" style="background:${color(m.fraction)}"></span>${esc(m.name)}${m.left ? ' <span class="faint">(ausgeschieden)</span>' : ''}</a>`;
-  }
-
-  const DATE = new Intl.DateTimeFormat('de-DE', { day: 'numeric', month: 'long', year: 'numeric' });
-  function activity(m) {
-    if (!m.reden) return '<div class="act">Noch keine Rede in dieser Wahlperiode.</div>';
-    const l = m.last;
-    return `<div class="act">${m.reden === 1 ? '1 Rede' : `${m.reden} Reden`} in dieser Wahlperiode, zuletzt am ${esc(DATE.format(new Date(l.date)))}: <a href="../reden/${esc(l.page)}.html">${esc(l.title || 'Rede')}</a></div>`;
-  }
-  const withActivity = m => `<div class="mem">${memberLink(m)}${activity(m)}</div>`;
-
   function wkBlock(nr) {
-    const meta = PAGE.wk[nr] || {};
-    const d = PAGE.direct[nr];
-    const cs = PAGE.candidates[nr] || [];
-    const stateName = STATES[meta.state] || meta.state || '';
-    const others = (PAGE.list_by_state[meta.state] || []).filter(m => !cs.some(c => c.id === m.id));
-    return `<div class="wkblock"><h2>Wahlkreis ${esc(nr)} · ${esc(meta.name || '')} <span class="faint">· ${esc(stateName)}</span></h2>
-      <div class="row2"><span class="k">direkt gewählt</span>${d ? withActivity(d) : '<span class="faint">kein Mitglied: Nach dem Wahlrecht von 2023 bekommt ein Wahlkreissieger nur einen Sitz, wenn die Zweitstimmen seiner Partei im Land dafür reichen (Zweitstimmendeckung). 2025 blieben so 23 Wahlkreise ohne direkt gewähltes Mitglied.</span>'}</div>
-      ${cs.length ? `<div class="row2"><span class="k">Landesliste, hier kandidiert</span>${cs.map(withActivity).join('')}</div>` : ''}
-      ${others.length ? `<details class="open"><summary>${others.length} weitere Landeslisten-Abgeordnete aus ${esc(stateName)}</summary><div class="list">${others.map(memberLink).join('')}</div></details>` : ''}
-      </div>`;
+    const w = PAGE.wk[nr] || { name: '' }, l = land(w.state);
+    return `<div class="wkblock"><h2><a href="../orte/wahlkreis-${esc(nr)}.html">Wahlkreis ${esc(nr)} · ${esc(w.name)}</a></h2>
+      <p>Wer diesen Wahlkreis im Bundestag vertritt – direkt gewählt und über die Landesliste ${l.slug ? `<a href="../orte/${esc(l.slug)}.html">${esc(l.name)}</a>` : esc(l.name)}, mit Nachgerückten und Ausgeschiedenen –, steht auf seiner Seite: <a href="../orte/wahlkreis-${esc(nr)}.html">Zum Wahlkreis ${esc(nr)} →</a></p></div>`;
   }
 
   function renderResult(g) {
     const split = g.w.length > 1
       ? '<p class="explain">Diese Gemeinde ist auf mehrere Wahlkreise aufgeteilt (nach Ortsteil); welcher Teil zu welchem Wahlkreis gehört, steht hier nicht – alle betroffenen Wahlkreise:</p>' : '';
-    result.innerHTML = `<div class="gm"><b>${esc(g.n)}</b> <span class="faint">· ${esc(g.d)} · ${esc(STATES[g.s] || g.s)}</span></div>${split}${g.w.map(wkBlock).join('')}`;
+    result.innerHTML = `<div class="gm"><b>${esc(g.n)}</b> <span class="faint">· ${esc(g.d)} · ${esc(land(g.s).name)}</span></div>${split}${g.w.map(wkBlock).join('')}`;
     hint.hidden = true;
   }
 
@@ -102,7 +77,7 @@ JS = """<script>
     items = list;
     hi = -1;
     if (!list.length) { closeSuggest(); return; }
-    suggest.innerHTML = list.map((g, i) => `<button type="button" data-i="${i}">${esc(g.n)} <span class="d">${esc(g.d)} · ${esc(STATES[g.s] || g.s)}</span></button>`).join('');
+    suggest.innerHTML = list.map((g, i) => `<button type="button" data-i="${i}">${esc(g.n)} <span class="d">${esc(g.d)} · ${esc(land(g.s).name)}</span></button>`).join('');
     suggest.hidden = false;
   }
 
@@ -170,48 +145,16 @@ def municipalities(conn: sqlite3.Connection) -> list[dict] | None:
     ]
 
 
-def activity(c: dict) -> dict:
-    """What a member did lately, as facts to click through, not a score: the Reden of the Wahlperiode and the
-    latest one with its speech page."""
-    reden = sorted(c.get("reden") or [], key=lambda r: (r["date"], r["id"]))
-    if not reden:
-        return {"reden": 0}
-    last = reden[-1]
-    return {"reden": len(reden), "last": {"date": last["date"], "title": last["title"], "page": page_id(last["id"])}}
-
-
-def member_index(cards: list[dict]) -> dict:
-    """Per Wahlkreis: the directly elected member and the list members who stood there; per Land: every current
-    list member. Built from each card's `election` (btw25 `election_candidacy`), not the Stammdaten mandate, so
-    a former mandate's Wahlkreis never leaks in."""
-    direct: dict[str, dict] = {}
-    candidates: dict[str, list[dict]] = defaultdict(list)
-    by_state: dict[str, list[dict]] = defaultdict(list)
-    for c in cards:
-        el = c.get("election")
-        if not el:
-            continue
-        left = bool((c.get("mandate") or {}).get("to"))
-        ref = {"id": c["id"], "name": c["name"], "fraction": c["fraction"], "left": left, **activity(c)}
-        if el["via"] == "constituency" and el["number"] is not None:
-            direct[str(el["number"])] = ref
-        elif el["via"] == "list":
-            if el["list_state"]:
-                by_state[el["list_state"]].append({**ref, "number": el["number"]})
-            if el["number"] is not None:
-                candidates[str(el["number"])].append(ref)
-    return {"direct": direct, "candidates": candidates, "list_by_state": by_state}
-
-
-def page(gemeinden: list[dict], members: dict, wks: list[dict]) -> str:
+def page(gemeinden: list[dict], wks: list[dict]) -> str:
     wk_meta = {str(w["number"]): {"name": w["name"], "state": w["state"]} for w in wks}
-    data = {"kind": "wahlkreissuche", "gemeinden": gemeinden, "wk": wk_meta, **members}
+    lands = {code: {"name": name, "slug": land_slug(code)} for code, name in STATES.items()}
+    data = {"kind": "wahlkreissuche", "gemeinden": gemeinden, "wk": wk_meta, "lands": lands}
     body = (
         '<section class="card"><h1>Meinen Wahlkreis finden</h1><div class="lines">'
-        "Gemeinde oder Stadt eingeben: der Wahlkreis der Bundestagswahl 2025, wer ihn direkt gewonnen hat, wer dort "
-        "über die Landesliste kandidiert hat, wie oft sie geredet haben und worüber zuletzt, und die übrigen "
-        "Landeslisten-Abgeordneten des Landes. "
-        '<a href="../daten.html">Über die Daten</a></div></section>'
+        "Gemeinde oder Stadt eingeben: der Wahlkreis der Bundestagswahl 2025 und der Weg zu seiner Seite, auf der "
+        "steht, wer ihn im Bundestag vertritt. "
+        f'<a href="../{urls.PLACES}">Alle Länder und Wahlkreise</a> · <a href="../daten.html">Über die Daten</a>'
+        "</div></section>"
         '<div class="wks">'
         '<div class="field"><input type="search" id="gq" placeholder="Gemeinde oder Stadt …" autocomplete="off" '
         'aria-label="Gemeinde oder Stadt"><div id="suggest" class="suggest" hidden></div></div>'
@@ -221,19 +164,18 @@ def page(gemeinden: list[dict], members: dict, wks: list[dict]) -> str:
         f"<footer>{FOOTER}</footer>{JS}"
     )
     return shell(
-        root="../", kind="p-wksuche", active="cards", title="Meinen Wahlkreis finden – Bundestag, 21. Wahlperiode",
-        desc="Gemeinde eingeben und den Bundestagswahlkreis 2025 finden: direkt gewähltes Mitglied, "
-             "Landeslisten-Kandidaturen und die übrigen Landeslisten-Abgeordneten des Landes.",
+        root="../", kind="p-wksuche", active="places", title="Meinen Wahlkreis finden – Bundestag, 21. Wahlperiode",
+        desc="Gemeinde eingeben und den Bundestagswahlkreis 2025 finden, mit allen, die ihn im Bundestag vertreten.",
         body=body, data=data, head=STYLE,
     )  # fmt: skip
 
 
-def write(conn: sqlite3.Connection, out: Path, cards: list[dict], wks: list[dict]) -> dict[str, int]:
+def write(conn: sqlite3.Connection, out: Path, wks: list[dict]) -> dict[str, int]:
     """Write wahlkreise/suche.html; returns {} when the foundation has no `constituency_municipality` yet."""
     gemeinden = municipalities(conn)
     if gemeinden is None:
         return {}
     d = out / "wahlkreise"
     d.mkdir(parents=True, exist_ok=True)
-    (d / "suche.html").write_text(page(gemeinden, member_index(cards), wks), encoding="utf-8")
+    (d / "suche.html").write_text(page(gemeinden, wks), encoding="utf-8")
     return {"wahlkreise": 1}

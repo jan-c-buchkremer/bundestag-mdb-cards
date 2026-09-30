@@ -56,6 +56,7 @@ def render_index(
     government: list[dict] | None = None,
     last_sitting: dict | None = None,
     gemeinde_search: bool = False,
+    places: dict | None = None,
 ) -> str:
     government = government or []
     by_id = {g["id"]: g for g in government}
@@ -66,6 +67,7 @@ def render_index(
         "government": [{**g, "card": g["id"] in ids} for g in government],
         "last_sitting": last_sitting,
         "gemeinde_search": gemeinde_search,
+        "places": places or {"lands": {}, "wahlkreise": []},
     }  # fmt: skip
     return (
         (HERE / "index.html")
@@ -87,6 +89,7 @@ def write_site(
     sittings: list[dict] | None = None,
     clusters: dict[str, dict] | None = None,
     gemeinde_search: bool = False,
+    places: dict | None = None,
 ) -> dict[str, int]:
     """Write the site; returns the number of vote and sitting pages (empty without the foundation's decisions)."""
     meta = {**meta, "built": dt.date.today().isoformat()}
@@ -94,7 +97,7 @@ def write_site(
     for c in cards:
         (out / f"{c['id']}.html").write_text(render_card(c, meta), encoding="utf-8")
         (out / f"{c['id']}.json").write_text(json.dumps(c, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    index = render_index(cards, meta, constituencies or [], government, last_sitting, gemeinde_search)
+    index = render_index(cards, meta, constituencies or [], government, last_sitting, gemeinde_search, places)
     (out / "index.html").write_text(index, encoding="utf-8")
     for name in ASSETS:
         shutil.copyfile(HERE / name, out / name)

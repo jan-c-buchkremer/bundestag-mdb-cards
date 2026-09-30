@@ -14,6 +14,7 @@ from cards import (
     data,
     debate,
     photos,
+    places,
     procedures,
     questions,
     search,
@@ -51,21 +52,26 @@ def main(argv: list[str] | None = None) -> None:
     clusters = data.speech_clusters()
     if clusters:
         print(f"{len(clusters)} speeches with a Themenlandschaft cluster: sitting pages with 'Worum ging es'")
-    has_gemeinden = data.has_table(conn, "constituency_municipality")
+    has_gemeinden = wahlkreissuche.municipalities(conn) is not None  # the table exists empty in older stores
     write_photos(conn, cards, args.out / "fotos")
     careers.annotate(conn, cards)
     sittings = data.sittings(conn, decided)
+    portraits = {c["id"] for c in cards if c["photo"]}  # the photos that were made, not only those in the store
+    for s in sittings:
+        for i in s["items"]:
+            for sp in i["speeches"]:
+                sp["photo"] = sp["person"] in portraits
     rcm = data.roll_call_members(conn)
     written = build.write_site(
         cards, meta, args.out, wks, gov, data.last_sitting(conn),
         decided, rcm, sittings, clusters,
-        gemeinde_search=has_gemeinden,
+        gemeinde_search=has_gemeinden, places=places.index_payload(cards, wks),
     )  # fmt: skip
     written |= questions.write(conn, args.out) | sources.write(conn, args.out, meta)
     written |= debate.write(conn, args.out)
     written |= careers.write(conn, args.out)
     if has_gemeinden:
-        written |= wahlkreissuche.write(conn, args.out, cards, wks)
+        written |= wahlkreissuche.write(conn, args.out, wks)
     else:
         print("no constituency_municipality table in the store: no wahlkreise/suche.html")
     print(
@@ -78,6 +84,8 @@ def main(argv: list[str] | None = None) -> None:
     procs = procedures.write(conn, args.out, sittings, decided, rcm)
     print(f"wrote {len(procs)} pages in vorgaenge/, stubs in gesetze/ and abstimmungen/ for what moved there")
     print(f"wrote {weekly.write(conn, args.out, sittings, decided, clusters).get('woche', 0)} pages in woche/")
+    rep = places.write(args.out, cards, wks, careers.constituted(conn), decided, rcm, has_gemeinden)
+    print(f"wrote {len(rep['wahlkreise'])} Wahlkreis pages and {len(data.STATES)} Land pages in orte/")
     n_bodies = bodies.write(conn, args.out, cards, gov, decided, rcm)
     print(f"wrote {n_bodies['gremien']} pages in gremien/, {n_bodies['fraktionen']} pages in fraktionen/")
     search.write_index(args.out)  # last: indexes everything written above

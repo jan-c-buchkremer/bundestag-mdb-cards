@@ -15,7 +15,7 @@ from collections import defaultdict
 from pathlib import Path
 
 from cards.data import ELECTION, has_table, page_id
-from cards.pages import FOOTER, shell
+from cards.ui import FOOTER, shell
 
 STYLE = """<style>
 .wks { max-width: 620px; }

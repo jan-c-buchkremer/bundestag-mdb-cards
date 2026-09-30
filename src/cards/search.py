@@ -14,7 +14,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from cards.pages import FOOTER, e, search_marks, shell
+from cards.ui import FOOTER, e, search_marks, shell
 
 BODY = f"""<h1>Suche</h1>
 <p class="lead">Volltextsuche in allen Reden der 21. Wahlperiode, in den Karten der Abgeordneten, den Abstimmungen

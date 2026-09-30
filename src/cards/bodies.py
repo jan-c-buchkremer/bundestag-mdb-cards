@@ -28,7 +28,7 @@ from cards.data import (
     lead_rank,
     slugify,
 )
-from cards.pages import FOOTER, SHORT, TOKEN, dot, e, frac_link, fraction_order, n, shell, short_date
+from cards.ui import FOOTER, SHORT, TOKEN, dot, e, frac_link, fraction_order, n, shell, short_date
 
 # federal ministries and the Kanzleramt are government offices, already on the card as "Regierungsämter"
 _EXCLUDE_EXACT = {"Auswärtiges Amt", "Bundeskanzleramt"}

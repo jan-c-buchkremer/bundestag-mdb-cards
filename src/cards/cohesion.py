@@ -10,8 +10,9 @@ from __future__ import annotations
 from collections import Counter
 from pathlib import Path
 
+from cards import urls
 from cards.data import NO_FRACTION, VOTE_CHOICES, majority
-from cards.pages import FOOTER, SHORT, TOKEN, VOTE, dot, e, frac_link, fraction_order, long_date, n, shell, short_date
+from cards.ui import FOOTER, SHORT, TOKEN, VOTE, dot, e, frac_link, fraction_order, long_date, n, shell, short_date
 
 PAGE = "geschlossenheit"
 # the timeline's geometry, in SVG units (the SVG scales to the width of the page)
@@ -100,7 +101,7 @@ def timeline(f: str, points: list[dict], total: int) -> str:
                f"Enthaltung {t['abstain']} · Geschlossenheit {pct(p['rice'])}")  # fmt: skip
         fill = color if p["line"] else "var(--card)"
         marks.append(
-            f'<a href="{e(d["page"])}.html"><circle cx="{x(i):.1f}" cy="{y(p["rice"]):.1f}" r="3" fill="{fill}" '
+            f'<a href="../{e(urls.decision(d))}"><circle cx="{x(i):.1f}" cy="{y(p["rice"]):.1f}" r="3" fill="{fill}" '
             f'stroke="{color}" stroke-width="1.5"><title>{e(tip)}</title></circle></a>'
         )
     avg = mean([p["rice"] for p in points if p["rice"] is not None])
@@ -200,7 +201,8 @@ def page(decisions: list[dict], members: dict[str, list[list]]) -> str:
         who = f'<a href="../{e(x["person"])}.html">{e(x["name"])}</a>' if x["person"] else e(x["name"])
         rows.append(
             f'<tr data-f="{e(x["fraction"])}"><td class="d">{e(short_date(d["date"]))}</td>'
-            f'<td class="t"><a class="ti" href="{e(d["page"])}.html">{e(d["title"])}</a></td><td class="w">{who}</td>'
+            f'<td class="t"><a class="ti" href="../{e(urls.decision(d))}">{e(d["title"])}</a></td>'
+            f'<td class="w">{who}</td>'
             f'<td class="f">{dot(x["fraction"])} {frac_link(x["fraction"])}</td>'
             f'<td class="o"><span class="vote {x["own"]}">{VOTE[x["own"]]}</span> '
             f'<span class="faint">statt {VOTE[x["line"]]}</span></td></tr>'

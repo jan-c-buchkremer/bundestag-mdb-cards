@@ -26,6 +26,12 @@ PARTY_TO_FRACTION = {"CDU": "CDU/CSU", "CSU": "CDU/CSU", "DIE LINKE.": "Die Link
 NO_FRACTION = "fraktionslos"
 VOTE_CHOICES = ("yes", "no", "abstain")
 MIN_CHARS = 500  # as the landscape: shorter units are procedural remarks, oaths and one-liners, not Reden
+EXCERPT = 180  # characters of a speech shown next to its link, the full text is on reden/<id>.html
+# Land codes of the Stammdaten and the Bundeswahlleiterin (as index.html and card.js); the place pages' names
+STATES = {"BW": "Baden-Württemberg", "BY": "Bayern", "BE": "Berlin", "BB": "Brandenburg", "HB": "Bremen",
+          "HH": "Hamburg", "HE": "Hessen", "MV": "Mecklenburg-Vorpommern", "NI": "Niedersachsen",
+          "NW": "Nordrhein-Westfalen", "RP": "Rheinland-Pfalz", "SL": "Saarland", "SN": "Sachsen",
+          "ST": "Sachsen-Anhalt", "SH": "Schleswig-Holstein", "TH": "Thüringen"}  # fmt: skip
 
 
 def connect() -> sqlite3.Connection:
@@ -45,6 +51,17 @@ def committee_short(name: str) -> str:
     return _COMMITTEE_PREFIX.sub("", name)
 
 
+def excerpt(text: str | None, limit: int = EXCERPT) -> str:
+    """The start of a speech, cut at a word: what the fact components show before "Text" links the whole."""
+    t = " ".join((text or "").split())
+    return t if len(t) <= limit else t[:limit].rsplit(" ", 1)[0] + " …"
+
+
+def land_slug(code: str) -> str:
+    """ "BW" -> "baden-wuerttemberg", the file name of a Land's place page."""
+    return slugify(STATES.get(code, code))
+
+
 def slugify(name: str) -> str:
     """A stable, readable file name for a Gremium: transliterated, lower case, words joined by "-" (bodies.py,
     and the committee/other links on the card). Not length-capped: the 205 WP 21 committee and Gremium names are
@@ -61,7 +78,7 @@ def _sql_speech(conn: sqlite3.Connection) -> str:
     return f"""
 SELECT s.id, s.position, s.person_id, s.speaker_name, s.speaker_role, s.fraction, s.text, s.source_document_id,
        st.id AS sitting_id, st.date, st.pdf_url, p.party, a.id AS agenda_item_id, a.top_id, a.title AS agenda_title,
-       {kind_col}
+       a.position AS top_position, {kind_col}
 FROM speech s
 JOIN sitting st ON st.id = s.sitting_id
 JOIN person p ON p.id = s.person_id
@@ -132,7 +149,7 @@ def speeches(conn: sqlite3.Connection) -> dict[str, dict[str, list]]:
         first = parts[0]
         where = {
             "date": first["date"], "sitting": first["sitting_id"], "top": first["top_id"],
-            "title": short_title(first["agenda_title"], first["top_id"] or ""),
+            "position": first["top_position"], "title": short_title(first["agenda_title"], first["top_id"] or ""),
             "pdf": first["pdf_url"], "cite": first["source_document_id"],
         }  # fmt: skip
         if first["kind"] == "fragestunde":
@@ -141,14 +158,14 @@ def speeches(conn: sqlite3.Connection) -> dict[str, dict[str, list]]:
             for p in parts:
                 out[p["person_id"]]["fragestunde"].append(
                     {"id": p["id"], **where, "words": len(p["text"].split()), "role": p["speaker_role"],
-                     "fraction": _fraction(p), "on_map": False}
+                     "fraction": _fraction(p), "on_map": False, "excerpt": excerpt(p["text"])}
                 )  # fmt: skip
             continue
         if BEFRAGUNG in (first["agenda_title"] or ""):
             for p in parts:
                 out[p["person_id"]]["befragung"].append(
                     {"id": p["id"], **where, "words": len(p["text"].split()), "role": p["speaker_role"],
-                     "on_map": len(p["text"]) >= MIN_CHARS}
+                     "on_map": len(p["text"]) >= MIN_CHARS, "excerpt": excerpt(p["text"])}
                 )  # fmt: skip
             continue
 
@@ -168,7 +185,7 @@ def speeches(conn: sqlite3.Connection) -> dict[str, dict[str, list]]:
                     kind = "kurzintervention" if announced else "zwischenfrage"
                     interruptions.append(
                         {"id": p["id"], "person": p["person_id"], "name": display_speaker(p), "fraction": _fraction(p),
-                         "kind": kind}
+                         "kind": kind, "excerpt": excerpt(p["text"])}
                     )  # fmt: skip
                 since_main = 0
             prev = p
@@ -178,13 +195,15 @@ def speeches(conn: sqlite3.Connection) -> dict[str, dict[str, list]]:
                 "id": first["id"], **where, "role": first["speaker_role"], "fraction": _fraction(first), "on_map": long,
                 "words": sum(len(p["text"].split()) for p in own),
                 "applause": sum(applause[p["id"]] for p in own),
-                "interruptions": [{k: v for k, v in i.items() if k != "id"} for i in interruptions],
+                "interruptions": [{k: v for k, v in i.items() if k not in ("id", "excerpt")} for i in interruptions],
+                "excerpt": excerpt(own[0]["text"]),
             }
         )  # fmt: skip
         for i in interruptions:
             out[i["person"]]["fragen"].append(
-                {"id": i["id"], **where, "kind": i["kind"], "speaker": main, "speaker_name": display_speaker(first)}
-            )
+                {"id": i["id"], **where, "kind": i["kind"], "speaker": main, "speaker_name": display_speaker(first),
+                 "excerpt": i["excerpt"]}
+            )  # fmt: skip
     return out
 
 
@@ -822,6 +841,41 @@ def drucksache_numbers(text: str | None) -> list[str]:
     return [f"{wp}/{int(n)}" for wp, n in _DRS.findall(text or "")]
 
 
+def vorgang_index(conn: sqlite3.Connection) -> dict[str, set[str]]:
+    """BT-Drucksache number -> the WP 21 Vorgänge it belongs to (DIP `vorgang_drucksache`). An Unterrichtung shared by
+    several Vorgänge is left out: it is the § 80 GO-BT list of referred bills (21/2669 is in 28 Vorgänge) and would tie
+    unrelated debates and decisions to each of them. Empty without the DIP tables."""
+    if not has_table(conn, "vorgang") or not has_table(conn, "vorgang_drucksache"):
+        return {}
+    out: dict[str, set[str]] = defaultdict(set)
+    for r in conn.execute(
+        """SELECT d.number, d.type, d.publisher, vd.vorgang_id,
+                  (SELECT count(*) FROM vorgang_drucksache x WHERE x.drucksache_id = d.id) AS shared
+           FROM vorgang_drucksache vd JOIN drucksache d ON d.id = vd.drucksache_id
+           JOIN vorgang v ON v.id = vd.vorgang_id WHERE v.wahlperiode = ?""",
+        (WP,),
+    ):
+        if (r["publisher"] or "BT") != "BT" or (r["type"] == "Unterrichtung" and r["shared"] > 1):
+            continue
+        out[r["number"]].add(r["vorgang_id"])
+    return dict(out)
+
+
+def vorgang_titles(conn: sqlite3.Connection) -> dict[str, str]:
+    """WP 21 Vorgang id -> title; empty without the table."""
+    if not has_table(conn, "vorgang"):
+        return {}
+    return {r["id"]: r["title"] for r in conn.execute("SELECT id, title FROM vorgang WHERE wahlperiode = ?", (WP,))}
+
+
+def decision_href(page: str, vorgaenge: list[str]) -> str:
+    """Where a decision lives (D15): a point on its Vorgang's timeline when it belongs to exactly one, else its own
+    page in abstimmungen/. Relative to the site root."""
+    if len(vorgaenge) == 1:
+        return f"vorgaenge/{vorgaenge[0]}.html#abst-{page}"
+    return f"abstimmungen/{page}.html"
+
+
 def _dip_index(conn: sqlite3.Connection) -> dict[str, sqlite3.Row]:
     return {r["number"]: r for r in conn.execute("SELECT id, number, type, title FROM drucksache")}
 
@@ -917,6 +971,16 @@ def decisions(conn: sqlite3.Connection) -> list[dict]:
     agendas = {r["id"]: r for r in conn.execute("SELECT * FROM agenda_item")}
     blocks = subtops.load(conn)
     subs = subtops.by_id(blocks)
+    vindex = vorgang_index(conn)
+    known = vorgang_titles(conn)
+    own_vorgang = _has_column(conn, "decision", "vorgang_id")
+
+    def vorgaenge(numbers: list[str], *ids: str | None) -> list[str]:
+        """The Vorgänge a decision concerns: named by the foundation, or owning one of its Drucksachen."""
+        out = {i for i in ids if i in known}
+        for x in numbers:
+            out |= vindex.get(x, set())
+        return sorted(out)
 
     def agenda(aid: str | None) -> dict | None:
         a = agendas.get(aid)
@@ -944,6 +1008,7 @@ def decisions(conn: sqlite3.Connection) -> list[dict]:
             numbers += [n for n in drucksache_numbers(v["drucksache_number"]) if n not in numbers]
         a = agenda(r["agenda_item_id"])
         sub = subs.get(r["sub_item_id"]) if subtops.has_decision_sub_item(conn) else None
+        vs = vorgaenge(numbers, r["vorgang_id"] if own_vorgang else None, v["vorgang_id"] if v is not None else None)
         d = {
             "id": r["id"], "page": page_id(r["id"]), "kind": r["kind"], "date": r["date"], "sitting": r["sitting_id"],
             "order": r["position"], "agenda": a,
@@ -955,6 +1020,7 @@ def decisions(conn: sqlite3.Connection) -> list[dict]:
             "result": r["result"], "result_from": "protocol",
             "text": r["text"], "protocol": r["protocol"], "cite": r["cite"],
             "counts": None, "fractions": None, "house": None, "sources": None,
+            "vorgaenge": vs, "vorgang_titles": {v: known[v] for v in vs}, "href": decision_href(page_id(r["id"]), vs),
         }  # fmt: skip
         if v is not None:
             d.update(roll_call(v))
@@ -968,14 +1034,17 @@ def decisions(conn: sqlite3.Connection) -> list[dict]:
             continue
         st = sittings.get(v["sitting_id"])
         a = agenda(v["agenda_item_id"])
+        numbers = drucksache_numbers(v["drucksache_number"])
+        vs = vorgaenge(numbers, v["vorgang_id"])
         d = {
             "id": v["id"], "page": page_id(v["id"]), "kind": "namentlich", "date": v["date"],
             "sitting": v["sitting_id"] if st else None, "order": 1000 + v["number"], "agenda": a,
             "title": v["title"], "subject": None,
-            "drucksachen": [drucksache_ref(n, dip) for n in drucksache_numbers(v["drucksache_number"])],
+            "drucksachen": [drucksache_ref(n, dip) for n in numbers],
             "result": "angenommen" if v["yes"] > v["no"] else "abgelehnt", "result_from": "counts",
             "text": None, "protocol": st["pdf_url"] if st else None, "cite": st["source_document_id"] if st else None,
-            "house": None,
+            "house": None, "sub": None,
+            "vorgaenge": vs, "vorgang_titles": {v: known[v] for v in vs}, "href": decision_href(page_id(v["id"]), vs),
             **roll_call(v),
         }  # fmt: skip
         out.append(d)
@@ -1039,20 +1108,41 @@ ORDER BY s.position
 """
 
 
+def _vorlagen(conn: sqlite3.Connection) -> dict[tuple[str, str | None], set[str]]:
+    """(agenda item id, sub-item id or None) -> Vorgang ids from the foundation's `agenda_item_vorlage`; empty
+    without the table (the Drucksache numbers of the item then decide alone)."""
+    if not has_table(conn, "agenda_item_vorlage"):
+        return {}
+    out: dict[tuple[str, str | None], set[str]] = defaultdict(set)
+    for r in conn.execute(
+        "SELECT agenda_item_id, sub_item_id, vorgang_id FROM agenda_item_vorlage WHERE vorgang_id IS NOT NULL"
+    ):
+        out[(r["agenda_item_id"], r["sub_item_id"])].add(r["vorgang_id"])
+    return out
+
+
 def sittings(conn: sqlite3.Connection, decided: list[dict] | None = None) -> list[dict]:
-    """Every WP 21 sitting, oldest first, with its agenda in order: per agenda item the Drucksachen, the Reden
-    (owner of each rede, as on the cards; `on_map` when it is a point in the Themenlandschaft), the decisions taken
-    under it and what was referred to committees."""
+    """Every WP 21 sitting, oldest first, with its agenda in order: per agenda item the Drucksachen and the Vorgänge
+    they belong to (an item can carry Vorlagen of several), the Reden (owner of each rede, as on the cards; `on_map`
+    when it is a point in the Themenlandschaft), the decisions taken under it and what was referred to committees.
+    A block item's sub-items carry their own Drucksachen and Vorgänge."""
     decided = decided if decided is not None else decisions(conn)
     by_item: dict[str, list[dict]] = defaultdict(list)
     for d in sorted(decided, key=lambda d: d["order"]):
         if d["agenda"]:
-            by_item[d["agenda"]["id"]].append(
-                {"id": d["id"], "page": d["page"], "kind": d["kind"], "title": d["title"], "result": d["result"],
-                 "counts": d["counts"], "fractions": d["fractions"], "sub": d["sub"]["id"] if d.get("sub") else None}
-            )  # fmt: skip
+            by_item[d["agenda"]["id"]].append({**d, "sub": d["sub"]["id"] if d.get("sub") else None})
     dip = _dip_index(conn)
     referred = referrals(conn)
+    vindex = vorgang_index(conn)
+    titles = vorgang_titles(conn)
+    vorlagen = _vorlagen(conn)
+
+    def vorgaenge(numbers: list[str], item: str, sub: str | None) -> list[dict]:
+        ids = set(vorlagen.get((item, sub), set()))
+        for x in numbers:
+            ids |= vindex.get(x, set())
+        return [{"id": v, "title": titles[v]} for v in sorted(ids) if v in titles]
+
     photos = (
         {r[0] for r in conn.execute("SELECT person_id FROM person_photo")} if has_table(conn, "person_photo") else set()
     )
@@ -1062,19 +1152,22 @@ def sittings(conn: sqlite3.Connection, decided: list[dict] | None = None) -> lis
     no_debate = subtops.has_item_no_debate(conn)
     out = []
     for i, st in enumerate(rows):
-        items = {
-            a["id"]: {
+        week = iso_week(st["date"])
+        items = {}
+        for a in conn.execute("SELECT * FROM agenda_item WHERE sitting_id = ? ORDER BY position", (st["id"],)):
+            numbers = json.loads(a["drucksache_numbers"])
+            in_subs = {x for sub in blocks.get(a["id"], []) for x in sub["numbers"]}
+            items[a["id"]] = {
                 "id": a["id"], "position": a["position"], "label": top_label(a["top_id"]),
                 "title": subtops.item_title(a["title"], a["top_id"], bool(a["no_debate"]) if no_debate else False,
                                             a["id"] in blocks),
                 "no_debate": bool(a["no_debate"]) if no_debate else False,
                 "segments": [s.strip() for s in (a["title"] or "").split("|") if s.strip()],
-                "drucksachen": [drucksache_ref(n, dip) for n in json.loads(a["drucksache_numbers"])],
+                "drucksachen": [drucksache_ref(n, dip) for n in numbers],
+                "vorgaenge": vorgaenge([x for x in numbers if x not in in_subs], a["id"], None),
                 "speeches": [], "fragestunde": 0, "decisions": by_item.get(a["id"], []),
                 "referred": referred.get(a["id"]),
-            }
-            for a in conn.execute("SELECT * FROM agenda_item WHERE sitting_id = ? ORDER BY position", (st["id"],))
-        }  # fmt: skip
+            }  # fmt: skip
         rede: dict[str, list[sqlite3.Row]] = defaultdict(list)
         for s in conn.execute(sql_speech, (st["id"],)):
             if s["kind"] == "fragestunde":
@@ -1094,20 +1187,23 @@ def sittings(conn: sqlite3.Connection, decided: list[dict] | None = None) -> lis
                 {"id": first["id"], "person": first["person_id"], "name": display_name(first),
                  "fraction": _fraction(first), "role": first["speaker_role"],
                  "words": sum(len(p["text"].split()) for p in own), "on_map": length >= MIN_CHARS,
-                 "photo": first["person_id"] in photos, "sub_item": first["sub_item_id"]}
+                 "photo": first["person_id"] in photos, "sub_item": first["sub_item_id"],
+                 "date": st["date"], "sitting": st["id"], "position": item["position"], "title": item["title"],
+                 "excerpt": excerpt(own[0]["text"]), "pdf": st["pdf_url"], "cite": st["source_document_id"]}
             )  # fmt: skip
         for item in items.values():
             if item["id"] in blocks:
                 item["sub_items"] = [
-                    {**sub, "drucksachen": [drucksache_ref(n, dip) for n in sub["numbers"]]}
+                    {**sub, "drucksachen": [drucksache_ref(n, dip) for n in sub["numbers"]],
+                     "vorgaenge": vorgaenge(sub["numbers"], item["id"], sub["id"])}
                     for sub in blocks[item["id"]]
-                ]
+                ]  # fmt: skip
                 subtops.distribute(item)
         out.append(
             {
                 "id": st["id"], "page": page_id(st["id"]), "number": st["number"], "date": st["date"],
                 "start": st["start_time"], "end": st["end_time"], "pdf": st["pdf_url"], "xml": st["xml_url"],
-                "cite": st["source_document_id"], "week": iso_week(st["date"]),
+                "cite": st["source_document_id"], "week": week,
                 "prev": page_id(rows[i - 1]["id"]) if i else None,
                 "next": page_id(rows[i + 1]["id"]) if i + 1 < len(rows) else None,
                 "items": list(items.values()),

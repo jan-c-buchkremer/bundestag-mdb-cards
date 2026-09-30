@@ -8,13 +8,13 @@ from collections import Counter
 from pathlib import Path
 
 from cards import (
-    bills,
     bodies,
     build,
     careers,
     data,
     debate,
     photos,
+    procedures,
     questions,
     search,
     sources,
@@ -75,8 +75,8 @@ def main(argv: list[str] | None = None) -> None:
     similar = speeches.neighbours()
     n_speeches = speeches.write_pages(args.out, speeches.load(conn), {c["id"] for c in cards}, clusters, similar)
     print(f"wrote {n_speeches} speech pages in reden/" + (f", {len(similar)} with similar speeches" if similar else ""))
-    n_bills = bills.write(conn, args.out).get("gesetze", 0)
-    print(f"wrote {n_bills} pages in gesetze/" if n_bills else "no Gesetzgebung in the store: no gesetze/ pages")
+    procs = procedures.write(conn, args.out, sittings, decided, rcm)
+    print(f"wrote {len(procs)} pages in vorgaenge/, stubs in gesetze/ and abstimmungen/ for what moved there")
     print(f"wrote {weekly.write(conn, args.out, sittings, decided, clusters).get('woche', 0)} pages in woche/")
     n_bodies = bodies.write(conn, args.out, cards, gov, decided, rcm)
     print(f"wrote {n_bodies['gremien']} pages in gremien/, {n_bodies['fraktionen']} pages in fraktionen/")

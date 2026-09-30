@@ -8,7 +8,7 @@ import json
 import shutil
 from pathlib import Path
 
-from cards import cohesion, compass, pages, search
+from cards import cohesion, compass, pages, search, ui
 from cards.data import index_row
 
 HERE = Path(__file__).parent
@@ -44,7 +44,7 @@ def render_card(c: dict, meta: dict) -> str:
         .replace("__ID__", html.escape(c["id"]))
         .replace("__CARD__", _json(c))
         .replace("__META__", _json(meta))
-        .replace("__HEADER__", pages.site_header("", "cards"))
+        .replace("__HEADER__", ui.site_header("", "cards"))
         .replace("__SEARCH__", search.card_block(c, description(c)))
     )
 
@@ -70,7 +70,7 @@ def render_index(
     return (
         (HERE / "index.html")
         .read_text(encoding="utf-8")
-        .replace("__HEADER__", pages.site_header("", "cards"))
+        .replace("__HEADER__", ui.site_header("", "cards"))
         .replace("__DATA__", _json(payload))
     )
 

@@ -17,7 +17,7 @@ from xml.etree import ElementTree as ET
 
 from cards import debate
 from cards.data import has_table, page_id
-from cards.pages import FOOTER, LANDSCAPE, WEEKDAYS, e, long_date, n, shell
+from cards.ui import FOOTER, LANDSCAPE, WEEKDAYS, e, long_date, n, shell
 
 BASE = "https://jan-c-buchkremer.github.io/bundestag-mdb-cards/"
 ATOM = "http://www.w3.org/2005/Atom"

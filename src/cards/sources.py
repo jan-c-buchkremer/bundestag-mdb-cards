@@ -10,8 +10,8 @@ import sqlite3
 from pathlib import Path
 
 from cards import data
-from cards.pages import FOOTER, e, long_date, n, shell, short_date
 from cards.questions import fragestunden
+from cards.ui import FOOTER, e, long_date, n, shell, short_date
 
 STALE_AFTER_DAYS = 90  # as the foundation's government.STALE_AFTER_DAYS
 

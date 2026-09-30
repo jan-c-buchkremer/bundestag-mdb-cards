@@ -23,8 +23,9 @@ import json
 from collections import Counter
 from pathlib import Path
 
+from cards import urls
 from cards.data import VOTE_CHOICES, majority
-from cards.pages import FOOTER, ORDER, SHORT, TOKEN, fraction_order, shell
+from cards.ui import FOOTER, ORDER, SHORT, TOKEN, fraction_order, shell
 
 HERE = Path(__file__).parent
 CANDIDATES_PATH = HERE / "compass_candidates.json"
@@ -86,7 +87,8 @@ def build_questions(cands: list[dict], decisions: list[dict], members: dict[str,
             continue  # a candidate the store no longer has, or whose kind changed since curation
         out.append(
             {
-                "id": d["id"], "page": d["page"], "date": d["date"], "title": d["title"], "kind": d["kind"],
+                "id": d["id"], "page": d["page"], "href": urls.decision(d), "date": d["date"], "title": d["title"],
+                "kind": d["kind"],
                 "drucksachen": d["drucksachen"],
                 "topic": c["topic"], "question": c["question"], "note": c.get("note"),
                 "caution": c.get("camp_vote_risk"), "initiator": c["initiator"],
@@ -262,7 +264,7 @@ document.addEventListener("DOMContentLoaded", () => {  // PAGE (the data script)
       const drs = (q.drucksachen || []).map((d) => `<a href="${esc(d.url)}">${esc(d.number)}</a>`).join(', ');
       return `<tr>
         <td>${esc(q.question)}${q.initiator ? `<div class="note">Eingebracht von: ${esc(q.initiator)}</div>` : ''}${q.note ? `<div class="note">${esc(q.note)}</div>` : ''}${q.caution ? `<div class="note caution"><b>Vorsicht beim Deuten:</b> ${esc(q.caution)}</div>` : ''}
-          <div class="src"><a href="abstimmungen/${esc(q.page)}.html">Zur Abstimmung</a>${drs ? ' · Drucksache ' + drs : ''}</div>
+          <div class="src"><a href="${esc(q.href)}">Zur Abstimmung</a>${drs ? ' · Drucksache ' + drs : ''}</div>
         </td>
         <td>${VOTE_LABEL[a.answer]}${a.important ? ' (wichtig)' : ''}</td>
         <td>${fr}</td>

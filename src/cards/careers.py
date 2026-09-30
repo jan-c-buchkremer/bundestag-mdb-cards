@@ -11,7 +11,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 from cards.data import NO_FRACTION, PARTY_TO_FRACTION, WP, display_name, feminine, government_roles
-from cards.pages import FOOTER, SHORT, dot, e, fraction_order, n, shell, short_date
+from cards.ui import FOOTER, SHORT, dot, e, fraction_order, n, shell, short_date
 
 BUCKETS = ("1", "2", "3", "4", "5 und mehr")
 KINDS = {"kanzler": "Bundeskanzler", "minister": "Bundesminister", "staatsminister": "Staatsminister",

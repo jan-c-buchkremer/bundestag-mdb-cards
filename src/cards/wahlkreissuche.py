@@ -49,7 +49,8 @@ STYLE = """<style>
 </style>"""  # noqa: E501
 
 JS = """<script>
-(function () {
+// PAGE is defined after the page body (page.html), so this starts once the document is parsed
+document.addEventListener('DOMContentLoaded', function () {
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
   const $ = id => document.getElementById(id);
   const norm = s => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '');
@@ -120,7 +121,7 @@ JS = """<script>
   });
 
   document.addEventListener('click', e => { if (!e.target.closest('.wks .field')) closeSuggest(); });
-})();
+});
 </script>"""  # noqa: E501
 
 

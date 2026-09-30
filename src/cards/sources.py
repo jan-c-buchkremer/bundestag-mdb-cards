@@ -129,6 +129,10 @@ Kein Einsatz in verzerrendem oder herabsetzendem Zusammenhang (DIP-Nutzungsbedin
 <li><a href="abstimmungen/index.html">Abstimmungen</a>: namentliche Abstimmungen und Beschlüsse per Handzeichen, diese
 regelbasiert aus dem Text der Sitzungsleitung gelesen.</li>
 <li><a href="sitzungen/index.html">Sitzungen</a>: Tagesordnung und Reden je Plenarprotokoll.</li>
+<li><a href="vorgaenge/index.html">Vorgänge</a>: Gesetzgebung und alle im Plenum beratenen Vorlagen mit
+ihrem Ablauf.</li>
+<li><a href="orte/index.html">Orte</a>: Länder und Wahlkreise und wer sie vertritt.</li>
+<li><a href="gremien/index.html">Gremien</a>: Fraktionen, Ausschüsse und die Bundesregierung.</li>
 <li><a href="regierung/index.html">Fragen an die Regierung</a>: Kleine Anfragen, Fragen und Regierungsbefragung nach
 Fraktionen.</li>
 <li>Entscheidungen und Regeln im Einzelnen:

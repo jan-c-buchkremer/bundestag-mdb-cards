@@ -102,7 +102,7 @@
         r.el.hidden = !ok;
         if (ok) shown++;
       }
-      for (const g of groups) g.hidden = !g.querySelector('.row:not([hidden])');
+      for (const g of groups) g.hidden = !g.querySelector('.dec:not([hidden])');
       count.textContent = shown === rows.length ? `${n(rows.length)} Beschlüsse` : `${n(shown)} von ${n(rows.length)} Beschlüssen`;
       const h = new URLSearchParams();
       if (q.value) h.set('q', q.value);

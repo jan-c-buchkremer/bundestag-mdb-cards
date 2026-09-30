@@ -10,6 +10,7 @@ import sqlite3
 from collections import Counter, defaultdict
 from pathlib import Path
 
+from cards import urls
 from cards.data import NO_FRACTION, PARTY_TO_FRACTION, WP, display_name, feminine, government_roles
 from cards.ui import FOOTER, SHORT, dot, e, fraction_order, n, shell, short_date
 
@@ -153,7 +154,14 @@ def first_speech(conn: sqlite3.Connection, card: dict) -> dict | None:
                 continue
             called = any(_CALLED.search(x) and card["last_name"] in x for x in _DASH.split(r["text"]))
             said |= called or (r["position"] >= pos[0] and bool(_THANKED.search(r["text"])))
-    return {"id": s["id"], "date": s["date"], "sitting": s["sitting"], "title": s["title"], "maiden": said}
+    return {
+        "id": s["id"],
+        "date": s["date"],
+        "sitting": s["sitting"],
+        "title": s["title"],
+        "maiden": said,
+        "href": urls.speech(s["id"]),
+    }
 
 
 def annotate(conn: sqlite3.Connection, cards: list[dict]) -> None:

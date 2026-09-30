@@ -30,8 +30,6 @@ const fractionLink = f => FRACTION_COLORS[f] ? `<a href="fraktionen/${FRACTION_C
 // a committee or other Gremium the card lists (data.py adds "slug"), linked to its gremien/<slug>.html page
 const bodyLink = x => x.slug ? `<a href="gremien/${esc(x.slug)}.html">${esc(x.name)}</a>` : esc(x.name);
 // the speech page is the rede's; a part of it (a Zwischenfrage, a turn in the Befragung) is an anchor there
-// the first speech in the Laufbahn tab links its text page (the speech itself is on the Reden tab, facts.py)
-const textLink = s => { const r = s.id.replace(/-\d+$/, ''); return `<a href="reden/${encodeURIComponent(r.replaceAll('/', '-'))}.html${r === s.id ? '' : '#' + encodeURIComponent(s.id)}" title="Der Text im Protokoll">Text</a>`; };
 
 const C = CARD;
 const member = C.kind === 'member';
@@ -312,7 +310,7 @@ function renderCareer(el) {
   // WP 21 at a glance: first speech (careers.annotate), fraction changes, government offices
   const now = [];
   const fs = C.first_speech;
-  if (fs) now.push(`<div class="row"><div class="t">Erste Rede in der ${META.wp}. Wahlperiode${fs.maiden && C.periods.length <= 1 ? ' · Jungfernrede' : ''}<div class="sub">${esc(fs.title || '')}${fs.maiden ? ' · laut Sitzungsleitung die erste Rede' : ''} · ${textLink(fs)}</div></div><div class="d">${shortDate(fs.date)}</div></div>`);
+  if (fs) now.push(`<div class="row"><div class="t">Erste Rede in der ${META.wp}. Wahlperiode${fs.maiden && C.periods.length <= 1 ? ' · Jungfernrede' : ''}<div class="sub">${esc(fs.title || '')}${fs.maiden ? ' · laut Sitzungsleitung die erste Rede' : ''} · <a href="${esc(fs.href)}" title="Der Text im Protokoll">Text</a></div></div><div class="d">${shortDate(fs.date)}</div></div>`);
   if (new Set(C.fractions.map(f => f.name)).size > 1 || (C.fractions.length && C.fractions.every(f => f.to) && !(C.mandate && C.mandate.to)))
     C.fractions.forEach(f => now.push(`<div class="row"><div class="t">Fraktion ${fractionLink(f.name)}</div><div class="d">${period(f.from, f.to)}</div></div>`));
   C.government.forEach(o => now.push(`<div class="row"><div class="t">${esc(o.office)}<div class="sub">${officeWhen(o)}</div></div></div>`));

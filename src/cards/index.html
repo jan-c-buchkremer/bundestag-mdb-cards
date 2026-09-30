@@ -19,6 +19,10 @@ h1 { font-size: 26px; font-weight: 600; letter-spacing: -.02em; margin: 8px 0 6p
 .filters input[type=search] { flex: 1 1 260px; min-width: 0; background: var(--card); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; font-size: 13.5px; }
 .filters select { background: var(--card); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; font-size: 13px; max-width: 100%; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.placehint { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 0 0 10px; padding: 8px 12px; background: var(--accent-soft); border-radius: 10px; font-size: 13.5px; }
+.placehint[hidden] { display: none; }
+.placehint .k { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.placehint .faint { font-size: 12.5px; }
 .chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--card); color: var(--text); border-radius: 999px; padding: 3px 11px 3px 9px; font-size: 12.5px; cursor: pointer; }
 .chip:hover { border-color: #cdcdc8; }
 .chip.on { border-color: var(--accent); background: var(--accent-soft); }
@@ -122,11 +126,12 @@ __HEADER__
   <p class="lead" id="lead"></p>
   <div class="segmented" id="views" role="tablist"><button data-v="plenum" class="on">Plenum</button><button data-v="personen">Abgeordnete</button><button data-v="wahlkreise">Wahlkreise</button></div>
   <div class="filters">
-    <input type="search" id="q" placeholder="Name, Wahlkreis oder Ausschuss …" autocomplete="off">
+    <input type="search" id="q" placeholder="Name, Ort oder Ausschuss …" autocomplete="off">
     <select id="state"><option value="">alle Länder</option></select>
     <select id="type"><option value="">Direkt- und Listenmandate</option><option value="Direktwahl">direkt gewählt</option><option value="Landesliste">über die Landesliste</option></select>
     <select id="committee"><option value="">alle Ausschüsse</option></select>
   </div>
+  <div class="placehint" id="places" hidden></div>
   <div class="chips" id="chips"></div>
   <div class="toggles" id="toggles"></div>
   <div class="chart" id="chartbox"><div id="chart"></div><p class="note">Sitze nach Fraktionen, wie in der Sitzverteilung des Bundestages; innerhalb einer Fraktion vorn die Fraktionsspitze, dann nach Land und Name. Das ist ein Schema, nicht die echte Sitzordnung.</p></div>
@@ -139,6 +144,12 @@ __HEADER__
 'use strict';
 const DATA = __DATA__;
 const { cards: CARDS, meta: META, constituencies: WAHLKREISE, gemeinde_search: GEMEINDE_SEARCH } = DATA;
+// the place pages (places.py): Land slugs and the Wahlkreise that have a page, orte/wahlkreis-<nr>.html
+const PLACES = DATA.places || { lands: {}, wahlkreise: [] };
+const WK_PAGES = new Set(PLACES.wahlkreise);
+const landHref = s => PLACES.lands[s] ? `orte/${PLACES.lands[s]}.html` : null;
+const wkHref = nr => WK_PAGES.has(nr) ? `orte/wahlkreis-${nr}.html` : null;
+const link = (href, text) => href ? `<a href="${esc(href)}">${text}</a>` : text;
 const GOVERNMENT = DATA.government || [];
 const LAST = DATA.last_sitting;
 const LANDSCAPE = 'https://jan-c-buchkremer.github.io/bundestag-topic-landscape/';
@@ -176,7 +187,8 @@ const PLENUM_FLAGS = new Set(['first', 'office', 'gov']);  // former members and
 for (const s of Object.keys(STATES).sort((a, b) => STATES[a].localeCompare(STATES[b]))) $('state').insertAdjacentHTML('beforeend', `<option value="${s}">${STATES[s]}</option>`);
 for (const c of [...new Set(CARDS.flatMap(c => c.committees))].sort((a, b) => a.localeCompare(b, 'de'))) $('committee').insertAdjacentHTML('beforeend', `<option>${esc(c)}</option>`);
 
-function haystack(c) { return norm([c.name, c.constituency, c.number, c.role, c.office, c.gov, STATES[c.state], ...(c.committees || [])].join(' ')); }
+// names, offices and committees; a place typed here leads to its place page instead (placeHints, D17)
+function haystack(c) { return norm([c.name, c.role, c.office, c.gov, ...(c.committees || [])].join(' ')); }
 const HAY = new Map(CARDS.map(c => [c.id, haystack(c)]));
 
 function matches(c, skip) {
@@ -212,8 +224,8 @@ function renderChips() {
 
 function personRow(c) {
   const where = c.kind === 'speaker' ? esc(c.role || 'ohne Mandat')
-    : c.type === 'Direktwahl' ? `Wahlkreis ${c.number} · ${esc(c.constituency)}`
-    : c.type ? `Landesliste ${STATES[c.state] || c.state}` : 'neu, noch nicht in den Stammdaten';
+    : c.type === 'Direktwahl' ? link(wkHref(c.number), `Wahlkreis ${c.number} · ${esc(c.constituency)}`)
+    : c.type ? link(landHref(c.state), `Landesliste ${STATES[c.state] || c.state}`) : 'neu, noch nicht in den Stammdaten';
   const tags = [
     c.gov && `<span class="tag gov" title="${esc(c.gov)}">Regierung</span>`,
     c.office && `<span class="tag">${esc(c.office)}</span>`,
@@ -225,6 +237,21 @@ function personRow(c) {
   return `<div class="row"><div class="t">${av}<div><a class="name" href="${esc(c.id)}.html">${esc(c.name)}</a><div class="sub"><span class="dot" style="background:${c.kind === 'speaker' ? css('--reg') : color(c.fraction || 'fraktionslos')};width:7px;height:7px;margin-right:6px"></span>${c.kind === 'member' ? esc(c.fraction || 'fraktionslos') + ' · ' : ''}${where}</div></div></div><div class="tags">${tags}</div></div>`;
 }
 const byName = (a, b) => a.last.localeCompare(b.last, 'de') || a.name.localeCompare(b.name, 'de');
+
+// a Land or Wahlkreis typed into the filter or picked in the Land menu: links to its place page, where everyone
+// who represents it is listed (direct and list mandates, moved up and left), instead of filtering by place text
+function placeHints() {
+  const q = norm(state.q).trim();
+  const out = [];
+  if (state.state && landHref(state.state)) out.push(`<a href="${landHref(state.state)}">${esc(STATES[state.state])}</a>`);
+  if (q.length >= 2) {
+    for (const [code, name] of Object.entries(STATES)) if (code !== state.state && norm(name).includes(q) && landHref(code)) out.push(`<a href="${landHref(code)}">${esc(name)}</a>`);
+    const wks = [...WK.values()].filter(w => wkHref(w.nr) && (String(w.nr) === q || norm(w.name).includes(q))).slice(0, 6);
+    for (const w of wks) out.push(`<a href="${wkHref(w.nr)}">Wahlkreis ${w.nr} · ${esc(w.name)}</a>`);
+  }
+  $('places').innerHTML = out.length ? `<span class="k">Orte</span>${out.slice(0, 8).join('')}<span class="faint">Wer den Ort vertritt, steht auf seiner Seite.</span>` : '';
+  $('places').hidden = !out.length;
+}
 
 function renderPeople() {
   const shown = CARDS.filter(c => matches(c)).sort(byName);
@@ -293,7 +320,7 @@ for (const c of members) {
   (c.type === 'Direktwahl' ? w.direct : w.list).push(c);
 }
 for (const w of WK.values()) w.direct.sort((a, b) => !!a.left - !!b.left);  // the sitting member first
-const WK_HAY = new Map([...WK.values()].map(w => [w.nr, norm([w.nr, w.name, STATES[w.state], ...w.direct.map(c => c.name), ...w.list.map(c => c.name)].join(' '))]));
+const WK_HAY = new Map([...WK.values()].map(w => [w.nr, norm([w.nr, w.name, STATES[w.state]].join(' '))]));
 function wkShown(w) {
   if (state.state && w.state !== state.state) return false;
   return norm(state.q).split(/\s+/).filter(Boolean).every(x => WK_HAY.get(w.nr).includes(x));
@@ -302,27 +329,12 @@ const seatFraction = w => w.official ? (w.official.seat_party ? PARTY_FRACTION[w
   : w.direct[0] ? w.direct[0].fraction || 'fraktionslos' : null;
 const NO_SEAT = '#d4d4cf';
 
-function holder(w) {
-  const c = w.direct.find(c => !c.left) || w.direct[0];
-  if (c) return { c, text: `${c.name} (${c.fraction || 'fraktionslos'})${c.left ? ', ausgeschieden' : ''}` };
-  const o = w.official;
-  if (o && !o.seat_party && o.first_party) return { c: null, text: `kein Direktmandat: ${o.first_party} vorn mit ${pct(o.first_percent)}, nicht durch Zweitstimmen gedeckt` };
-  return { c: null, text: 'kein direkt gewähltes Mitglied' };
-}
-
 function renderWahlkreise() {
   const shown = [...WK.values()].sort((a, b) => a.nr - b.nr).filter(wkShown);
-  const person = c => `<a href="${esc(c.id)}.html"><span class="dot" style="background:${color(c.fraction || 'fraktionslos')};width:7px;height:7px"></span>${esc(c.name)}${c.left ? ' <span class="faint">(ausgeschieden)</span>' : ''}</a>`;
   $('count').textContent = `${shown.length} von ${WK.size} Wahlkreisen`;
-  const noSeat = w => {
-    const o = w.official;
-    if (!o || o.seat_party) return '<span class="k">kein direkt gewähltes Mitglied</span>';
-    return `<span class="k">kein direktes Mandat: die meisten Erststimmen (${esc(o.first_party)}, ${pct(o.first_percent)}) waren nicht durch Zweitstimmen gedeckt</span>`;
-  };
   const official = WAHLKREISE.length > 0;
-  $('list').innerHTML = `<p class="explain">Zu jedem Wahlkreis: wer ihn direkt gewonnen hat, und wer dort kandidiert hat und über die Landesliste in den Bundestag kam. Seit der Wahlrechtsreform 2023 erhält ein Wahlkreissieger nur einen Sitz, wenn die Zweitstimmen seiner Partei im Land dafür reichen (Zweitstimmendeckung)${official ? `; ${WAHLKREISE.filter(w => !w.seat_party).length} Wahlkreise haben deshalb kein direkt gewähltes Mitglied. Ergebnisse: Die Bundeswahlleiterin, Bundestagswahl 2025` : ''}.${GEMEINDE_SEARCH ? ' <a href="wahlkreise/suche.html">Wahlkreis per Gemeinde oder Stadt suchen →</a>' : ''}</p>
-    <div class="rows wk">${shown.map(w => `<div class="row${state.wk === w.nr ? ' sel' : ''}" id="wk-${w.nr}" data-nr="${w.nr}"><div class="nr">${w.nr}</div><div class="t">${esc(w.name)} <span class="faint">· ${STATES[w.state] || w.state}${w.official?.turnout ? ` · Wahlbeteiligung ${pct(w.official.turnout)}` : ''}</span>
-      <div class="who">${w.direct.length ? `<span class="k">direkt</span>${w.direct.map(person).join('')}` : noSeat(w)}${w.list.length ? `<span class="k">über die Liste</span>${w.list.map(person).join('')}` : ''}</div></div></div>`).join('') || '<div class="empty">Keine Treffer.</div>'}</div>`;
+  $('list').innerHTML = `<p class="explain">Jeder Wahlkreis führt zu seiner Seite: wer ihn direkt gewonnen hat, und alle, die über die Landesliste des Landes im Bundestag sitzen, auch Nachgerückte und Ausgeschiedene. Seit der Wahlrechtsreform 2023 erhält ein Wahlkreissieger nur einen Sitz, wenn die Zweitstimmen seiner Partei im Land dafür reichen (Zweitstimmendeckung)${official ? `; ${WAHLKREISE.filter(w => !w.seat_party).length} Wahlkreise haben deshalb kein direkt gewähltes Mitglied. Ergebnisse: Die Bundeswahlleiterin, Bundestagswahl 2025` : ''}. <a href="orte/index.html">Alle Länder →</a>${GEMEINDE_SEARCH ? ' · <a href="wahlkreise/suche.html">Wahlkreis per Gemeinde oder Stadt suchen →</a>' : ''}</p>
+    <div class="rows wk">${shown.map(w => `<div class="row${state.wk === w.nr ? ' sel' : ''}" id="wk-${w.nr}" data-nr="${w.nr}"><div class="nr">${w.nr}</div><div class="t">${link(wkHref(w.nr), esc(w.name))} <span class="faint">· ${link(landHref(w.state), STATES[w.state] || w.state)}${w.official?.turnout ? ` · Wahlbeteiligung ${pct(w.official.turnout)}` : ''}</span></div></div>`).join('') || '<div class="empty">Keine Treffer.</div>'}</div>`;
   styleMap();
 }
 
@@ -356,8 +368,7 @@ let hoverNr = null;
 function info(nr) {
   const w = WK.get(nr);
   if (!w) return '';
-  const h = holder(w);
-  return `<b>${w.nr} · ${esc(w.name)}</b><br><span class="k">${h.c ? 'direkt: ' : ''}</span>${esc(h.text)}`;
+  return `<b>${w.nr} · ${esc(w.name)}</b><br><span class="k">${esc(STATES[w.state] || '')}</span>`;
 }
 function showInfo() {
   const box = $('mapinfo');
@@ -384,8 +395,7 @@ function styleMap() {
   const w = state.wk != null && WK.get(state.wk);
   strip.hidden = !w;
   if (w) {
-    const h = holder(w);
-    strip.innerHTML = `<div class="t"><b>${w.nr} · ${esc(w.name)}</b><br><span class="k">${h.c ? 'direkt: ' : ''}${esc(h.text)}</span></div>${h.c ? `<a class="go" href="${esc(h.c.id)}.html">Karte →</a>` : `<a class="go" href="#wk-${w.nr}">Liste ↓</a>`}`;
+    strip.innerHTML = `<div class="t"><b>${w.nr} · ${esc(w.name)}</b><br><span class="k">${esc(STATES[w.state] || '')}</span></div>${wkHref(w.nr) ? `<a class="go" href="${wkHref(w.nr)}">Wer den Wahlkreis vertritt →</a>` : ''}`;
   }
 }
 function select(nr, scroll, zoom) {
@@ -554,9 +564,10 @@ function render() {
   for (const x of ['plenum', 'personen', 'wahlkreise']) document.body.classList.toggle('v-' + x, v === x);
   for (const id of ['type', 'committee', 'chips']) $(id).style.display = v === 'wahlkreise' ? 'none' : '';
   $('chartbox').style.display = v === 'plenum' ? '' : 'none';
-  $('q').placeholder = v === 'wahlkreise' ? 'Wahlkreis, Nummer, Ort oder Name …' : 'Name, Wahlkreis, Ausschuss oder Amt …';
+  $('q').placeholder = v === 'wahlkreise' ? 'Wahlkreis, Nummer oder Land …' : 'Name, Ort, Ausschuss oder Amt …';
   document.querySelectorAll('#views button').forEach(b => { b.classList.toggle('on', b.dataset.v === v); b.setAttribute('aria-selected', b.dataset.v === v); });
   renderToggles();
+  placeHints();
   if (v === 'plenum') { renderChips(); renderPlenum(); }
   else if (v === 'personen') { renderChips(); renderPeople(); }
   else { renderWahlkreise(); loadMap(); }

@@ -1,9 +1,6 @@
-from pathlib import Path
 from xml.etree import ElementTree as ET
 
 from cards import data, weekly
-
-CLUSTERS = Path(__file__).parent / "speech_clusters.json"
 
 
 def sitting(sid, number, date, items=()):
@@ -41,37 +38,36 @@ def test_sentences():
     decided = [
         {"sitting": "21/2", "result": "angenommen", "kind": "handzeichen", "date": "2026-07-08", "order": 1},
         {"sitting": "21/2", "result": "abgelehnt", "kind": "namentlich", "date": "2026-07-08", "order": 2,
-         "page": "21-2-1", "title": "Mietpreisbremse", "counts": {"yes": 200, "no": 400, "abstain": 3}},
+         "page": "21-2-1", "title": "Mietpreisbremse", "counts": {"yes": 200, "no": 400, "abstain": 3, "absent": 27}},
         {"sitting": "21/9", "result": "angenommen", "kind": "handzeichen", "date": "2026-09-01", "order": 1},
     ]  # fmt: skip
     measures = [{"kind": "Ordnungsruf", "fraction": "AfD", "sitting": "21/3", "date": "2026-07-09"}]
     steps = [{"vorgang": "g1", "title": "Mietrechtsgesetz", "date": "2026-07-09", "position": "2. Beratung",
               "chamber": "BT"}]  # fmt: skip
-    w = weekly.gather([s1, s2], decided, measures, data.speech_clusters(CLUSTERS), steps)
+    w = weekly.gather([s1, s2], decided, measures, steps)
     got = dict(weekly.sentences(w, "../", have=set()))
     assert "Der Bundestag hat in dieser Woche an zwei Tagen getagt:" in got["Sitzungen"]
     assert 'href="../sitzungen/21-2.html">2. Sitzung</a> am Mittwoch, 8. Juli 2026' in got["Sitzungen"]
     assert "3 Reden zu 2 Tagesordnungspunkten" in got["Sitzungen"]
-    assert "#cluster=7" in got["Worüber debattiert wurde"] and "Mieten &amp; Wohnungsbau</a>: 2 Reden" in got[
-        "Worüber debattiert wurde"]  # fmt: skip
+    assert "Worüber debattiert wurde" not in got  # the landscape's week page shows the topics (D18)
     assert "2 Beschlüsse gefasst: 1 angenommen, 1 abgelehnt." in got["Beschlüsse"]
     assert "Eine Abstimmung war namentlich" in got["Beschlüsse"]
-    assert "../abstimmungen/21-2-1.html" in got["Beschlüsse"] and "200 Ja, 400 Nein" in got["Beschlüsse"]
+    assert "../abstimmungen/21-2-1.html" in got["Beschlüsse"] and "<b>200</b> Ja · <b>400</b> Nein" in got["Beschlüsse"]
     assert "Es gab eine Aktuelle Stunde" in got["Aktuelle Stunden"] and "#top-2" in got["Aktuelle Stunden"]
     assert "(auf Verlangen der Fraktion Die Linke)" in got["Aktuelle Stunden"]
     assert "1 Ordnungsruf erteilt" in got["Ordnungsmaßnahmen"] and "an AfD" in got["Ordnungsmaßnahmen"]
     assert "Ein Gesetzesvorhaben hatte" in got["Gesetzgebung"]
-    assert "gesetze/g1" not in got["Gesetzgebung"]  # no page written for g1
-    assert "gesetze/g1.html" in dict(weekly.sentences(w, "../", have={"g1"}))["Gesetzgebung"]
+    assert "vorgaenge/g1" not in got["Gesetzgebung"]  # no page written for g1
+    assert "vorgaenge/g1.html" in dict(weekly.sentences(w, "../", have={"g1"}))["Gesetzgebung"]
 
-    empty = dict(weekly.sentences(weekly.gather([sitting("21/5", 5, "2026-09-10")], [], [], {}, []), "../"))
+    empty = dict(weekly.sentences(weekly.gather([sitting("21/5", 5, "2026-09-10")], [], [], []), "../"))
     assert "an einem Tag getagt" in empty["Sitzungen"] and "0 Reden" in empty["Sitzungen"]
     assert "Worüber debattiert wurde" not in empty and "Gesetzgebung" not in empty
     assert "keine Beschlüsse" in empty["Beschlüsse"] and "kein Ordnungsruf" in empty["Ordnungsmaßnahmen"]
 
 
 def test_feed_is_valid_atom():
-    weeks = {wk: weekly.gather(ss, [], [], {}, []) for wk, ss in weekly.group(
+    weeks = {wk: weekly.gather(ss, [], [], []) for wk, ss in weekly.group(
         [sitting("21/2", 2, "2026-07-08"), sitting("21/1", 1, "2026-06-30")]).items()}  # fmt: skip
     root = ET.fromstring(weekly.feed(weeks).encode("utf-8"))
     ns = {"a": weekly.ATOM}
@@ -93,10 +89,13 @@ def test_write(conn, tmp_path):
     )
     decided = data.decisions(conn)
     sittings = data.sittings(conn, decided)
-    assert weekly.write(conn, tmp_path, sittings, decided, data.speech_clusters(CLUSTERS)) == {"woche": 2}
+    assert weekly.write(conn, tmp_path, sittings, decided) == {"woche": 1}
     page = (tmp_path / "woche" / "2026-W28.html").read_text()
     assert "Sitzungswoche 28/2026" in page and "Messerangriffe" in page and "an einem Tag getagt" in page
-    assert 'href="../sitzungen/21-88.html"' in page
-    assert 'href="2026-W28.html"' in (tmp_path / "woche" / "index.html").read_text()
+    assert 'href="../sitzungen/21-88.html"' in page and 'href="../sitzungen/index.html">21. Wahlperiode</a>' in page
+    assert "bundestag-topic-landscape/2026-W28.html" in page  # the topic map lives there
+    for key in ("sitzungen", "reden", "abstimmungen", "drucksachen"):
+        assert f'<section class="facet" id="{key}">' in page
+    assert "../sitzungen/index.html" in (tmp_path / "woche" / "index.html").read_text()  # the old index: a stub
     ET.parse(tmp_path / "woche" / "feed.xml")
     assert weekly.write(conn, tmp_path, [], []) == {}

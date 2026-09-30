@@ -1,4 +1,5 @@
-// Custom search UI for suche.html, built on the Pagefind JS API (search.py writes the markup, this fills it).
+// Custom search UI for suche.html (search.py writes the markup, this fills it): entity resolution first, from the
+// suche.json the build writes (docs/plan.md 11.7, D20), then full-text hits in speeches from the Pagefind JS API.
 // German UI, see docs/plan.md. Pure, DOM-free helpers are exported at the bottom for tests; everything else only
 // runs in a browser with a #search element, so requiring this file in Node is side-effect-free.
 'use strict';
@@ -18,6 +19,47 @@ function markSafe(html) {
   return String(html ?? '').split(/(<mark>.*?<\/mark>)/gs)
     .map(part => part.startsWith('<mark>') ? `<mark>${esc(part.slice(6, -7))}</mark>` : esc(part)).join('');
 }
+
+// ------------------------------------------------------------------ entities
+
+const ENTITY_CAP = 6; // entities shown per type before "N weitere"
+
+// lower case, no diacritics, "ß" as "ss": "Thüringen" and "thuringen" meet, as do "Straße" and "strasse"
+function norm(s) {
+  return String(s ?? '').toLowerCase().replace(/ß/g, 'ss').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+// The entities matching every word of the query, grouped by type in the index's order, each group best first: the
+// label equal to the query, then starting with it, then with a word starting with it, then any match (ties keep the
+// index's order). index is suche.json: {types, items: [[type, label, sub, href, keys], …]}.
+function resolve(index, q, cap = ENTITY_CAP) {
+  const words = norm(q).split(/\s+/).filter(Boolean);
+  if (!words.length) return [];
+  const query = words.join(' ');
+  const groups = index.types.map(type => ({ type, total: 0, items: [] }));
+  index.items.forEach(([t, label, sub, href, keys], i) => {
+    const l = norm(label), hay = `${l} ${norm(sub)} ${norm(keys)}`;
+    if (!words.every(w => hay.includes(w))) return;
+    const rank = l === query ? 0 : l.startsWith(query) ? 1 : words.every(w => (' ' + l).includes(' ' + w)) ? 2 : 3;
+    groups[t].items.push({ label, sub, href, rank, i });
+  });
+  for (const g of groups) {
+    g.items.sort((a, b) => a.rank - b.rank || a.i - b.i);
+    g.total = g.items.length;
+    g.items = g.items.slice(0, cap).map(({ label, sub, href }) => ({ label, sub, href }));
+  }
+  return groups.filter(g => g.total);
+}
+
+function entitiesHtml(groups) {
+  return groups.map(g => `<section class="s-ent"><h3>${esc(g.type)} <span class="n">${g.total}</span></h3>` +
+    `<div class="rows">${g.items.map(x => `<a class="row sent" href="${esc(x.href)}"><span class="t">` +
+      `<span class="ti">${esc(x.label)}</span><span class="sub">${esc(x.sub)}</span></span></a>`).join('')}</div>` +
+    (g.total > g.items.length ? `<p class="faint">und ${g.total - g.items.length} weitere – genauer suchen</p>` : '') +
+    '</section>').join('');
+}
+
+// ------------------------------------------------------------------ speeches (Pagefind)
 
 function formatDate(iso) {
   return iso && iso.length >= 10 ? `${iso.slice(8, 10)}.${iso.slice(5, 7)}.${iso.slice(0, 4)}` : '';
@@ -70,8 +112,17 @@ async function boot() {
   const n = x => x.toLocaleString('de-DE');
   const els = {
     input: $('sq'), toggle: $('sf-toggle'), filters: $('sf-panel'), count: $('s-count'),
-    results: $('s-results'), more: $('s-more'),
+    results: $('s-results'), more: $('s-more'), entities: $('s-entities'),
   };
+  let INDEX = null;
+  const renderEntities = () => {
+    if (!INDEX) return;
+    const groups = resolve(INDEX, els.input.value);
+    els.entities.innerHTML = groups.length ? entitiesHtml(groups)
+      : (els.input.value.trim() ? '<p class="empty">Keine Person, kein Ort, Gremium, Vorgang, Thema oder keine Woche mit diesem Namen.</p>' : '');
+  };
+  const entitiesReady = fetch('suche.json').then(r => r.json()).then(x => { INDEX = x; renderEntities(); })
+    .catch(() => { els.entities.innerHTML = ''; });
 
   const state = { checked: {}, open: {}, master: {}, results: [], shown: 0 };
 
@@ -125,7 +176,7 @@ async function boot() {
     syncUrl();
   }
 
-  els.input.oninput = () => run(true);
+  els.input.oninput = () => { renderEntities(); run(true); };
   els.more.onclick = () => { state.shown = Math.min(state.shown + PAGE_SIZE, state.results.length); renderResults(); };
   if (els.toggle) {
     els.toggle.onclick = () => {
@@ -141,6 +192,7 @@ async function boot() {
     if (vs.length) state.checked[g] = new Set(vs);
   }
 
+  await entitiesReady;
   const pagefind = await import('./pagefind/pagefind.js');
   await pagefind.options({ highlightParam: 'hl' });
   state.master = await pagefind.filters();
@@ -152,7 +204,7 @@ async function boot() {
     await run(false);
   } else {
     renderFilters(state.master);
-    els.results.innerHTML = '<p class="empty">Ergebnisse erscheinen, sobald du suchst oder einen Filter wählst.</p>';
+    els.results.innerHTML = '<p class="empty">Reden erscheinen, sobald du suchst oder einen Filter wählst.</p>';
   }
 }
 
@@ -161,5 +213,6 @@ if (typeof document !== 'undefined' && document.getElementById('search')) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { esc, markSafe, formatDate, resultRow, queryString, sortValues, filterGroupHtml };
+  module.exports = { esc, markSafe, formatDate, resultRow, queryString, sortValues, filterGroupHtml, norm, resolve,
+    entitiesHtml };
 }

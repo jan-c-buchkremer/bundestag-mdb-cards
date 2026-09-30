@@ -39,9 +39,9 @@ def test_page(conn, tmp_path):
     assert "gespalten" in page and "Rice-Index" in page
     rows = page.split('<table class="dis"', 1)[1].split("</tbody>", 1)[0]
     assert rows.count("<tr data-f=") == 2
-    assert 'href="../6.html"' in rows and 'href="21-88-1.html"' in rows
+    assert 'href="../6.html"' in rows and 'href="../abstimmungen/21-88-1.html"' in rows
     assert "statt Ja" in rows
-    assert 'href="21-88-2.html"' in page  # the split vote is a hollow point in the SPD timeline
+    assert 'href="../abstimmungen/21-88-2.html"' in page  # the split vote is a hollow point in the SPD timeline
     # linked from the votes overview, not from the site nav
     assert 'href="geschlossenheit.html"' in (tmp_path / "abstimmungen" / "index.html").read_text()
 

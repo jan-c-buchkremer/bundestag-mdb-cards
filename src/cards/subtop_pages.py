@@ -2,17 +2,9 @@
 
 from __future__ import annotations
 
-from cards.data import page_id
-from cards.pages import (
-    badge,
-    count_bar,
-    counts_line,
-    drs_links,
-    e,
-    kind_label,
-    positions_line,
-    speeches_block,
-)
+from cards import facts, urls
+from cards.pages import vorgaenge_line
+from cards.ui import e
 
 NO_DEBATE_NOTE = (
     "Nach dem Protokoll ist für diese Vorlagen keine Aussprache vorgesehen: Sie werden ohne Aussprache zur "
@@ -31,7 +23,7 @@ def anchor(item: dict, sub: dict | None = None) -> str:
 
 def href(sitting: str, position: int, label: str, root: str = "../") -> str:
     """Link to a sub-TOP on its sitting page."""
-    return f"{root}sitzungen/{page_id(sitting)}.html#top-{position}-{label}"
+    return f"{root}{urls.sitting(sitting, position, label)}"
 
 
 def no_debate_note(i: dict) -> str:
@@ -39,22 +31,6 @@ def no_debate_note(i: dict) -> str:
     if not i.get("no_debate") or i.get("sub_items"):
         return ""
     return f'<p class="explain">{e(NO_DEBATE_NOTE.split(" Die Beschlüsse")[0])}</p>'
-
-
-def decision_row(d: dict) -> str:
-    if d["counts"]:
-        detail = f"{counts_line(d['counts'])} {count_bar(d['counts'], 'mini')}"
-    elif d.get("fractions"):
-        detail = positions_line(d["fractions"])
-    else:
-        detail = ""
-    return (
-        '<div class="subdec">'
-        f'<a class="dec" href="../abstimmungen/{e(d["page"])}.html">{badge(d["result"])}'
-        f'<span class="ti">{e(d["title"])}</span><span class="k">{kind_label(d["kind"])}</span></a>'
-        + (f'<div class="pos">{detail}</div>' if detail else "")
-        + "</div>"
-    )
 
 
 def sub_top(item: dict, sub: dict, s: dict) -> str:
@@ -67,12 +43,15 @@ def sub_top(item: dict, sub: dict, s: dict) -> str:
         parts.append('<details class="full"><summary>Vollständiger Titel</summary>'
                      + "".join(f"<p>{e(x)}</p>" for x in sub["segments"]) + "</details>")  # fmt: skip
     if sub["drucksachen"]:
-        parts.append(f'<div class="drs"><span class="k">Drucksachen</span> {drs_links(sub["drucksachen"])}</div>')
+        parts.append(f'<div class="drs"><span class="k">Drucksachen</span> '
+                     f"{facts.drucksache_list(sub['drucksachen'], '../')}</div>")  # fmt: skip
+    parts.append(vorgaenge_line(sub.get("vorgaenge") or []))
     if sub["decisions"]:
         parts.append('<div class="decs"><div class="k">Beschluss</div>'
-                     + "".join(decision_row(d) for d in sub["decisions"]) + "</div>")  # fmt: skip
+                     + "".join(facts.decision(d, "../", when=False, agenda=False) for d in sub["decisions"])
+                     + "</div>")  # fmt: skip
     if sub["speeches"]:
-        parts.append(speeches_block({"position": f"{item['position']}-{sub['label']}", "speeches": sub["speeches"]}, s))
+        parts.append(facts.speech_block(sub["speeches"], f"{item['position']}-{sub['label']}"))
     parts.append("</div>")
     return "".join(parts)
 
@@ -92,4 +71,4 @@ def block_speeches(i: dict, s: dict) -> str:
     if not sps:
         return ""
     note = BLOCK_SPEECH_NOTE if i["no_debate"] else BLOCK_SPEECH_NOTE_DEBATE
-    return f'<p class="explain">{e(note)}</p>' + speeches_block({"position": i["position"], "speeches": sps}, s)
+    return f'<p class="explain">{e(note)}</p>' + facts.speech_block(sps, str(i["position"]))

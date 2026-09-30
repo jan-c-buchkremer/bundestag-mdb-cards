@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from cards import build, data, pages
+from cards import build, data, facts, pages
 from cards.titles import short_title
 
 CLUSTERS = Path(__file__).parent / "speech_clusters.json"
@@ -55,14 +55,13 @@ def test_long_speech_list_collapses():
         return {"id": f"S{k}", "person": str(k % 30), "name": f"Rednerin {k}", "fraction": "SPD", "role": None,
                 "words": 500, "on_map": True, "photo": False}  # fmt: skip
 
-    s = {"week": "2026-W28"}
-    short = pages.speeches_block({"position": 3, "speeches": [sp(k) for k in range(10)]}, s)
+    short = facts.speech_block([sp(k) for k in range(10)], "3")
     assert "sp-more" not in short and short.count('class="sp"') == 10
-    long = pages.speeches_block({"position": 3, "speeches": [sp(k) for k in range(40)]}, s)
+    long = facts.speech_block([sp(k) for k in range(40)], "3")
     shown, rest = long.split('<div class="sp-rest" id="rest-3">', 1)
     assert shown.count('class="sp"') == 10 and rest.count('class="sp"') == 30  # every card link stays in the file
     assert 'aria-controls="rest-3"' in long and "alle 40 Reden zeigen" in long
-    assert long.split('class="sp-faces"', 1)[1].count('class="av"') == pages.FACES  # 30 people, capped
+    assert long.split('class="sp-faces"', 1)[1].count('class="av"') == facts.FACES  # 30 people, capped
 
 
 def test_title_is_the_first_sub_items():

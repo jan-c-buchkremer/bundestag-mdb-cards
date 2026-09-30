@@ -1,7 +1,8 @@
 // Renders one card page from CARD (this person) and META (shared facts). German UI, see docs/plan.md.
+// Speeches, votes and Drucksachen are not rendered here: facts.py writes the Reden, Abstimmungen and Drucksachen
+// tabs into the page (D13), and this script only shows them and filters their rows.
 'use strict';
 
-const LANDSCAPE = 'https://jan-c-buchkremer.github.io/bundestag-topic-landscape/';
 const REPO = 'https://github.com/jan-c-buchkremer/bundestag-mdb-cards';
 const FRACTION_COLORS = { 'CDU/CSU': '--cdu', 'SPD': '--spd', 'AfD': '--afd', 'BÜNDNIS 90/DIE GRÜNEN': '--gru', 'Die Linke': '--lin', 'fraktionslos': '--frl' };
 const STATES = { BW: 'Baden-Württemberg', BY: 'Bayern', BE: 'Berlin', BB: 'Brandenburg', HB: 'Bremen', HH: 'Hamburg', HE: 'Hessen', MV: 'Mecklenburg-Vorpommern',
@@ -24,21 +25,11 @@ const longDate = d => `${+d.slice(8, 10)}. ${MONTHS[+d.slice(5, 7) - 1]} ${d.sli
 const shortDate = d => `${d.slice(8, 10)}.${d.slice(5, 7)}.${d.slice(0, 4)}`;
 const plural = (k, one, many) => `${n(k)} ${k === 1 ? one : many}`;
 const period = (from, to) => to ? `${shortDate(from)} – ${shortDate(to)}` : from ? `seit ${shortDate(from)}` : '';
-const isoWeek = d => {
-  const t = new Date(Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10)));
-  const day = t.getUTCDay() || 7;
-  t.setUTCDate(t.getUTCDate() + 4 - day);
-  const y = t.getUTCFullYear(), w = Math.ceil(((t - Date.UTC(y, 0, 1)) / 864e5 + 1) / 7);
-  return `${y}-W${String(w).padStart(2, '0')}`;
-};
-const mapLink = s => s.on_map ? `<a href="${LANDSCAPE}${isoWeek(s.date)}.html#rede=${encodeURIComponent(s.id)}" title="Diese Rede in der Themenlandschaft der Woche">Karte</a>` : '';
 // a fraction's name, linked to its Fraktion page (gremien.py builds fraktionen/<token>.html for the six fractions)
 const fractionLink = f => FRACTION_COLORS[f] ? `<a href="fraktionen/${FRACTION_COLORS[f].slice(2)}.html">${esc(f)}</a>` : esc(f);
 // a committee or other Gremium the card lists (data.py adds "slug"), linked to its gremien/<slug>.html page
 const bodyLink = x => x.slug ? `<a href="gremien/${esc(x.slug)}.html">${esc(x.name)}</a>` : esc(x.name);
 // the speech page is the rede's; a part of it (a Zwischenfrage, a turn in the Befragung) is an anchor there
-const textLink = s => { const r = s.id.replace(/-\d+$/, ''); return `<a href="reden/${encodeURIComponent(r.replaceAll('/', '-'))}.html${r === s.id ? '' : '#' + encodeURIComponent(s.id)}" title="Der Text im Protokoll">Text</a>`; };
-const pdfLink = s => `<a href="${esc(s.pdf)}" title="${esc(s.cite)}, Rede ${esc(s.id)}">Protokoll</a>`;
 
 const C = CARD;
 const member = C.kind === 'member';
@@ -224,10 +215,10 @@ function renderCard() {
 const heard = C.reden.length + C.kurz.length + C.fragen.length + C.befragung.length + C.fragestunde.length;
 const TABS = [
   // a card without a mandate shows only the sections that have data (a beamteter Staatssekretär may never speak)
-  ...(member || heard ? [['reden', 'Reden', () => C.reden.length, renderReden]] : []),
+  ...(member || heard ? [['reden', 'Reden', () => C.reden.length, wireReden]] : []),
   ...(member ? [
-    ['abstimmungen', 'Abstimmungen', () => C.votes.length, renderVotes],
-    ['drucksachen', 'Drucksachen', () => C.authored.length, renderDocuments],
+    ['abstimmungen', 'Abstimmungen', () => C.votes.length, el => wireCheck(el, 'data-dev')],
+    ['drucksachen', 'Drucksachen', () => C.authored.length, el => wireCheck(el, 'data-small')],
     ['ausschuesse', 'Ausschüsse & Funktionen', () => C.committees.length + C.offices.length, renderMemberships],
     ...(C.side_jobs.length ? [['nebentaetigkeiten', 'Nebentätigkeiten', () => C.side_jobs.length, renderSideJobs]] : []),
     ['laufbahn', 'Laufbahn', () => C.career.length, renderCareer],
@@ -243,96 +234,25 @@ function list(rows, empty, limit = 25) {
   return `<div class="rows" id="${id}">${rows.map((r, i) => i < limit ? r : r.replace('class="row', 'hidden class="row')).join('')}${more}</div>`;
 }
 
-function renderReden(el) {
-  const q = (el.dataset.q || '').toLowerCase();
-  const match = s => !q || (s.title + ' ' + s.date + ' ' + (s.speaker_name || '')).toLowerCase().includes(q);
-  const who = i => `<a href="${esc(i.person)}.html">${esc(i.name)}</a>${i.kind === 'kurzintervention' ? ' (Kurzintervention)' : ''}`;
-  const reden = C.reden.filter(match).sort(byDateDesc).map(s => `
-    <div class="row"><div class="d">${shortDate(s.date)}</div>
-      <div class="t">${esc(s.title)}<div class="sub">${[
-        s.role && esc(s.role), plural(s.words, 'Wort', 'Wörter'), s.applause && `${n(s.applause)}× Beifall`,
-        s.interruptions.length && `${s.interruptions.length === 1 ? 'Zwischenfrage' : 'Zwischenfragen'} von ${s.interruptions.map(who).join(', ')}`,
-      ].filter(Boolean).join(' · ')}</div></div>
-      <div class="l">${textLink(s)}${mapLink(s)}${pdfLink(s)}</div></div>`);
-  const fragen = C.fragen.filter(match).sort(byDateDesc).map(f => `
-    <div class="row"><div class="d">${shortDate(f.date)}</div>
-      <div class="t">${f.kind === 'kurzintervention' ? 'Kurzintervention' : 'Zwischenfrage'} an <a href="${esc(f.speaker)}.html">${esc(f.speaker_name)}</a><div class="sub">${esc(f.title)}</div></div>
-      <div class="l">${textLink(f)}${pdfLink(f)}</div></div>`);
-  const kurz = C.kurz.filter(match).sort(byDateDesc).map(s => `
-    <div class="row"><div class="d">${shortDate(s.date)}</div>
-      <div class="t">${esc(s.title)}<div class="sub">${[s.role && esc(s.role), plural(s.words, 'Wort', 'Wörter')].filter(Boolean).join(' · ')}</div></div>
-      <div class="l">${textLink(s)}${pdfLink(s)}</div></div>`);
-  const bef = C.befragung.filter(match).sort(byDateDesc).map(b => `
-    <div class="row"><div class="d">${shortDate(b.date)}</div>
-      <div class="t">${b.role ? `Antwort als ${esc(b.role)}` : 'Frage an die Bundesregierung'}<div class="sub">${plural(b.words, 'Wort', 'Wörter')}</div></div>
-      <div class="l">${textLink(b)}${mapLink(b)}${pdfLink(b)}</div></div>`);
-  const fst = C.fragestunde.filter(match).sort(byDateDesc).map(b => `
-    <div class="row"><div class="d">${shortDate(b.date)}</div>
-      <div class="t">${b.role ? `Antwort als ${esc(b.role)}` : 'Frage oder Nachfrage in der Fragestunde'}<div class="sub">${plural(b.words, 'Wort', 'Wörter')}</div></div>
-      <div class="l">${textLink(b)}${pdfLink(b)}</div></div>`);
-  el.innerHTML = `
-    <div class="tools"><input type="search" placeholder="Reden durchsuchen: Tagesordnungspunkt, Datum …" value="${esc(el.dataset.q || '')}"></div>
-    <p class="explain">Eine Rede ist ein Redebeitrag zu einem Tagesordnungspunkt, so wie ihn das Plenarprotokoll führt, mit mindestens 500 Zeichen; Zwischenfragen anderer gehören zur Rede, in der sie gestellt wurden. Die Länge ist in Wörtern angegeben, die Redezeit steht nicht im Protokoll. „Karte“ öffnet die Rede in der Themenlandschaft ihrer Sitzungswoche.</p>
-    <h2 id="reden-reden">Reden <span class="n">${n(reden.length)}</span></h2>${list(reden, 'Keine Reden.')}
-    ${C.kurz.length ? `<h2 id="reden-kurz">Kurze Wortbeiträge <span class="n">${n(kurz.length)}</span></h2><p class="explain">Beiträge unter 500 Zeichen, etwa ein Amtseid, eine Erklärung zur Abstimmung in einem Satz oder ein Hinweis zur Geschäftsordnung. Sie zählen nicht als Rede, so wie in der Themenlandschaft.</p>${list(kurz, 'Keine Treffer.')}` : ''}
-    ${C.fragen.length ? `<h2 id="reden-fragen">Zwischenfragen und Kurzinterventionen <span class="n">${n(fragen.length)}</span></h2>${list(fragen, 'Keine Treffer.')}` : ''}
-    ${C.befragung.length ? `<h2 id="reden-befragung">Regierungsbefragung <span class="n">${n(bef.length)}</span></h2><p class="explain">In der Regierungsbefragung ist jede Frage und jede Antwort ein eigener Beitrag im Protokoll; sie zählen deshalb nicht als Reden.</p>${list(bef, 'Keine Treffer.')}` : ''}
-    ${C.fragestunde.length ? `<h2 id="reden-fragestunde">Fragestunde <span class="n">${n(fst.length)}</span></h2><p class="explain">In der Fragestunde ist jede Frage, jede Antwort und jede Nachfrage ein eigener Beitrag im Protokoll; sie zählen deshalb nicht als Reden.</p>${list(fst, 'Keine Treffer.')}` : ''}`;
-  const input = el.querySelector('input');
-  input.oninput = () => { el.dataset.q = input.value; renderReden(el); const i = el.querySelector('input'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); };
-}
-
-// the vote's own page (abstimmungen/, built from the foundation's decision table): "21/90/7" -> 21-90-7.html
-const votePage = id => `abstimmungen/${id.replaceAll('/', '-')}.html`;
-const CAST = ['yes', 'no', 'abstain'];
-
-function outcomeBadge(v) {
-  if (!v.outcome) return '';
-  const how = v.outcome_from === 'count' ? 'aus den Stimmen der Liste gezählt, einfache Mehrheit' : 'wie im Plenarprotokoll verkündet';
-  return `<span class="outcome ${v.outcome}" title="${how}">${v.outcome}</span>`;
-}
-
-// the fraction comparison, small and secondary: the own vote is the headline, the house's result the context
-function fractionMark(v) {
-  const t = v.fraction_tally;
-  const tally = `Fraktion ${v.fraction}: ${t.yes} Ja, ${t.no} Nein, ${t.abstain} Enthaltung, ${t.absent} nicht abgestimmt`;
-  if (v.fraction === 'fraktionslos') return '<span class="mark">fraktionslos</span>';
-  if (!v.line) return `<span class="mark" title="${esc(tally)}">Fraktion uneinig</span>`;
-  if (v.deviates) return `<span class="mark dev" title="${esc(tally)}">abweichend</span>`;
-  if (CAST.includes(v.vote)) return `<span class="mark" title="${esc(tally)}">wie Fraktion</span>`;
-  return `<span class="mark" title="${esc(tally)}">Fraktion: ${VOTE[v.line]}</span>`;
-}
-
-function voteStats() {
-  const count = (xs, f) => xs.filter(f).length;
-  const passed = count(C.votes, v => v.outcome === 'angenommen'), failed = count(C.votes, v => v.outcome === 'abgelehnt');
-  const own = [...CAST, 'absent'].map(k => [k, count(C.votes, v => v.vote === k)]).filter(x => x[1]);
-  const same = count(withLine, v => !v.deviates);
-  return `<div class="vstats">
-    <div><span class="k">Ergebnis im Bundestag</span><b>${n(passed)}</b> angenommen · <b>${n(failed)}</b> abgelehnt</div>
-    <div><span class="k">Eigene Stimme</span>${own.map(([k, x]) => `<b>${n(x)}</b> ${VOTE[k]}`).join(' · ')}</div>
-    ${C.fraction !== 'fraktionslos' && withLine.length ? `<div><span class="k">Mit der eigenen Fraktion</span><b>${n(same)}</b>-mal wie die Mehrheit · <b>${n(deviations.length)}</b>-mal abweichend</div>` : ''}
-  </div>`;
-}
-
-function renderVotes(el) {
-  const only = el.dataset.only === '1';
-  const shown = C.votes.filter(v => !only || v.deviates).slice().sort(byDateDesc);
-  const absent = C.votes.filter(v => v.vote === 'absent').length;
-  const rows = shown.map(v => {
-    const r = v.result;
-    return `<div class="row vrow${v.deviates ? ' hi' : ''}"><div class="d">${shortDate(v.date)}</div>
-      <div class="t">${outcomeBadge(v)}<a class="vt" href="${votePage(v.id)}">${esc(v.title)}</a>
-        <div class="sub">${r.yes} Ja · ${r.no} Nein · ${r.abstain} Enthaltung${v.drucksache ? ` · Drs. ${esc(v.drucksache)}` : ''} · <a href="${esc(v.pdf || v.xlsx)}">Liste</a></div></div>
-      <div class="l"><span class="vote ${v.vote}">${VOTE[v.vote]}</span><div>${fractionMark(v)}</div></div></div>`;
+// the fact tabs written by facts.py: filter their rows in place. A cut row (`data-cut`) waits for "Alle N zeigen"
+// while no filter is set; a filter shows every match, and clearing it restores the cut
+function filterRows(el, keep, all) {
+  el.querySelectorAll('.rows > .sp, .rows > .dec, .rows > .row').forEach(r => {
+    r.hidden = !keep(r) || (all && r.hasAttribute('data-cut'));
   });
-  el.innerHTML = `
-    <p class="explain">Namentlich abgestimmt wird nur, wenn eine Fraktion oder 5 % der Mitglieder es verlangen: ${META.votes}-mal seit ${longDate(META.sittings.from)}. Jede Zeile zeigt zuerst das Ergebnis im ganzen Haus, rechts die eigene Stimme und darunter klein, ob sie der Mehrheit der eigenen Fraktion entsprach. Der Titel führt zur Seite der Abstimmung.</p>
-    ${voteStats()}
-    ${absent ? `<p class="explain">„Nicht abgestimmt“ (${n(absent)}-mal) sagt nichts über den Grund: Krankheit, Elternzeit, Dienstreisen und Pairing-Absprachen stehen nicht in den Listen.</p>` : ''}
-    <div class="tools"><label><input type="checkbox"${only ? ' checked' : ''}> nur Abweichungen von der Fraktionsmehrheit (${n(deviations.length)})</label></div>
-    ${list(rows, only ? 'Keine Abweichungen von der Fraktionsmehrheit.' : 'Keine namentlichen Abstimmungen.', 100)}`;
-  el.querySelector('input').onchange = e => { el.dataset.only = e.target.checked ? '1' : ''; renderVotes(el); };
+}
+
+function wireReden(el) {
+  const input = el.querySelector('input.fq');
+  if (input) input.oninput = () => {
+    const q = input.value.trim().toLowerCase();
+    filterRows(el, r => !q || (r.dataset.q || '').includes(q) || r.textContent.toLowerCase().includes(q), !q);
+  };
+}
+
+function wireCheck(el, attr) {
+  const box = el.querySelector('input.fonly');
+  if (box) box.onchange = () => filterRows(el, r => !box.checked || r.hasAttribute(attr), !box.checked);
 }
 
 function renderMemberships(el) {
@@ -352,26 +272,6 @@ function renderMemberships(el) {
     ${block('Ausschüsse', C.committees, bodyRow)}
     ${block('Weitere Gremien', C.other, bodyRow)}
     ${!C.offices.length && !C.fractions.length && !C.committees.length && !C.other.length ? '<div class="rows"><div class="empty">Keine Einträge in den Stammdaten.</div></div>' : ''}`;
-}
-
-function renderDocuments(el) {
-  const only = el.dataset.only === '1';
-  const row = d => `<div class="row"><div class="d">${shortDate(d.date)}</div>
-    <div class="t">${esc(d.title)}<div class="sub">${[esc(d.activity === 'Frage' ? 'Schriftliche Frage' : d.activity), `Drs. ${esc(d.number)}`,
-      d.activity !== 'Frage' && d.authors ? (d.authors === 1 ? 'allein gezeichnet' : `eine von ${n(d.authors)} Namen`) : '',
-      d.subjects.length && esc(d.subjects.join(', '))].filter(Boolean).join(' · ')}</div></div>
-    <div class="l">${d.pdf ? `<a href="${esc(d.pdf)}" title="${esc(d.cite)}">PDF</a>` : ''}</div></div>`;
-  const docs = documents.filter(d => !only || (d.authors && d.authors <= SMALL_GROUP)).sort(byDateDesc);
-  const small = documents.filter(d => d.authors && d.authors <= SMALL_GROUP).length;
-  el.innerHTML = `
-    <p class="explain">${dipSpan()}. Eine Drucksache zählt hier, wenn DIP diese Person als Urheber führt (Antrag, Kleine Anfrage, Entschließungs- und Änderungsantrag, Gesetzentwurf, schriftliche Frage). Fraktionsanträge tragen oft die Namen der ganzen Fraktion; die Zahl der Namen zeigt, ob eine Drucksache von wenigen oder von allen stammt.</p>
-    ${META.dip.complete ? '' : '<p class="explain"><b>Noch unvollständig:</b> Die Drucksachen aus DIP werden gerade für die ganze Wahlperiode nachgeladen. Bis dahin fehlen Monate; deshalb nennt die Karte oben noch keine Zahlen.</p>'}
-    <h2 id="drucksachen-eigene">Anträge, Anfragen, Gesetzentwürfe <span class="n">${n(docs.length)}</span></h2>
-    ${documents.length ? `<div class="tools"><label><input type="checkbox"${only ? ' checked' : ''}> nur Drucksachen mit höchstens ${SMALL_GROUP} Namen (${n(small)})</label></div>` : ''}
-    ${list(docs.map(row), 'Keine Drucksachen.')}
-    ${writtenQuestions.length ? `<h2 id="drucksachen-fragen">Schriftliche Fragen <span class="n">${n(writtenQuestions.length)}</span></h2><p class="explain">Schriftliche Fragen erscheinen gesammelt in einer Drucksache je Woche; der Link führt zu dieser Sammlung.</p>${list(writtenQuestions.slice().sort(byDateDesc).map(row), '')}` : ''}
-    ${C.reported.length ? `<h2 id="drucksachen-berichte">Berichterstattung <span class="n">${n(C.reported.length)}</span></h2><p class="explain">Als Berichterstatterin oder Berichterstatter eines Ausschusses auf einer Beschlussempfehlung genannt. Das ist eine Aufgabe im Ausschuss, keine Urheberschaft.</p>${list(C.reported.slice().sort(byDateDesc).map(row), '')}` : ''}`;
-  el.querySelector('input')?.addEventListener('change', e => { el.dataset.only = e.target.checked ? '1' : ''; renderDocuments(el); });
 }
 
 // "21/94" -> the sitting's PDF, as the foundation builds sitting.pdf_url
@@ -410,7 +310,7 @@ function renderCareer(el) {
   // WP 21 at a glance: first speech (careers.annotate), fraction changes, government offices
   const now = [];
   const fs = C.first_speech;
-  if (fs) now.push(`<div class="row"><div class="t">Erste Rede in der ${META.wp}. Wahlperiode${fs.maiden && C.periods.length <= 1 ? ' · Jungfernrede' : ''}<div class="sub">${esc(fs.title || '')}${fs.maiden ? ' · laut Sitzungsleitung die erste Rede' : ''} · ${textLink(fs)}</div></div><div class="d">${shortDate(fs.date)}</div></div>`);
+  if (fs) now.push(`<div class="row"><div class="t">Erste Rede in der ${META.wp}. Wahlperiode${fs.maiden && C.periods.length <= 1 ? ' · Jungfernrede' : ''}<div class="sub">${esc(fs.title || '')}${fs.maiden ? ' · laut Sitzungsleitung die erste Rede' : ''} · <a href="${esc(fs.href)}" title="Der Text im Protokoll">Text</a></div></div><div class="d">${shortDate(fs.date)}</div></div>`);
   if (new Set(C.fractions.map(f => f.name)).size > 1 || (C.fractions.length && C.fractions.every(f => f.to) && !(C.mandate && C.mandate.to)))
     C.fractions.forEach(f => now.push(`<div class="row"><div class="t">Fraktion ${fractionLink(f.name)}</div><div class="d">${period(f.from, f.to)}</div></div>`));
   C.government.forEach(o => now.push(`<div class="row"><div class="t">${esc(o.office)}<div class="sub">${officeWhen(o)}</div></div></div>`));
@@ -465,8 +365,17 @@ function renderTabs() {
   const body = document.getElementById('tabbody');
   if (body.dataset.tab !== active[0]) {
     body.dataset.tab = active[0];
-    body.innerHTML = `<section class="tab on" id="tab-${active[0]}"></section>`;
-    active[3](body.firstElementChild);
+    body.querySelectorAll(':scope > .tab').forEach(t => t.classList.remove('on'));
+    // a fact tab is in the page already (facts.py); the others are drawn once, the first time they open
+    let tab = document.getElementById(`tab-${active[0]}`);
+    if (!tab) {
+      tab = document.createElement('section');
+      tab.className = 'tab';
+      tab.id = `tab-${active[0]}`;
+      body.append(tab);
+    }
+    if (!tab.dataset.ready) { tab.dataset.ready = '1'; active[3](tab); }
+    tab.classList.add('on');
   }
   // the active tab in view inside the bar, without moving the page
   const strip = nav.firstElementChild, on = strip.querySelector('a.on');
@@ -518,7 +427,11 @@ document.getElementById('tabs').addEventListener('click', e => {
 
 document.addEventListener('click', e => {
   const b = e.target.closest('.more');
-  if (b) { document.getElementById(b.dataset.for).querySelectorAll('.row[hidden]').forEach(r => r.hidden = false); b.remove(); }
+  if (b) {
+    const box = document.getElementById(b.dataset.for);
+    box.querySelectorAll('[data-cut], .row[hidden]').forEach(r => { r.hidden = false; r.removeAttribute('data-cut'); });
+    b.remove();
+  }
 });
 // links to a tab from elsewhere on the page (the facts list, "Zuletzt im Plenum"): open it with the bar on top
 window.addEventListener('hashchange', () => {

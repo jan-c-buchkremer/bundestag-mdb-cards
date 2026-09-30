@@ -1,11 +1,14 @@
-"""Die Woche im Bundestag: `woche/<iso week>.html` per sitting week, `woche/index.html` and an Atom feed
-`woche/feed.xml`.
+"""Die Woche im Bundestag: `woche/<iso week>.html`, the sitting week in the time hierarchy (docs/plan.md 11.5, D18):
+Wahlperiode (`sitzungen/index.html`) → week → sitting → agenda item, with breadcrumbs up and links down. Also the
+Atom feed `woche/feed.xml`; `woche/index.html` is a stub to the Wahlperiode page.
 
-Every sentence is a fixed template filled with counts and titles from the store; no text is generated. A week
-page says on how many days the Bundestag sat, which Themenlandschaft clusters had the most speeches (with
-`LANDSCAPE_CLUSTERS`), how many decisions were taken and which roll-call votes, which Aktuelle Stunden were held on
-whose request, the chair's Ordnungsmaßnahmen (debate.py's rule-based reading) and, when the store has
-`vorgang_position`, the bills with a step that week. Each item links to its sitting, vote or bill page."""
+A week page is an entity page: a header with the link to the landscape's week page for the topic map (which it
+does not duplicate), the week in a few sentences, and the facets Sitzungen, Reden, Abstimmungen und Beschlüsse and
+Drucksachen (the Vorlagen on the week's agenda), drawn by facts.py. Every sentence is a fixed template filled with
+counts and titles from the store; no text is generated. It says on how many days the Bundestag sat, how many
+decisions were taken and which roll-call votes, which Aktuelle Stunden were held on whose request, the chair's
+Ordnungsmaßnahmen (debate.py's rule-based reading) and, when the store has `vorgang_position`, the bills with a
+step that week."""
 
 from __future__ import annotations
 
@@ -15,13 +18,12 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
-from cards import debate
+from cards import debate, facts, redirects, urls
 from cards.data import has_table, page_id
-from cards.pages import FOOTER, LANDSCAPE, WEEKDAYS, e, long_date, n, shell
+from cards.ui import FOOTER, LANDSCAPE, WEEKDAYS, crumbs, e, entity_header, facet, long_date, n, shell
 
 BASE = "https://jan-c-buchkremer.github.io/bundestag-mdb-cards/"
 ATOM = "http://www.w3.org/2005/Atom"
-TOP_THEMES = 5
 FEED_WEEKS = 20
 NUMBERS = {1: "einem", 2: "zwei", 3: "drei", 4: "vier", 5: "fünf"}
 
@@ -48,22 +50,6 @@ def group(sittings: list[dict]) -> dict[str, list[dict]]:
     for s in sorted(sittings, key=lambda s: (s["date"], s["number"])):
         weeks[s["week"]].append(s)
     return dict(sorted(weeks.items(), reverse=True))
-
-
-def themes(ss: list[dict], clusters: dict[str, dict], limit: int = TOP_THEMES) -> list[dict]:
-    """The week's Themenlandschaft clusters with the most speeches."""
-    count: Counter = Counter()
-    label: dict[tuple, str] = {}
-    for s in ss:
-        for i in s["items"]:
-            for sp in i["speeches"]:
-                c = clusters.get(sp["id"])
-                if c:
-                    key = (c["week"], c["cluster_id"])
-                    count[key] += 1
-                    label.setdefault(key, c["label"])
-    ranked = sorted(count.items(), key=lambda kv: (-kv[1], label[kv[0]]))[:limit]
-    return [{"week": w, "cluster_id": cid, "label": label[(w, cid)], "n": k} for (w, cid), k in ranked]
 
 
 def current_hours(ss: list[dict]) -> list[dict]:
@@ -94,8 +80,7 @@ def bill_steps(conn: sqlite3.Connection) -> dict[str, list[dict]]:
     return out
 
 
-def gather(ss: list[dict], decided: list[dict], measures: list[dict], clusters: dict[str, dict],
-           steps: list[dict]) -> dict:  # fmt: skip
+def gather(ss: list[dict], decided: list[dict], measures: list[dict], steps: list[dict]) -> dict:
     """Everything a week page says, as data (the templates below turn it into sentences)."""
     ids = {s["id"] for s in ss}
     return {
@@ -103,7 +88,6 @@ def gather(ss: list[dict], decided: list[dict], measures: list[dict], clusters: 
         "days": sorted({s["date"] for s in ss}),
         "speeches": sum(len(i["speeches"]) for s in ss for i in s["items"]),
         "items": sum(len(s["items"]) for s in ss),
-        "themes": themes(ss, clusters),
         "decisions": [d for d in decided if d["sitting"] in ids],
         "hours": current_hours(ss),
         "measures": [m for m in measures if m["sitting"] in ids],
@@ -115,9 +99,9 @@ def _a(href: str, text: str) -> str:
     return f'<a href="{e(href)}">{e(text)}</a>'
 
 
-def sentences(w: dict, root: str, have: set[str] | None = None) -> list[tuple[str, str]]:
-    """(heading, HTML) per section; `root` is "../" on the page and BASE in the feed, `have` the bill pages that
-    exist (None: link every bill)."""
+def sentences(w: dict, root: str, have: set[str] | None = None, votes: bool = True) -> list[tuple[str, str]]:
+    """(heading, HTML) per section; `root` is "../" on the page and BASE in the feed, `have` the Vorgang pages that
+    exist (None: link every one). `votes`: list the roll-call votes (the feed; the page has them as a facet)."""
     out = []
     days = w["days"]
     k = len(days)
@@ -130,14 +114,6 @@ def sentences(w: dict, root: str, have: set[str] | None = None) -> list[tuple[st
     out.append(("Sitzungen", f"<p>Der Bundestag hat in dieser Woche {day_word} getagt: {sits}. Es gab "
                              f"{plural(w['speeches'], 'Rede', 'Reden')} zu "
                              f"{plural(w['items'], 'Tagesordnungspunkt', 'Tagesordnungspunkten')}.</p>"))  # fmt: skip
-    if w["themes"]:
-        rows = "".join(
-            f"<li>{_a(f'{LANDSCAPE}{t["week"]}.html#cluster={t["cluster_id"]}', t['label'])}: "
-            f"{plural(t['n'], 'Rede', 'Reden')}</li>"
-            for t in w["themes"]
-        )
-        out.append(("Worüber debattiert wurde", "<p>Die meisten Reden gehörten in der Themenlandschaft zu diesen "
-                                                f"Themen:</p><ul>{rows}</ul>"))  # fmt: skip
     ds = w["decisions"]
     if ds:
         res = Counter(d["result"] for d in ds)
@@ -147,14 +123,9 @@ def sentences(w: dict, root: str, have: set[str] | None = None) -> list[tuple[st
                 + (f", {n(rest)} mit anderem oder ohne Ergebnis" if rest else "") + ".</p>")  # fmt: skip
         rc = sorted((d for d in ds if d["kind"] == "namentlich"), key=lambda d: (d["date"], d["order"]))
         if rc:
-            rows = "".join(
-                f'<li>{_a(f"{root}abstimmungen/{d["page"]}.html", d["title"])}: {e(d["result"] or "ohne Ergebnis")}'
-                + (f" ({n(d['counts']['yes'])} Ja, {n(d['counts']['no'])} Nein, {n(d['counts']['abstain'])} "
-                   "Enthaltungen)" if d.get("counts") else "") + "</li>"
-                for d in rc
-            )  # fmt: skip
-            text += (f"<p>{'Eine Abstimmung war' if len(rc) == 1 else f'{n(len(rc))} Abstimmungen waren'} "
-                     f"namentlich:</p><ul>{rows}</ul>")  # fmt: skip
+            lead = "Eine Abstimmung war" if len(rc) == 1 else f"{n(len(rc))} Abstimmungen waren"
+            rows = "".join(facts.decision(d, root, agenda=False) for d in rc) if votes else ""
+            text += f"<p>{lead} namentlich.</p>{rows}"
         out.append(("Beschlüsse", text))
     else:
         out.append(("Beschlüsse", "<p>Für diese Woche sind keine Beschlüsse im Datenbestand.</p>"))
@@ -185,7 +156,7 @@ def sentences(w: dict, root: str, have: set[str] | None = None) -> list[tuple[st
     if w["steps"]:
         rows = "".join(
             "<li>"
-            + (_a(f"{root}gesetze/{b['vorgang']}.html", b["title"]) if have is None or b["vorgang"] in have
+            + (_a(f"{root}{urls.vorgang(b['vorgang'])}", b["title"]) if have is None or b["vorgang"] in have
                else e(b["title"]))
             + f": {e(b['position'])}" + (f" ({e(b['chamber'])})" if b["chamber"] else "")
             + f", {e(long_date(b['date']))}</li>"
@@ -199,43 +170,45 @@ def sentences(w: dict, root: str, have: set[str] | None = None) -> list[tuple[st
 
 def week_page(week: str, w: dict, prev: str | None, nxt: str | None, have: set[str]) -> str:
     frm, to = week_span(week)
-    parts = "".join(f"<h2>{e(h)}</h2>{t}" for h, t in sentences(w, "../", have))
+    summary = "".join(f"<h3>{e(h)}</h3>{t}" for h, t in sentences(w, "../", have, votes=False))
     nav = (f'<a href="{e(prev)}.html">← {e(week_label(prev))}</a>' if prev else "<span></span>") + (
         f'<a class="next" href="{e(nxt)}.html">{e(week_label(nxt))} →</a>' if nxt else "")  # fmt: skip
-    body = (
-        f'<p class="crumbs"><a href="index.html">Die Woche im Bundestag</a> · '
-        f'<a href="../sitzungen/index.html">Sitzungen</a></p>'
-        f'<h1>{e(week_label(week))}</h1><p class="lead">{e(long_date(frm))} bis {e(long_date(to))}. Jeder Satz auf '
-        "dieser Seite ist aus den Daten gezählt und verlinkt die Sitzung, Abstimmung oder das Gesetz, aus dem er "
-        f'stammt.</p><nav class="prevnext">{nav}</nav>{parts}<footer>{FOOTER}</footer>'
+    sits = "".join(
+        f'<a class="row s" href="../{e(urls.sitting(s["id"]))}"><span class="d">{e(short(s["date"]))}</span>'
+        f'<span class="t"><span class="ti">{s["number"]}. Sitzung</span><span class="sub">'
+        + " · ".join(e(i["label"]) for i in s["items"][:12])
+        + (" …" if len(s["items"]) > 12 else "")
+        + "</span></span></a>"
+        for s in w["sittings"]
     )
+    sps = [sp for s in w["sittings"] for i in s["items"] for sp in i["speeches"]]
+    ds = sorted(w["decisions"], key=lambda d: (d["date"], d["order"]))
+    refs = list({r["number"]: r for s in w["sittings"] for i in s["items"] for r in i["drucksachen"]}.values())
+    body = (
+        crumbs(("../sitzungen/index.html", "21. Wahlperiode"), (None, week_label(week)))
+        + entity_header(week_label(week), [f"{e(long_date(frm))} bis {e(long_date(to))}"], [
+            f'<a href="{LANDSCAPE}{e(week)}.html">Worüber debattiert wurde: diese Woche in der Themenlandschaft ↗</a>',
+            '<a href="feed.xml">Als Feed abonnieren (Atom)</a>'], when="Sitzungswoche")
+        + f'<nav class="prevnext">{nav}</nav>'
+        + facet("sitzungen", "Sitzungen", f'<div class="rows">{sits}</div>', len(w["sittings"]))
+        + facet("woche", "Die Woche in Sätzen", summary, explain="Jeder Satz ist aus den Daten gezählt und verlinkt "
+                "die Sitzung, Abstimmung oder den Vorgang, aus dem er stammt.")
+        + facet("reden", "Reden", facts.speech_list(sps, "../", "reden", where=True), len(sps))
+        + facet("abstimmungen", "Abstimmungen und Beschlüsse", facts.decision_list(ds, "../", "dec"), len(ds))
+        + facet("drucksachen", "Drucksachen", f"<p>{facts.drucksache_list(refs, '../', limit=40)}</p>" if refs
+                else '<p class="explain">Keine Drucksachen auf der Tagesordnung.</p>', len(refs),
+                "Die Vorlagen auf der Tagesordnung dieser Woche.")
+        + f"<footer>{FOOTER}</footer>"
+    )  # fmt: skip
     return shell(root="../", kind="p-week", active="sittings", title=f"Die Woche im Bundestag: {week_label(week)}",
-                 desc=f"Der 21. Bundestag in der {week_label(week)}: Sitzungen, Themen, Beschlüsse.", body=body,
+                 desc=f"Der 21. Bundestag in der {week_label(week)}: Sitzungen, Reden, Beschlüsse.", body=body,
                  data={"kind": "week", "id": week},
                  head='<link rel="alternate" type="application/atom+xml" title="Die Woche im Bundestag" '
                       'href="feed.xml">')  # fmt: skip
 
 
-def index_page(weeks: dict[str, dict]) -> str:
-    rows = "".join(
-        f'<a class="row s" href="{e(week)}.html"><span class="d">{e(week_label(week))}</span><span class="t">'
-        f'<span class="sub">{plural(len(w["sittings"]), "Sitzung", "Sitzungen")} · '
-        f"{plural(w['speeches'], 'Rede', 'Reden')} · {plural(len(w['decisions']), 'Beschluss', 'Beschlüsse')}"
-        "</span></span></a>"
-        for week, w in weeks.items()
-    )
-    body = (
-        '<p class="crumbs"><a href="../sitzungen/index.html">Sitzungen</a></p><h1>Die Woche im Bundestag</h1>'
-        '<p class="lead">Jede Sitzungswoche des 21. Bundestages in wenigen Sätzen: Sitzungen, Themen, Beschlüsse, '
-        "Aktuelle Stunden und Ordnungsmaßnahmen. Die Sätze sind feste Vorlagen, gefüllt mit Zahlen aus den "
-        'Plenarprotokollen. <a href="feed.xml">Als Feed abonnieren (Atom)</a></p>'
-        f'<div class="rows">{rows}</div><footer>{FOOTER}</footer>'
-    )
-    return shell(root="../", kind="p-weeks", active="sittings", title="Die Woche im Bundestag",
-                 desc="Jede Sitzungswoche des 21. Deutschen Bundestages in wenigen Sätzen, aus den Daten gezählt.",
-                 body=body, data={"kind": "weeks"},
-                 head='<link rel="alternate" type="application/atom+xml" title="Die Woche im Bundestag" '
-                      'href="feed.xml">')  # fmt: skip
+def short(d: str) -> str:
+    return f"{d[8:10]}.{d[5:7]}.{d[:4]}"
 
 
 def feed(weeks: dict[str, dict], have: set[str] | None = None, limit: int = FEED_WEEKS) -> str:
@@ -256,7 +229,7 @@ def feed(weeks: dict[str, dict], have: set[str] | None = None, limit: int = FEED
     sub(root, "subtitle", "Jede Sitzungswoche des 21. Deutschen Bundestages in wenigen Sätzen, aus den Daten gezählt.")
     sub(root, "id", f"{BASE}woche/")
     sub(root, "link", href=f"{BASE}woche/feed.xml", rel="self")
-    sub(root, "link", href=f"{BASE}woche/index.html")
+    sub(root, "link", href=f"{BASE}{urls.PERIOD}")
     sub(root, "updated", stamp(newest["days"][-1]) if newest else "1970-01-01T00:00:00Z")
     sub(sub(root, "author"), "name", "bundestag-mdb-cards")
     for week, w in list(weeks.items())[:limit]:
@@ -270,16 +243,16 @@ def feed(weeks: dict[str, dict], have: set[str] | None = None, limit: int = FEED
     return '<?xml version="1.0" encoding="utf-8"?>\n' + ET.tostring(root, encoding="unicode") + "\n"
 
 
-def write(conn: sqlite3.Connection, out: Path, sittings: list[dict], decided: list[dict],
-          clusters: dict[str, dict] | None = None) -> dict[str, int]:  # fmt: skip
-    """Write woche/; call after the sitting, vote and bill pages. Returns {"woche": pages}."""
+def write(conn: sqlite3.Connection, out: Path, sittings: list[dict], decided: list[dict]) -> dict[str, int]:
+    """Write woche/ and the stub of its old index; call after the sitting, vote and Vorgang pages. Returns
+    {"woche": pages}."""
     if not sittings:
         return {}
     measures = debate.order_measures(conn)
     steps = bill_steps(conn)
-    bills_dir = out / "gesetze"
+    bills_dir = out / "vorgaenge"
     have = {p.stem for p in bills_dir.glob("*.html")} if bills_dir.is_dir() else set()
-    weeks = {wk: gather(ss, decided, measures, clusters or {}, steps.get(wk, [])) for wk, ss in group(sittings).items()}
+    weeks = {wk: gather(ss, decided, measures, steps.get(wk, [])) for wk, ss in group(sittings).items()}
     d = out / "woche"
     d.mkdir(parents=True, exist_ok=True)
     keys = list(weeks)  # newest first
@@ -287,6 +260,6 @@ def write(conn: sqlite3.Connection, out: Path, sittings: list[dict], decided: li
         prev = keys[i + 1] if i + 1 < len(keys) else None
         nxt = keys[i - 1] if i else None
         (d / f"{wk}.html").write_text(week_page(wk, w, prev, nxt, have), encoding="utf-8")
-    (d / "index.html").write_text(index_page(weeks), encoding="utf-8")
+    redirects.write(out, "woche/index.html", urls.PERIOD, "21. Wahlperiode: Sitzungswochen und Sitzungen")
     (d / "feed.xml").write_text(feed(weeks, have), encoding="utf-8")
-    return {"woche": len(weeks) + 1}
+    return {"woche": len(weeks)}

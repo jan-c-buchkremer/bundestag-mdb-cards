@@ -1,5 +1,10 @@
-"""Gremien: `gremien/index.html`, one page per Ausschuss, Unterausschuss and other Bundestag body
-(`gremien/<slug>.html`), and one page per Fraktion (`fraktionen/<slug>.html`, plus fraktionslos).
+"""Groups (docs/plan.md section 11): `gremien/index.html`, one page per Ausschuss, Unterausschuss and other
+Bundestag body (`gremien/<slug>.html`), one page per Fraktion (`fraktionen/<token>.html`, plus fraktionslos) and one
+for the Bundesregierung (`gremien/bundesregierung.html`, from `government_role`).
+
+Every group page is an entity page: a header, then the facets Mitglieder (with dates), Reden, Abstimmungen und
+Beschlüsse (with the group's position, and its cohesion), Drucksachen (with the group as Urheber), each drawn by
+facts.py; a facet that does not apply to the group says why. Long facets show the newest entries (D23).
 
 Built from the Stammdaten's `membership` table (kind committee/other for the Gremien, kind fraction for the
 Fraktionen), joined with what the cards already know (fraction, gender, first term) and, for the Fraktionen, with
@@ -10,25 +15,25 @@ under "Regierungsämter". No ranking of members, every number links to its sourc
 from __future__ import annotations
 
 import datetime as dt
-import json
 import re
 import sqlite3
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from cards import careers, cohesion, questions
+from cards import careers, cohesion, data, facts, questions, urls
 from cards.data import (
-    DIP_DOC,
+    GOVERNMENT_GROUP,
     NO_FRACTION,
+    OFFICE,
     WP,
     committee_short,
-    dip_subject,
-    drucksache_pdf,
     has_table,
     lead_rank,
     slugify,
 )
-from cards.pages import FOOTER, SHORT, TOKEN, dot, e, frac_link, fraction_order, n, shell, short_date
+from cards.ui import FOOTER, ORDER, SHORT, TOKEN, crumbs, dot, e, facet, frac_link, fraction_order, n, shell, short_date
+
+FACET = 20  # newest entries of a long facet (D23)
 
 # federal ministries and the Kanzleramt are government offices, already on the card as "Regierungsämter"
 _EXCLUDE_EXACT = {"Auswärtiges Amt", "Bundeskanzleramt"}
@@ -122,31 +127,23 @@ def load_bodies(conn: sqlite3.Connection, cards: list[dict]) -> list[dict]:
     return sorted(out, key=lambda b: (0 if b["kind"] == "committee" else 1, b["short"]))
 
 
-def besch_by_committee(conn: sqlite3.Connection) -> dict[str, list[dict]]:
+def besch_by_committee(docs: list[dict]) -> dict[str, list[dict]]:
     """Per committee (by name, DIP aliases resolved): its Beschlussempfehlungen (and -berichte), oldest first."""
-    if not has_table(conn, "drucksache") or not has_table(conn, "vorgang_drucksache"):
-        return {}
     out: dict[str, list[dict]] = defaultdict(list)
-    for r in conn.execute(
-        """SELECT d.id, d.number, d.title, d.date, d.pdf_url, d.originators,
-                  (SELECT vd.vorgang_id FROM vorgang_drucksache vd JOIN vorgang v ON v.id = vd.vorgang_id
-                   WHERE vd.drucksache_id = d.id AND v.type = 'Gesetzgebung' LIMIT 1) AS vorgang_id
-           FROM drucksache d WHERE d.wahlperiode = ? AND d.type LIKE '%Beschlussempfehlung%'
-           ORDER BY d.date, d.number""",
-        (WP,),
-    ):
-        try:
-            names = json.loads(r["originators"] or "[]")
-        except ValueError:
-            names = []
-        for raw in names:
-            name = _ALIASES.get(raw, raw)
-            out[name].append({
-                "number": r["number"], "title": dip_subject(r["title"]) or r["title"], "date": r["date"],
-                "url": DIP_DOC.format(r["id"]), "pdf": r["pdf_url"] or drucksache_pdf(r["number"]),
-                "vorgang": r["vorgang_id"],
-            })  # fmt: skip
+    for d in docs:
+        if "Beschlussempfehlung" in (d["type"] or ""):
+            for raw in d["originators"]:
+                out[_ALIASES.get(raw, raw)].append(d)
     return out
+
+
+def _newest(xs: list[dict], k: int = FACET) -> list[dict]:
+    return sorted(xs, key=lambda x: (x["date"] or "", x.get("id") or ""), reverse=True)[:k]
+
+
+def _more(shown: int, total: int, where: str) -> str:
+    """Under a capped facet: how many there are in all and where the full list lives (D23)."""
+    return f'<p class="explain">Die neuesten {n(shown)} von {n(total)}. {where}</p>' if total > shown else ""
 
 
 def _member_row(m: dict) -> str:
@@ -201,36 +198,28 @@ def _stats_section(ms: list[dict]) -> str:
     )
 
 
-def _besch_section(items: list[dict], have_gesetze: set[str]) -> str:
-    if not items:
-        return '<h2>Beschlussempfehlungen</h2><p class="explain">Keine Beschlussempfehlungen dieses Ausschusses im Datenbestand.</p>'  # noqa: E501
-    rows = []
-    for x in items:
-        if x["vorgang"] and f"{x['vorgang']}.html" in have_gesetze:
-            link = f'<a href="../gesetze/{e(x["vorgang"])}.html">{e(x["number"])}</a>'
-        else:
-            link = f'<a href="{e(x["url"])}">{e(x["number"])}</a>'
-        rows.append(f"<li><b>{short_date(x['date'])}</b> {link}: {e(x['title'])}</li>")
-    explain = ("Beschlussempfehlungen (und -berichte) dieses Ausschusses an das Plenum, laut DIP-Urheberangabe. Wo "
-               "die Drucksache zu einem Gesetzgebungsvorgang gehört, führt der Link zu dessen Seite, sonst zur "
-               "Drucksache im DIP.")  # fmt: skip
-    return (
-        f'<h2>Beschlussempfehlungen <span class="n">{n(len(items))}</span></h2>'
-        f'<p class="explain">{explain}</p>'
-        f'<ul class="besch">{"".join(rows)}</ul>'
-    )
-
-
-def body_page(b: dict, besch: list[dict], have_gesetze: set[str]) -> str:
+def body_page(b: dict, besch: list[dict]) -> str:
     kind_label = "Ausschuss" if b["kind"] == "committee" else "Gremium"
     head = (
-        f'<p class="crumbs"><a href="index.html">Gremien</a></p>'
-        f'<section class="card"><h1>{e(b["short"])}</h1>'
+        crumbs(("index.html", "Gremien"), (None, b["short"]))
+        + f'<section class="card ent-head"><h1>{e(b["short"])}</h1>'
         f'<div class="lines">{kind_label} · {n(len(b["members"]))} Mitgliedschaften in der {WP}. Wahlperiode</div></section>'  # noqa: E501
     )
-    parts = [head, _stats_section(b["members"]), _members_section(b["members"])]
+    parts = [head, facet("mitglieder", "Mitglieder", _stats_section(b["members"]) + _members_section(b["members"]),
+                         len({m["person"] for m in b["members"]}))]  # fmt: skip
+    parts.append(facet("reden", "Reden", "", explain="Ausschüsse und Gremien beraten nicht im Plenum; ihre Mitglieder "
+                       "reden dort für ihre Fraktion. Ihre Reden stehen auf ihren Karten."))  # fmt: skip
+    parts.append(facet("abstimmungen", "Abstimmungen und Beschlüsse", "", explain="Ausschüsse stimmen nicht "
+                       "öffentlich ab. Was sie dem Plenum empfehlen, steht in ihren Beschlussempfehlungen unter "
+                       "Drucksachen."))  # fmt: skip
     if b["kind"] == "committee":
-        parts.append(_besch_section(besch, have_gesetze))
+        docs = sorted(besch, key=lambda d: (d["date"], d["number"]), reverse=True)
+        parts.append(facet("drucksachen", "Drucksachen", facts.drucksache_list(docs, "../", "besch", compact=False),
+                           len(docs), "Beschlussempfehlungen (und -berichte) dieses Ausschusses an das Plenum, laut "
+                           "DIP-Urheberangabe, die neueste zuerst. „Vorgang“ führt zum Ablauf, in dem die Empfehlung "
+                           "beraten und abgestimmt wurde."))  # fmt: skip
+    else:
+        parts.append(facet("drucksachen", "Drucksachen", "", explain="Keine Drucksachen dieses Gremiums im DIP."))
     parts.append(f"<footer>{FOOTER}</footer>")
     desc = (
         f"{kind_label} des 21. Deutschen Bundestages: {b['short']}, Mitglieder nach Fraktion und Funktion, mit Quelle."
@@ -240,13 +229,15 @@ def body_page(b: dict, besch: list[dict], have_gesetze: set[str]) -> str:
                  head=STYLE)  # fmt: skip
 
 
-def gremien_index_page(bodies: list[dict]) -> str:
+def gremien_index_page(bodies: list[dict], government: bool = False) -> str:
     committees = [b for b in bodies if b["kind"] == "committee"]
     others = [b for b in bodies if b["kind"] != "committee"]
     frac_rows = "".join(
         f'<a class="row" href="../fraktionen/{TOKEN[f]}.html"><span class="t"><span class="ti">{dot(f)} {e(SHORT.get(f, f))}</span></span></a>'  # noqa: E501
-        for f in ("AfD", "CDU/CSU", "BÜNDNIS 90/DIE GRÜNEN", "SPD", "Die Linke", NO_FRACTION)
+        for f in ORDER
     )
+    gov = ('<h2>Bundesregierung</h2><div class="rows"><a class="row" href="bundesregierung.html"><span class="t">'
+           '<span class="ti">Bundesregierung</span></span></a></div>' if government else "")  # fmt: skip
 
     def row(b: dict) -> str:
         current = sum(1 for m in b["members"] if m["to"] is None)
@@ -256,6 +247,7 @@ def gremien_index_page(bodies: list[dict]) -> str:
     body = f"""<div class="bodies"><h1>Gremien</h1>
 <p class="lead">Die Fraktionen, die Ausschüsse und Unterausschüsse und die weiteren Gremien des 21. Bundestages (Kommissionen, Delegationen, Parlamentariergruppen, Beiräte, Kuratorien und Stiftungsräte, denen der Bundestag Mitglieder entsendet), aus den Stammdaten. Jedes Gremium mit seinen Mitgliedern nach Rolle, der Zusammensetzung nach Fraktion und, bei Ausschüssen, seinen Beschlussempfehlungen. Bundesministerien sind Regierungsämter, keine Gremien des Bundestages, und stehen auf der jeweiligen Karte unter „Regierungsämter“.</p>
 <h2>Fraktionen</h2><div class="rows">{frac_rows}</div>
+{gov}
 <h2>Ausschüsse <span class="n">{n(len(committees))}</span></h2>
 <div class="filters"><input type="search" id="gq" placeholder="Gremium suchen …" autocomplete="off"></div>
 <div class="count" id="gcount">{n(len(bodies))} Gremien</div>
@@ -303,8 +295,10 @@ def fraction_page(
     ka_row: dict | None,
     coh_row: list[dict] | None,
     gov_f: list[dict],
-    reden: int,
-    words: int,
+    speeches: list[dict],
+    decided: list[dict],
+    roll_call_members: dict[str, list[list]],
+    docs: list[dict],
 ) -> str:
     current = [m for m in ms_f if m["to"] is None]
     women = sum(1 for m in current if m["gender"] == "weiblich")
@@ -320,8 +314,8 @@ def fraction_page(
     moved_in = [x for x in ch["moved"] if x["to"] == f]
     moved_out = [x for x in ch["moved"] if x["from"] == f]
     member_rows = "".join(
-        f'<div class="row{" ended" if m["to"] else ""}"><div class="t"><a href="../{e(m["id"])}.html">{e(m["name"])}</a></div>'  # noqa: E501
-        f"<div class=\"d\">{f'bis {short_date(m['to'])}' if m['to'] else ''}</div></div>"
+        f'<div class="row{" ended" if m["to"] else ""}"><div class="t"><a href="../{e(m["id"])}.html">{e(m["name"])}'
+        f'</a></div><div class="d">{_when(m["from"], m["to"])}</div></div>'
         for m in sorted(ms_f, key=lambda m: m["name"])
     )  # fmt: skip
     changes = []
@@ -389,35 +383,110 @@ def fraction_page(
     )
 
     head = (
-        f'<p class="crumbs"><a href="../gremien/index.html">Gremien</a></p>'
-        f'<section class="card"><h1>{dot(f)} {e(f)}</h1>'
+        crumbs(("../gremien/index.html", "Gremien"), (None, "Fraktion"))
+        + f'<section class="card ent-head"><h1>{dot(f)} {e(f)}</h1>'
         f'<div class="lines">{n(len(current))} aktuelle Mitglieder in der {WP}. Wahlperiode</div></section>'
     )
-    parts = [head]
+    members = []
     if lead_rows:
-        parts.append(f'<h2>Fraktionsführung</h2><div class="rows memb">{lead_rows}</div>')
-    parts.append(f"<h2>Zusammensetzung</h2>{stats}")
-    parts.append(
-        f'<h2>Mitglieder <span class="n">{n(len(current))}</span></h2><div class="rows memb">{member_rows}</div>'
-    )  # noqa: E501
-    parts += changes
-    parts.append(
-        f'<h2>Reden und Wörter</h2><p class="explain"><b>{n(reden)}</b> Reden. Redeanteile im Vergleich: '
-        f'<a href="../debatte/index.html">Debattenkultur</a>.</p>'
-    )
-    parts.append(f"<h2>Geschlossenheit</h2>{coh_text}")
-    parts.append(f"<h2>Kleine Anfragen</h2>{ka_text}")
+        members.append(f'<h3>Fraktionsführung</h3><div class="rows memb">{lead_rows}</div>')
+    members.append(f"<h3>Zusammensetzung</h3>{stats}")
+    members.append(f'<h3>Alle Mitglieder</h3><div class="rows memb">{member_rows}</div>')
+    members += changes
     if off_rows:
-        parts.append(f"<h2>Ämter im Ausschuss</h2><ul>{off_rows}</ul>")
+        members.append(f"<h3>Ämter im Ausschuss</h3><ul>{off_rows}</ul>")
     if gov_rows:
-        parts.append(f"<h2>Mitglieder der Bundesregierung</h2><ul>{gov_rows}</ul>")
+        members.append(f"<h3>Mitglieder der Bundesregierung</h3><ul>{gov_rows}</ul>")
+    parts = [head, facet("mitglieder", "Mitglieder", "".join(members), len(ms_f))]
+    token = TOKEN.get(f, "frl")
+    shown = _newest(speeches)
+    parts.append(facet("reden", "Reden", facts.speech_list(shown, "../", "reden", limit=None, note=_more(
+        len(shown), len(speeches), f'Alle Reden: <a href="../suche.html?Fraktion={e(f)}">Suche mit dem Filter '
+        f"Fraktion</a> und die Karten der Mitglieder. Redeanteile im Vergleich: "
+        '<a href="../debatte/index.html">Debattenkultur</a>.')), len(speeches)))  # fmt: skip
+    ds = [d for d in decided if d["kind"] == "handzeichen" and f in (d.get("fractions") or {})
+          or d["kind"] == "namentlich" and any(m[2] == f for m in roll_call_members.get(d["id"], []))]  # fmt: skip
+    newest = sorted(ds, key=lambda d: (d["date"], d["order"]), reverse=True)[:FACET]
+    parts.append(facet(
+        "abstimmungen", "Abstimmungen und Beschlüsse",
+        coh_text + facts.decision_list(newest, "../", "dec", limit=None, group=f,
+                                       members=lambda d: roll_call_members.get(d["id"]),
+                                       note=_more(len(newest), len(ds), 'Alle Beschlüsse: <a href="../abstimmungen/'
+                                                  'index.html">Abstimmungen</a>.')),
+        len(ds), "Rechts die Position der Fraktion: bei namentlichen Abstimmungen die Mehrheit ihrer Stimmen (gleich "
+        "gezählt wie auf den Karten), bei Handzeichen die Feststellung der Sitzungsleitung.",
+    ))  # fmt: skip
+    own = [d for d in docs if f in d["groups"]]
+    shown = _newest(own)
+    parts.append(facet("drucksachen", "Drucksachen", ka_text + facts.drucksache_list(
+        shown, "../", "drs", compact=False, limit=None, note=_more(len(shown), len(own), "Alle stehen im DIP.")),
+        len(own), "Drucksachen, die die Fraktion laut DIP als Urheber führen, die neueste zuerst."))  # fmt: skip
     parts.append(f"<footer>{FOOTER}</footer>")
     desc = (
-        f"Die Fraktion {f} im 21. Deutschen Bundestag: Mitglieder, Führung, Redeanteile und Abstimmungen, mit Quelle."
+        f"Die Fraktion {f} im 21. Deutschen Bundestag: Mitglieder, Führung, Reden, Abstimmungen und Drucksachen, "
+        "mit Quelle."
     )
     return shell(root="../", kind="p-fraction", active="bodies", title=f, desc=desc,
-                 body=f'<div class="bodies">{"".join(parts)}</div>', data={"kind": "fraction", "name": f},
-                 head=STYLE)  # fmt: skip
+                 body=f'<div class="bodies">{"".join(parts)}</div>', data={"kind": "fraction", "name": f,
+                 "token": token}, head=STYLE)  # fmt: skip
+
+
+def _when(frm: str | None, to: str | None) -> str:
+    if to:
+        return f"{short_date(frm)} – {short_date(to)}" if frm else f"bis {short_date(to)}"
+    return f"seit {short_date(frm)}" if frm else ""
+
+
+# ---------------------------------------------------------------- Bundesregierung
+
+
+def government_page(roles: dict[str, list[dict]], names: dict[str, str], speeches: list[dict],
+                    docs: list[dict]) -> str:  # fmt: skip
+    """The Bundesregierung as a group: everyone with an office in `government_role` (Wikidata, Stammdaten, protocol
+    evidence), current first, with dates; the speeches given in a government role; the Drucksachen with the
+    Bundesregierung as Urheber. It does not vote as a group, so it has no cohesion."""
+    rows = []
+    for pid, offices in roles.items():
+        for o in offices:
+            if o["kind"] == "beamteter_sts":
+                continue  # civil servants, not members of the government
+            when = (f"laut Plenarprotokoll, zuletzt belegt am {short_date(o['to'] or o['from'])}" if o["evidence"]
+                    else _when(o["from"], o["to"]))  # fmt: skip
+            src = next((x for x in o["sources"] if x.get("url")), None)
+            srcl = f' · <a href="{e(src["url"])}">Quelle</a>' if src else ""
+            rows.append((o["to"] is not None and not o["evidence"], names.get(pid, pid), (
+                f'<div class="row{" ended" if o["to"] and not o["evidence"] else ""}"><div class="t">'
+                f'<a href="../{e(urls.person(pid))}">{e(names.get(pid, pid))}</a><div class="sub">{e(o["office"])}'
+                f'</div></div><div class="d">{e(when)}{srcl}</div></div>')))  # fmt: skip
+    rows.sort(key=lambda r: (r[0], r[1]))
+    people = len({r[1] for r in rows})
+    head = (crumbs(("index.html", "Gremien"), (None, "Bundesregierung"))
+            + '<section class="card ent-head"><h1>Bundesregierung</h1><div class="lines">Bundeskanzler, '
+            "Bundesminister, Staatsminister und Parlamentarische Staatssekretäre der 21. Wahlperiode, aus Wikidata, "
+            "den Stammdaten und den Plenarprotokollen</div></section>")  # fmt: skip
+    parts = [head, facet("mitglieder", "Mitglieder", f'<div class="rows memb">{"".join(r[2] for r in rows)}</div>',
+                         people, "Aktuelle Ämter zuerst. Beamtete Staatssekretärinnen und Staatssekretäre gehören der "
+                         "Bundesregierung nicht an.")]  # fmt: skip
+    gov = [s for s in speeches if s.get("role") and OFFICE.search(s["role"]) and "räsident" not in s["role"]]
+    shown = _newest(gov)
+    parts.append(facet("reden", "Reden", facts.speech_list(shown, "../", "reden", limit=None, note=_more(
+        len(shown), len(gov), "Alle stehen auf den Karten der Regierungsmitglieder.")), len(gov),
+        "Reden und Antworten in einem Regierungsamt, wie das Protokoll die Rolle nennt."))  # fmt: skip
+    parts.append(facet("abstimmungen", "Abstimmungen und Beschlüsse", "", explain="Die Bundesregierung stimmt im "
+                       "Bundestag nicht ab. Regierungsmitglieder mit Mandat stimmen als Abgeordnete in ihrer "
+                       "Fraktion; ihre Stimmen stehen auf ihren Karten. Deshalb gibt es hier auch keine "
+                       "Geschlossenheit."))  # fmt: skip
+    own = [d for d in docs if GOVERNMENT_GROUP in d["groups"]]
+    shown = _newest(own)
+    parts.append(facet("drucksachen", "Drucksachen", facts.drucksache_list(
+        shown, "../", "drs", compact=False, limit=None, note=_more(len(shown), len(own), "Alle stehen im DIP.")),
+        len(own), "Gesetzentwürfe, Unterrichtungen und Antworten, die die Bundesregierung laut DIP als Urheber "
+        "führen."))  # fmt: skip
+    parts.append(f"<footer>{FOOTER}</footer>")
+    return shell(root="../", kind="p-body", active="bodies", title="Bundesregierung",
+                 desc="Die Bundesregierung in der 21. Wahlperiode: Mitglieder mit Amtszeiten, Reden im Amt und "
+                      "Drucksachen, mit Quelle.", body=f'<div class="bodies">{"".join(parts)}</div>',
+                 data={"kind": "government"}, head=STYLE)  # fmt: skip
 
 
 # ---------------------------------------------------------------- write
@@ -431,15 +500,26 @@ def write(
     decisions: list[dict],
     roll_call_members: dict[str, list[list]],
 ) -> dict[str, int]:
-    """Write gremien/ and fraktionen/. Call after gesetze/ so Beschlussempfehlungen can link the bill page."""
+    """Write gremien/ (with the Bundesregierung when the store has `government_role`) and fraktionen/, one page
+    for each of the six fractions even when the store has no member of one (the Gremien index links all six)."""
+    docs = data.drucksache_facts(conn)
+    # a Drucksache links its Vorgang only when that has a page (not every Kleine Anfrage or Antrag reaches the plenum)
+    have = {f.stem for f in (out / "vorgaenge").glob("*.html")}
+    for d in docs:
+        if d["vorgang"] not in have:
+            d["vorgang"] = None
+    speeches = data.speech_facts(cards)
     bodies = load_bodies(conn, cards)
-    besch = besch_by_committee(conn)
-    have_gesetze = {p.name for p in (out / "gesetze").iterdir()} if (out / "gesetze").is_dir() else set()
+    besch = besch_by_committee(docs)
+    roles = data.government_roles(conn)
     gd = out / "gremien"
     gd.mkdir(parents=True, exist_ok=True)
     for b in bodies:
-        (gd / f"{b['slug']}.html").write_text(body_page(b, besch.get(b["name"], []), have_gesetze), encoding="utf-8")
-    (gd / "index.html").write_text(gremien_index_page(bodies), encoding="utf-8")
+        (gd / f"{b['slug']}.html").write_text(body_page(b, besch.get(b["name"], [])), encoding="utf-8")
+    if roles:
+        names = {c["id"]: c["name"] for c in cards}
+        (gd / "bundesregierung.html").write_text(government_page(roles, names, speeches, docs), encoding="utf-8")
+    (gd / "index.html").write_text(gremien_index_page(bodies, bool(roles)), encoding="utf-8")
 
     ms = careers.members(conn)
     ch = careers.changes(ms, careers.constituted(conn))
@@ -453,14 +533,14 @@ def write(
 
     fd = out / "fraktionen"
     fd.mkdir(parents=True, exist_ok=True)
-    fractions = sorted({m["fraction"] for m in ms} | {NO_FRACTION}, key=fraction_order)
+    fractions = sorted({m["fraction"] for m in ms} | set(ORDER), key=fraction_order)
     for f in fractions:
         ms_f = [m for m in ms if m["fraction"] == f]
         leaders = fraction_leadership(ms_f, f)
         off_f = [o for o in off if o["member"]["fraction"] == f]
         gov_f = [g for g in government if g["fraction"] == f]
-        reden = sum(len(c["reden"]) for c in cards if c["fraction"] == f)
-        words = sum(s["words"] for c in cards if c["fraction"] == f for s in c["reden"])
-        html = fraction_page(f, ms_f, leaders, ch, off_f, ka_by_f.get(f), coh_series.get(f), gov_f, reden, words)
+        sps = [s for s in speeches if s["fraction"] == f and s["kind"] in ("rede", "kurz")]
+        html = fraction_page(f, ms_f, leaders, ch, off_f, ka_by_f.get(f), coh_series.get(f), gov_f, sps, decisions,
+                             roll_call_members, docs)  # fmt: skip
         (fd / f"{TOKEN.get(f, 'frl')}.html").write_text(html, encoding="utf-8")
-    return {"gremien": len(bodies) + 1, "fraktionen": len(fractions)}
+    return {"gremien": len(bodies) + 1 + bool(roles), "fraktionen": len(fractions)}

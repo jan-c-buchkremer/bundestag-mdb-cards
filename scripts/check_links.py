@@ -3,7 +3,8 @@
     uv run python scripts/check_links.py data/out [--anchors]
 
 External links (http:, https:, mailto:, protocol-relative) are skipped. With --anchors, a "#id" in a link must
-also be an id in the target page. Links that scripts build at runtime (card.js) are not in the HTML and not checked.
+also be an id in the target page, unless it is view state for a script (with a "=": "#ansicht=wahlkreise&wk=14").
+Links that scripts build at runtime (card.js) are not in the HTML and not checked.
 Exits 1 when a link is broken, listing the first ones."""
 
 from __future__ import annotations
@@ -59,7 +60,7 @@ def check(site: Path, anchors: bool = False) -> list[tuple[Path, str]]:
                 target = target / "index.html"
             if not target.is_file():
                 broken.append((page, link))
-            elif anchors and parts.fragment and target.suffix == ".html":
+            elif anchors and parts.fragment and "=" not in parts.fragment and target.suffix == ".html":
                 targets[target].append((page, link, unquote(parts.fragment)))
     for target, refs in targets.items():
         known = ids[target] if target in ids else parse(target).ids

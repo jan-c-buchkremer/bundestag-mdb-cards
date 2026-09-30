@@ -11,8 +11,9 @@ import statistics
 from collections import Counter, defaultdict
 from pathlib import Path
 
+from cards import urls
 from cards.data import NO_FRACTION, PARTY_TO_FRACTION, WP, drucksache_pdf, has_table
-from cards.pages import FOOTER, MONTHS, SHORT, TOKEN, agenda_href, dot, e, fraction_order, n, shell, short_date
+from cards.ui import FOOTER, MONTHS, SHORT, TOKEN, dot, e, fraction_order, n, shell, short_date
 
 DEADLINE = 14  # § 104 Abs. 2 GO-BT: the government is asked to answer within 14 days, extendable
 _ASKED = re.compile(r"Drucksache\s+(\d+)\s*/\s*(\d+)")
@@ -336,7 +337,8 @@ def _befragung_section(bf: list[dict], fs: tuple[int, int]) -> str:
         total.update(b["questions"])
     fr = sorted(total, key=fraction_order)
     rows = "".join(
-        f'<tr><td class="l"><a href="{e(agenda_href(b["sitting"], b["position"]))}">{short_date(b["date"])}</a></td>'
+        f'<tr><td class="l"><a href="../{e(urls.sitting(b["sitting"], b["position"]))}">'
+        f"{short_date(b['date'])}</a></td>"
         f'<td class="l">'
         + "; ".join(
             (f'<a href="../{e(g["id"])}.html">{e(g["name"])}</a>' if g["id"] else e(g["name"])) + f", {e(g['role'])}"

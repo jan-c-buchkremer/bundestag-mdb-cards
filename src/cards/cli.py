@@ -8,17 +8,20 @@ from collections import Counter
 from pathlib import Path
 
 from cards import (
-    bills,
     bodies,
     build,
     careers,
     data,
     debate,
     photos,
+    places,
+    procedures,
     questions,
     search,
     sources,
     speeches,
+    topics,
+    urls,
     wahlkreissuche,
     weekly,
 )
@@ -51,21 +54,26 @@ def main(argv: list[str] | None = None) -> None:
     clusters = data.speech_clusters()
     if clusters:
         print(f"{len(clusters)} speeches with a Themenlandschaft cluster: sitting pages with 'Worum ging es'")
-    has_gemeinden = data.has_table(conn, "constituency_municipality")
+    has_gemeinden = wahlkreissuche.municipalities(conn) is not None  # the table exists empty in older stores
     write_photos(conn, cards, args.out / "fotos")
     careers.annotate(conn, cards)
     sittings = data.sittings(conn, decided)
+    portraits = {c["id"] for c in cards if c["photo"]}  # the photos that were made, not only those in the store
+    for s in sittings:
+        for i in s["items"]:
+            for sp in i["speeches"]:
+                sp["photo"] = sp["person"] in portraits
     rcm = data.roll_call_members(conn)
     written = build.write_site(
         cards, meta, args.out, wks, gov, data.last_sitting(conn),
         decided, rcm, sittings, clusters,
-        gemeinde_search=has_gemeinden,
+        gemeinde_search=has_gemeinden, places=places.index_payload(cards, wks),
     )  # fmt: skip
     written |= questions.write(conn, args.out) | sources.write(conn, args.out, meta)
     written |= debate.write(conn, args.out)
     written |= careers.write(conn, args.out)
     if has_gemeinden:
-        written |= wahlkreissuche.write(conn, args.out, cards, wks)
+        written |= wahlkreissuche.write(conn, args.out, wks)
     else:
         print("no constituency_municipality table in the store: no wahlkreise/suche.html")
     print(
@@ -73,14 +81,24 @@ def main(argv: list[str] | None = None) -> None:
         + ", ".join(f"{v} pages in {k}/" if k != "kompass" else "kompass.html" for k, v in written.items())
     )
     similar = speeches.neighbours()
-    n_speeches = speeches.write_pages(args.out, speeches.load(conn), {c["id"] for c in cards}, clusters, similar)
+    themes = debate.themes()
+    n_speeches = speeches.write_pages(args.out, speeches.load(conn), {c["id"] for c in cards}, clusters, similar,
+                                      themes)  # fmt: skip
     print(f"wrote {n_speeches} speech pages in reden/" + (f", {len(similar)} with similar speeches" if similar else ""))
-    n_bills = bills.write(conn, args.out).get("gesetze", 0)
-    print(f"wrote {n_bills} pages in gesetze/" if n_bills else "no Gesetzgebung in the store: no gesetze/ pages")
-    print(f"wrote {weekly.write(conn, args.out, sittings, decided, clusters).get('woche', 0)} pages in woche/")
+    procs = procedures.write(conn, args.out, sittings, decided, rcm)
+    print(f"wrote {len(procs)} pages in vorgaenge/, stubs in gesetze/ and abstimmungen/ for what moved there")
+    print(f"wrote {weekly.write(conn, args.out, sittings, decided).get('woche', 0)} pages in woche/")
+    written_themes = topics.write(args.out, themes, data.speech_facts(cards), sittings)
+    print(f"wrote {len(written_themes)} topic pages in themen/" if written_themes
+          else "LANDSCAPE_THEMES not set: no topic pages")  # fmt: skip
+    rep = places.write(args.out, cards, wks, careers.constituted(conn), decided, rcm, has_gemeinden)
+    print(f"wrote {len(rep['wahlkreise'])} Wahlkreis pages and {len(data.STATES)} Land pages in orte/")
     n_bodies = bodies.write(conn, args.out, cards, gov, decided, rcm)
     print(f"wrote {n_bodies['gremien']} pages in gremien/, {n_bodies['fraktionen']} pages in fraktionen/")
-    search.write_index(args.out)  # last: indexes everything written above
+    index = search.entities(cards, bodies.load_bodies(conn, cards), (args.out / urls.GOVERNMENT).exists(), procs, rep,
+                            wahlkreissuche.municipalities(conn), written_themes, sittings)  # fmt: skip
+    print(f"{len(index['items'])} entities in suche.json")
+    search.write_index(args.out, index)  # last: indexes everything written above
 
 
 def write_photos(conn, cards: list[dict], out: Path) -> None:

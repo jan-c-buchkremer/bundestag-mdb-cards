@@ -56,3 +56,9 @@
   .s-filters { display: none; border: 1px solid var(--line); border-radius: 12px; padding: 6px 12px 4px; margin-bottom: 4px; background: var(--card); }
   .s-filters.open { display: flex; }
 }
+.s-entities { margin: 14px 0 6px; }
+.s-ent h3 { font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 14px 0 6px; }
+.s-ent h3 .n { color: var(--faint); font-weight: 500; letter-spacing: 0; }
+.s-ent .faint { font-size: 12.5px; margin: 4px 2px 0; }
+.row.sent { grid-template-columns: 1fr; }
+.s-h { font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 26px 0 0; }

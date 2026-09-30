@@ -21,6 +21,7 @@ from cards import (
     sources,
     speeches,
     topics,
+    urls,
     wahlkreissuche,
     weekly,
 )
@@ -94,7 +95,10 @@ def main(argv: list[str] | None = None) -> None:
     print(f"wrote {len(rep['wahlkreise'])} Wahlkreis pages and {len(data.STATES)} Land pages in orte/")
     n_bodies = bodies.write(conn, args.out, cards, gov, decided, rcm)
     print(f"wrote {n_bodies['gremien']} pages in gremien/, {n_bodies['fraktionen']} pages in fraktionen/")
-    search.write_index(args.out)  # last: indexes everything written above
+    index = search.entities(cards, bodies.load_bodies(conn, cards), (args.out / urls.GOVERNMENT).exists(), procs, rep,
+                            wahlkreissuche.municipalities(conn), written_themes, sittings)  # fmt: skip
+    print(f"{len(index['items'])} entities in suche.json")
+    search.write_index(args.out, index)  # last: indexes everything written above
 
 
 def write_photos(conn, cards: list[dict], out: Path) -> None:

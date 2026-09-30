@@ -39,13 +39,6 @@ interruptions; applause and Zurufe between fractions. `LANDSCAPE_THEMES` may poi
 `{"<speech id>": {"theme_id", "label"}}`; with it the page adds words per theme and fraction, without it the table is
 left out.
 
-**Erwähnungen** (`erwaehnungen/`) shows which countries, Länder, larger Gemeinden and organisations the speeches
-name: per entity a monthly chart, the share of each fraction's speeches that name it, and every such speech with a
-link to its page and the protocol; no ranking of persons. It needs `LANDSCAPE_MENTIONS`, the JSON
-`{"model", "entities": {"<QID>": {"label", "kind"}}, "speeches": {"<speech id>": {"<QID>": count}}}` that
-`landscape mentions` writes (spaCy NER plus Wikidata gazetteers, run locally); without it the pages are left out.
-Entities with fewer than 3 speeches get no page.
-
 The index opens on **Plenum**, a seating chart of the house (`parliament.js`, shared with the vote pages) that the
 search and chips filter, with a toggle for everyone who spoke in the latest sitting and a link to that week in the
 Themenlandschaft. **Abgeordnete** is the searchable list, **Wahlkreise** the list of all 299 Wahlkreise next to a map.

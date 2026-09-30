@@ -14,8 +14,6 @@ from cards import (
     careers,
     data,
     debate,
-    mentions,
-    pages,
     photos,
     questions,
     search,
@@ -34,8 +32,6 @@ def main(argv: list[str] | None = None) -> None:
     args = p.parse_args(argv)
 
     conn = data.connect()
-    if mentions.load() is not None:
-        pages.OPTIONAL_NAV.discard("mentions")
     cards, meta = data.cards(conn)
     kinds = Counter(c["kind"] for c in cards)
     in_gov = sum(1 for c in cards if c["government"])
@@ -77,11 +73,8 @@ def main(argv: list[str] | None = None) -> None:
         + ", ".join(f"{v} pages in {k}/" if k != "kompass" else "kompass.html" for k, v in written.items())
     )
     similar = speeches.neighbours()
-    redes = speeches.load(conn)
-    n_speeches = speeches.write_pages(args.out, redes, {c["id"] for c in cards}, clusters, similar)
+    n_speeches = speeches.write_pages(args.out, speeches.load(conn), {c["id"] for c in cards}, clusters, similar)
     print(f"wrote {n_speeches} speech pages in reden/" + (f", {len(similar)} with similar speeches" if similar else ""))
-    n_mentions = mentions.write(args.out, redes, {c["id"] for c in cards})
-    print(f"wrote {n_mentions} pages in erwaehnungen/" if n_mentions else "no LANDSCAPE_MENTIONS: no erwaehnungen/")
     n_bills = bills.write(conn, args.out).get("gesetze", 0)
     print(f"wrote {n_bills} pages in gesetze/" if n_bills else "no Gesetzgebung in the store: no gesetze/ pages")
     print(f"wrote {weekly.write(conn, args.out, sittings, decided, clusters).get('woche', 0)} pages in woche/")

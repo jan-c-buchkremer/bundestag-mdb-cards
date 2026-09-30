@@ -39,7 +39,7 @@ def test_speech_page(conn, tmp_path):
     # the question by Cohn stays in its place, with its anchor and her card
     assert '<div class="rp" id="ID1-2"><div class="rp-who"><a href="../3.html">Clara Cohn</a>' in page
     assert page.index('id="ID1-2"') < page.index('id="ID1-5"')
-    assert '#cluster=7">Thema: Mieten &amp; Wohnungsbau ↗</a>' in page
+    assert '#cluster=7">In dieser Woche: Mieten &amp; Wohnungsbau ↗</a>' in page
     for f in ('"Art">Rede', '"Person">Dr. Bernd Berg', '"Fraktion">CDU/CSU', '"Monat">Juli 2026',
               '"Thema">Mieten &amp; Wohnungsbau'):  # fmt: skip
         assert f"data-pagefind-filter={f}</span>" in page

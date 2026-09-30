@@ -20,6 +20,7 @@ from cards import (
     search,
     sources,
     speeches,
+    topics,
     wahlkreissuche,
     weekly,
 )
@@ -79,11 +80,16 @@ def main(argv: list[str] | None = None) -> None:
         + ", ".join(f"{v} pages in {k}/" if k != "kompass" else "kompass.html" for k, v in written.items())
     )
     similar = speeches.neighbours()
-    n_speeches = speeches.write_pages(args.out, speeches.load(conn), {c["id"] for c in cards}, clusters, similar)
+    themes = debate.themes()
+    n_speeches = speeches.write_pages(args.out, speeches.load(conn), {c["id"] for c in cards}, clusters, similar,
+                                      themes)  # fmt: skip
     print(f"wrote {n_speeches} speech pages in reden/" + (f", {len(similar)} with similar speeches" if similar else ""))
     procs = procedures.write(conn, args.out, sittings, decided, rcm)
     print(f"wrote {len(procs)} pages in vorgaenge/, stubs in gesetze/ and abstimmungen/ for what moved there")
     print(f"wrote {weekly.write(conn, args.out, sittings, decided).get('woche', 0)} pages in woche/")
+    written_themes = topics.write(args.out, themes, data.speech_facts(cards), sittings)
+    print(f"wrote {len(written_themes)} topic pages in themen/" if written_themes
+          else "LANDSCAPE_THEMES not set: no topic pages")  # fmt: skip
     rep = places.write(args.out, cards, wks, careers.constituted(conn), decided, rcm, has_gemeinden)
     print(f"wrote {len(rep['wahlkreise'])} Wahlkreis pages and {len(data.STATES)} Land pages in orte/")
     n_bodies = bodies.write(conn, args.out, cards, gov, decided, rcm)

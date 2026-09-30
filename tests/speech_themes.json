@@ -1,0 +1,6 @@
+{
+  "ID1": {"theme_id": 3, "label": "Miete · Wohnen · Mietpreisbremse"},
+  "ID1-5": {"theme_id": 3, "label": "Miete · Wohnen · Mietpreisbremse"},
+  "ID2": {"theme_id": 5, "label": "Justiz · Strafrecht"},
+  "ID404": {"theme_id": 9, "label": "not in the store"}
+}

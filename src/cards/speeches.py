@@ -16,6 +16,7 @@ import sqlite3
 from collections import defaultdict
 from pathlib import Path
 
+from cards import urls
 from cards.data import WP, _fraction, display_speaker, has_speech_kind, page_id, top_label
 from cards.titles import short_title
 from cards.ui import FOOTER, LANDSCAPE, TOKEN, e, long_date, n, search_marks, shell, short_date
@@ -106,7 +107,8 @@ def paragraph(kind: str, text: str) -> str:
     return f"<p>{e(text)}</p>"
 
 
-def speech_page(r: dict, cards: set[str], clusters: dict[str, dict], similar: list[dict]) -> str:
+def speech_page(r: dict, cards: set[str], clusters: dict[str, dict], similar: list[dict],
+                themes: dict[str, dict] | None = None) -> str:  # fmt: skip
     main = r["parts"][0]
     sitting = f"../sitzungen/{page_id(r['sitting'])}.html"
     item = f"{sitting}#top-{r['top_position']}" if r["top_position"] is not None else sitting
@@ -116,11 +118,14 @@ def speech_page(r: dict, cards: set[str], clusters: dict[str, dict], similar: li
     cluster = clusters.get(r["id"])
     fs = r.get("kind") == "fragestunde"  # a question, answer or Nachfrage, searchable apart from the Reden
     links = [f'<a href="{e(r["pdf"])}">Plenarprotokoll {e(r["cite"])} (PDF)</a>']
+    theme = (themes or {}).get(r["id"])
+    if theme and theme.get("theme_id") is not None:
+        links.append(f'<a href="../{e(urls.theme(theme["theme_id"]))}">Thema: {e(theme["label"])}</a>')
     if cluster:
-        links.append(f'<a href="{LANDSCAPE}{e(cluster["week"])}.html#cluster={e(cluster["cluster_id"])}">Thema: '
-                     f'{e(cluster["label"])} ↗</a>')  # fmt: skip
+        links.append(f'<a href="{LANDSCAPE}{e(cluster["week"])}.html#cluster={e(cluster["cluster_id"])}">In dieser '
+                     f'Woche: {e(cluster["label"])} ↗</a>')  # fmt: skip
     marks = search_marks("Fragestunde" if fs else "Rede", r["date"], Person=main["name"], Fraktion=main["fraction"],
-                         Thema=cluster["label"] if cluster else None)  # fmt: skip
+                         Thema=theme["label"] if theme else cluster["label"] if cluster else None)  # fmt: skip
     parts = []
     for p in r["parts"]:
         who = "" if p is main else f'<div class="rp-who">{speaker(p, cards)}</div>'
@@ -164,7 +169,7 @@ def similar_block(similar: list[dict]) -> str:
 
 
 def write_pages(out: Path, redes: list[dict], cards: set[str], clusters: dict[str, dict] | None = None,
-                similar: dict[str, list[str]] | None = None) -> int:  # fmt: skip
+                similar: dict[str, list[str]] | None = None, themes: dict[str, dict] | None = None) -> int:  # fmt: skip
     """Write reden/ and its stylesheet; returns the number of pages."""
     clusters, similar = clusters or {}, similar or {}
     by_id = {r["id"]: r for r in redes}
@@ -175,5 +180,7 @@ def write_pages(out: Path, redes: list[dict], cards: set[str], clusters: dict[st
         # the neighbours may name a part of a rede: its page is the rede's
         near = list({rede_id(x): by_id[rede_id(x)] for x in similar.get(r["id"], []) if rede_id(x) in by_id}.values())
         near = [s for s in near if s is not r][:SIMILAR]
-        (folder / f"{page_id(r['id'])}.html").write_text(speech_page(r, cards, clusters, near), encoding="utf-8")
+        (folder / f"{page_id(r['id'])}.html").write_text(
+            speech_page(r, cards, clusters, near, themes), encoding="utf-8"
+        )
     return len(redes)

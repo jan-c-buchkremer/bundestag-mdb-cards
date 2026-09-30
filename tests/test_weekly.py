@@ -89,7 +89,7 @@ def test_feed_is_valid_atom():
 def test_write(conn, tmp_path):
     conn.execute(
         "INSERT INTO agenda_item VALUES ('21/88/3','21/88',3,'Aktuelle Stunde','Aktuelle Stunde | auf Verlangen der "
-        "Fraktion der AfD | Messerangriffe','[]','u','d','t')"
+        "Fraktion der AfD | Messerangriffe','[]','u','d','t',0)"
     )
     decided = data.decisions(conn)
     sittings = data.sittings(conn, decided)

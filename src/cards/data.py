@@ -11,6 +11,7 @@ import unicodedata
 from collections import Counter, defaultdict
 from pathlib import Path
 
+from cards import subtops
 from cards.titles import short_title
 
 WP = 21
@@ -913,14 +914,17 @@ def decisions(conn: sqlite3.Connection) -> list[dict]:
     positions: dict[str, dict[str, str]] = defaultdict(dict)
     for r in conn.execute("SELECT decision_id, fraction, position FROM decision_fraction"):
         positions[r["decision_id"]][r["fraction"]] = r["position"]
-    agendas = {r["id"]: r for r in conn.execute("SELECT id, position, top_id, title FROM agenda_item")}
+    agendas = {r["id"]: r for r in conn.execute("SELECT * FROM agenda_item")}
+    blocks = subtops.load(conn)
+    subs = subtops.by_id(blocks)
 
     def agenda(aid: str | None) -> dict | None:
         a = agendas.get(aid)
         if a is None:
             return None
-        return {"id": a["id"], "position": a["position"], "label": top_label(a["top_id"]),
-                "title": short_title(a["title"], a["top_id"])}  # fmt: skip
+        no_debate = "no_debate" in a.keys() and bool(a["no_debate"])  # noqa: SIM118 (Row `in` tests values)
+        return {"id": a["id"], "position": a["position"], "label": top_label(a["top_id"]), "no_debate": no_debate,
+                "title": subtops.item_title(a["title"], a["top_id"], no_debate, a["id"] in blocks)}  # fmt: skip
 
     def roll_call(v: sqlite3.Row) -> dict:
         per = tally[v["id"]]
@@ -939,11 +943,13 @@ def decisions(conn: sqlite3.Connection) -> list[dict]:
             linked.add(v["id"])
             numbers += [n for n in drucksache_numbers(v["drucksache_number"]) if n not in numbers]
         a = agenda(r["agenda_item_id"])
+        sub = subs.get(r["sub_item_id"]) if subtops.has_decision_sub_item(conn) else None
         d = {
             "id": r["id"], "page": page_id(r["id"]), "kind": r["kind"], "date": r["date"], "sitting": r["sitting_id"],
             "order": r["position"], "agenda": a,
+            "sub": {k: sub[k] for k in ("id", "label", "title", "no_debate")} if sub else None,
             "title": decision_title(r["subject"], v["title"] if v else None, r["drucksache_number"], dip,
-                                    a["title"] if a else None),
+                                    sub["title"] if sub else a["title"] if a else None),
             "subject": clean_subject(r["subject"]),
             "drucksachen": [drucksache_ref(n, dip) for n in numbers],
             "result": r["result"], "result_from": "protocol",
@@ -1023,9 +1029,10 @@ def iso_week(date: str) -> str:
 
 def _sql_sitting_speech(conn: sqlite3.Connection) -> str:
     kind_col = "s.kind" if has_speech_kind(conn) else "'rede' AS kind"
+    sub_col = "s.sub_item_id" if subtops.has_speech_sub_item(conn) else "NULL AS sub_item_id"
     return f"""
 SELECT s.id, s.agenda_item_id, s.person_id, s.speaker_role, s.fraction, s.text, p.party, p.first_name, p.last_name,
-       p.academic_title, p.name_prefix, {kind_col}
+       p.academic_title, p.name_prefix, {kind_col}, {sub_col}
 FROM speech s JOIN person p ON p.id = s.person_id
 WHERE s.sitting_id = ?
 ORDER BY s.position
@@ -1042,7 +1049,7 @@ def sittings(conn: sqlite3.Connection, decided: list[dict] | None = None) -> lis
         if d["agenda"]:
             by_item[d["agenda"]["id"]].append(
                 {"id": d["id"], "page": d["page"], "kind": d["kind"], "title": d["title"], "result": d["result"],
-                 "counts": d["counts"]}
+                 "counts": d["counts"], "fractions": d["fractions"], "sub": d["sub"]["id"] if d.get("sub") else None}
             )  # fmt: skip
     dip = _dip_index(conn)
     referred = referrals(conn)
@@ -1051,12 +1058,16 @@ def sittings(conn: sqlite3.Connection, decided: list[dict] | None = None) -> lis
     )
     rows = conn.execute("SELECT * FROM sitting WHERE wahlperiode = ? ORDER BY date, number", (WP,)).fetchall()
     sql_speech = _sql_sitting_speech(conn)
+    blocks = subtops.load(conn)
+    no_debate = subtops.has_item_no_debate(conn)
     out = []
     for i, st in enumerate(rows):
         items = {
             a["id"]: {
                 "id": a["id"], "position": a["position"], "label": top_label(a["top_id"]),
-                "title": short_title(a["title"], a["top_id"]),
+                "title": subtops.item_title(a["title"], a["top_id"], bool(a["no_debate"]) if no_debate else False,
+                                            a["id"] in blocks),
+                "no_debate": bool(a["no_debate"]) if no_debate else False,
                 "segments": [s.strip() for s in (a["title"] or "").split("|") if s.strip()],
                 "drucksachen": [drucksache_ref(n, dip) for n in json.loads(a["drucksache_numbers"])],
                 "speeches": [], "fragestunde": 0, "decisions": by_item.get(a["id"], []),
@@ -1083,8 +1094,15 @@ def sittings(conn: sqlite3.Connection, decided: list[dict] | None = None) -> lis
                 {"id": first["id"], "person": first["person_id"], "name": display_name(first),
                  "fraction": _fraction(first), "role": first["speaker_role"],
                  "words": sum(len(p["text"].split()) for p in own), "on_map": length >= MIN_CHARS,
-                 "photo": first["person_id"] in photos}
+                 "photo": first["person_id"] in photos, "sub_item": first["sub_item_id"]}
             )  # fmt: skip
+        for item in items.values():
+            if item["id"] in blocks:
+                item["sub_items"] = [
+                    {**sub, "drucksachen": [drucksache_ref(n, dip) for n in sub["numbers"]]}
+                    for sub in blocks[item["id"]]
+                ]
+                subtops.distribute(item)
         out.append(
             {
                 "id": st["id"], "page": page_id(st["id"]), "number": st["number"], "date": st["date"],

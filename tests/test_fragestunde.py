@@ -6,7 +6,7 @@ from cards import data, debate, questions, speeches
 def add_fragestunde(conn):
     """One Fragestunde with a question and a long answer."""
     conn.execute("INSERT INTO agenda_item VALUES ('21/88/3','21/88',3,'Tagesordnungspunkt 3','Fragestunde','[]',"
-                 "'https://x/21088.xml','BT-PlPr. 21/88','2026-09-27')")  # fmt: skip
+                 "'https://x/21088.xml','BT-PlPr. 21/88','2026-09-27',0)")  # fmt: skip
     conn.executemany(
         "INSERT INTO speech VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'fragestunde')",
         [

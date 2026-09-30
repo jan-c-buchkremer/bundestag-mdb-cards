@@ -31,7 +31,7 @@ def add_questions(c):
     )
     c.execute("INSERT INTO drucksache_author VALUES ('s1/c','s1','c','3','Clara Cohn','Frage',?,?,?)", DIP)
     c.execute(
-        "INSERT INTO agenda_item VALUES ('21/88/3','21/88',3,'Tagesordnungspunkt 3','Fragestunde','[]','u','d','t')"
+        "INSERT INTO agenda_item VALUES ('21/88/3','21/88',3,'Tagesordnungspunkt 3','Fragestunde','[]','u','d','t',0)"
     )
 
 

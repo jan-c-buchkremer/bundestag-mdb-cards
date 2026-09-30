@@ -270,3 +270,12 @@ a.row:hover .ti { color: var(--accent); }
   table.plenum th, table.plenum td { padding: 7px 6px; }
   table.plenum td .bar { width: 60px; }
 }
+
+/* sub-TOPs of a block agenda item (subtop_pages.py) */
+.subtops { margin-top: 8px; }
+.subtop { border-top: 1px solid var(--line); padding: 10px 0 4px 14px; margin-left: 4px; border-left: 3px solid var(--line); scroll-margin-top: 12px; }
+.subtop:target { border-left-color: var(--accent); }
+.subtop h4 { font-size: 14px; font-weight: 600; margin: 0 0 4px; line-height: 1.4; }
+.subtop h4 .lbl { min-width: 0; margin-right: 6px; font-size: 12.5px; }
+.subtop .full, .subtop .drs { font-size: 13px; margin: 4px 0; }
+.subdec .pos { font-size: 12.5px; color: var(--muted); padding: 0 0 6px 96px; }

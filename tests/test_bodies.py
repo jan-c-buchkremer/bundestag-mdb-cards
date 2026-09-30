@@ -68,3 +68,19 @@ def test_write_without_decisions(conn, tmp_path):
     assert counts["gremien"] > 1
     spd = (tmp_path / "fraktionen" / "spd.html").read_text()
     assert "Keine namentlichen Abstimmungen" in spd
+
+
+def test_drucksache_links_vorgang_only_with_page(conn, tmp_path, monkeypatch):
+    """A Kleine Anfrage or an Antrag that never reached the plenum has no Vorgang page: no link to one."""
+    cards, _ = data.cards(conn)
+    careers.annotate(conn, cards)
+    facts = data.drucksache_facts(conn)
+    monkeypatch.setattr(data, "drucksache_facts", lambda c: [{**d, "vorgang": "v1"} for d in facts])
+    bodies.write(conn, tmp_path, cards, [], [], {})
+    spd = (tmp_path / "fraktionen" / "spd.html").read_text()
+    assert "21/100" in spd and "vorgaenge/v1.html" not in spd
+
+    (tmp_path / "vorgaenge").mkdir()
+    (tmp_path / "vorgaenge" / "v1.html").write_text("")
+    bodies.write(conn, tmp_path, cards, [], [], {})
+    assert 'href="../vorgaenge/v1.html"' in (tmp_path / "fraktionen" / "spd.html").read_text()

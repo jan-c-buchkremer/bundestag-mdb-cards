@@ -503,6 +503,11 @@ def write(
     """Write gremien/ (with the Bundesregierung when the store has `government_role`) and fraktionen/, one page
     for each of the six fractions even when the store has no member of one (the Gremien index links all six)."""
     docs = data.drucksache_facts(conn)
+    # a Drucksache links its Vorgang only when that has a page (not every Kleine Anfrage or Antrag reaches the plenum)
+    have = {f.stem for f in (out / "vorgaenge").glob("*.html")}
+    for d in docs:
+        if d["vorgang"] not in have:
+            d["vorgang"] = None
     speeches = data.speech_facts(cards)
     bodies = load_bodies(conn, cards)
     besch = besch_by_committee(docs)

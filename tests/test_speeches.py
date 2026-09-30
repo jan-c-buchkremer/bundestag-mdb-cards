@@ -87,7 +87,9 @@ def test_links_to_speech_pages(conn, tmp_path):
     broken = [(p, link) for p, link in check_links.check(tmp_path, anchors=True) if any(x in link for x in ours)]
     assert broken == []
     (tmp_path / "reden" / "ID3.html").unlink()
-    assert [link for _, link in check_links.check(tmp_path) if "reden/" in link] == ["../reden/ID3.html"]
+    # the sitting page and, now that its tabs are HTML (D13), Clara Cohn's card
+    assert sorted(link for _, link in check_links.check(tmp_path) if "reden/" in link) == [
+        "../reden/ID3.html", "reden/ID3.html"]  # fmt: skip
 
 
 def test_search_index(conn, tmp_path):

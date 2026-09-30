@@ -421,12 +421,15 @@ def decision(d: dict, root: str = "../", *, point: bool = False, detail: bool = 
 
 
 def decision_list(ds: list[dict], root: str = "../", key: str = "dec", *, limit: int | None = LIMIT,
-                  empty: str = "Keine Beschlüsse.", note: str = "", **kw) -> str:  # fmt: skip
-    """Decisions as a list in a box; keyword arguments go to `decision` (members, own, group and subset may be
-    callables taking the decision)."""
+                  empty: str = "Keine Beschlüsse.", note: str = "", own_by_id: dict[str, dict] | None = None,
+                  **kw) -> str:  # fmt: skip
+    """Decisions as a list in a box; keyword arguments go to `decision` (members, group and subset may be
+    callables taking the decision); `own_by_id` gives a member's own vote per decision id (the card)."""
     rows = []
     for d in ds:
         args = {k: (v(d) if callable(v) else v) for k, v in kw.items()}
+        if own_by_id is not None:
+            args["own"] = own_by_id.get(d["id"])
         rows.append(decision(d, root, **args))
     return fact_list(rows, key, empty, limit, note)
 

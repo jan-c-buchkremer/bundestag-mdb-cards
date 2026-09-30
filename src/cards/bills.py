@@ -29,6 +29,7 @@ from cards.pages import (
     count_bar,
     counts_line,
     e,
+    frac_link,
     fraction_table_hands,
     fraction_table_rc,
     hands_bar,
@@ -396,7 +397,8 @@ def bill_page(b: dict, have: set[str]) -> str:
     status_href = f"index.html#status-{e(_status_slug(b['status']))}"
     meta = [f'<div><span class="k">Stand</span> <a class="st" href="{status_href}">{e(b["status"])}</a></div>']
     if b["initiators"]:
-        meta.append(f'<div><span class="k">Eingebracht von</span> {e(", ".join(b["initiators"]))}</div>')
+        meta.append(f'<div><span class="k">Eingebracht von</span> '
+                    f'{", ".join(frac_link(x) for x in b["initiators"])}</div>')  # fmt: skip
     if b["subjects"]:
         meta.append(f'<div><span class="k">Sachgebiete</span> {e(", ".join(b["subjects"]))}</div>')
     dip = f"https://dip.bundestag.de/vorgang/{e(b['id'])}"
@@ -455,7 +457,7 @@ def bill_page(b: dict, have: set[str]) -> str:
             if sp:
                 lis = "".join(
                     "<li>" + _link(f"../{e(p)}" if (p := f"reden/{page_id(s['id'])}.html") in have else None,
-                                   e(s["name"])) + (f" ({e(s['fraction'])})" if s["fraction"] else "") + "</li>"
+                                   e(s["name"])) + (f" ({frac_link(s['fraction'])})" if s["fraction"] else "") + "</li>"
                     for s in sp
                 )  # fmt: skip
                 word = "Rede" if len(sp) == 1 else "Reden"

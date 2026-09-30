@@ -7,6 +7,7 @@ import json
 import os
 import re
 import sqlite3
+import unicodedata
 from collections import Counter, defaultdict
 from pathlib import Path
 
@@ -17,6 +18,8 @@ BEFRAGUNG = "Befragung der Bundesregierung"  # every question and answer is its 
 OFFICE = re.compile(r"Bundeskanzler|Bundesminister|Staatssekretär|Staatsminister|Präsident", re.I)
 _KURZINTERVENTION = re.compile(r"Kurzintervention|Zwischenbemerkung")
 _COMMITTEE_PREFIX = re.compile(r"^Ausschuss (für |des |der )?")
+_UMLAUT = str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "Ä": "Ae", "Ö": "Oe", "Ü": "Ue", "ß": "ss"})
+_SLUG_STRIP = re.compile(r"[^a-z0-9]+")
 # speech.fraction is NULL for ministers; person.party fills the gap (as in the landscape)
 PARTY_TO_FRACTION = {"CDU": "CDU/CSU", "CSU": "CDU/CSU", "DIE LINKE.": "Die Linke"}
 NO_FRACTION = "fraktionslos"
@@ -39,6 +42,14 @@ def display_name(p: sqlite3.Row) -> str:
 
 def committee_short(name: str) -> str:
     return _COMMITTEE_PREFIX.sub("", name)
+
+
+def slugify(name: str) -> str:
+    """A stable, readable file name for a Gremium: transliterated, lower case, words joined by "-" (bodies.py,
+    and the committee/other links on the card). Not length-capped: the 205 WP 21 committee and Gremium names are
+    unique once slugified, some Parlamentariergruppen only by their long list of countries."""
+    s = unicodedata.normalize("NFKD", name.translate(_UMLAUT)).encode("ascii", "ignore").decode("ascii")
+    return _SLUG_STRIP.sub("-", s.lower()).strip("-") or "gremium"
 
 
 # ---------------------------------------------------------------- speeches
@@ -632,9 +643,13 @@ def cards(conn: sqlite3.Connection) -> tuple[list[dict], dict]:
                 "fraction_roles": [_dated(m) for m in fraction_rows if m["role"]],
                 "fractions": [_dated(m) for m in fraction_rows],
                 "committees": [
-                    {**_dated(m), "short": committee_short(m["name"])} for m in ms if m["kind"] == "committee"
-                ],
-                "other": [_dated(m) for m in ms if m["kind"] == "other" and not OFFICE.search(m["role"] or "")],
+                    {**_dated(m), "short": committee_short(m["name"]), "slug": slugify(committee_short(m["name"]))}
+                    for m in ms if m["kind"] == "committee"
+                ],  # fmt: skip
+                "other": [
+                    {**_dated(m), "slug": slugify(m["name"])}
+                    for m in ms if m["kind"] == "other" and not OFFICE.search(m["role"] or "")
+                ],  # fmt: skip
                 "reden": sp["reden"], "kurz": sp["kurz"], "fragen": sp["fragen"], "befragung": sp["befragung"],
                 "fragestunde": sp["fragestunde"],
                 "votes": vote_rows.get(pid, []),

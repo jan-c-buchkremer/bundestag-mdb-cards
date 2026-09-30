@@ -11,7 +11,7 @@ from collections import Counter
 from pathlib import Path
 
 from cards.data import NO_FRACTION, VOTE_CHOICES, majority
-from cards.pages import FOOTER, SHORT, TOKEN, VOTE, dot, e, fraction_order, long_date, n, shell, short_date
+from cards.pages import FOOTER, SHORT, TOKEN, VOTE, dot, e, frac_link, fraction_order, long_date, n, shell, short_date
 
 PAGE = "geschlossenheit"
 # the timeline's geometry, in SVG units (the SVG scales to the width of the page)
@@ -190,7 +190,7 @@ def page(decisions: list[dict], members: dict[str, list[list]]) -> str:
         if split:
             facts.append(f"{n(split)}-mal gespalten")
         facts.append(f"{n(devs)} Abweichungen")
-        blocks.append(f'<div class="fr">{dot(f)} <b>{e(f)}</b> <span class="m">{" · ".join(facts)}</span></div>'
+        blocks.append(f'<div class="fr">{dot(f)} <b>{frac_link(f)}</b> <span class="m">{" · ".join(facts)}</span></div>'
                       + timeline(f, points, len(votes)))  # fmt: skip
     if votes:
         blocks.append(axis(votes))
@@ -201,7 +201,7 @@ def page(decisions: list[dict], members: dict[str, list[list]]) -> str:
         rows.append(
             f'<tr data-f="{e(x["fraction"])}"><td class="d">{e(short_date(d["date"]))}</td>'
             f'<td class="t"><a class="ti" href="{e(d["page"])}.html">{e(d["title"])}</a></td><td class="w">{who}</td>'
-            f'<td class="f">{dot(x["fraction"])} {e(SHORT.get(x["fraction"], x["fraction"]))}</td>'
+            f'<td class="f">{dot(x["fraction"])} {frac_link(x["fraction"])}</td>'
             f'<td class="o"><span class="vote {x["own"]}">{VOTE[x["own"]]}</span> '
             f'<span class="faint">statt {VOTE[x["line"]]}</span></td></tr>'
         )

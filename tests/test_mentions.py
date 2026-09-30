@@ -2,7 +2,7 @@ import importlib.util
 import json
 from pathlib import Path
 
-from cards import build, data, mentions, speeches
+from cards import build, data, mentions, pages, speeches
 
 HERE = Path(__file__).parent
 PAYLOAD = {
@@ -56,6 +56,7 @@ def test_month_span_includes_months_without_sittings():
 
 
 def test_pages(conn, tmp_path, monkeypatch):
+    monkeypatch.setattr(pages, "OPTIONAL_NAV", set())  # the cli drops the nav entry unless LANDSCAPE_MENTIONS is set
     monkeypatch.setattr(mentions, "MIN_SPEECHES", 2)
     cards, meta = data.cards(conn)
     decided = data.decisions(conn)
@@ -89,3 +90,8 @@ def test_no_pages_without_the_file(conn, tmp_path, monkeypatch):
     monkeypatch.delenv("LANDSCAPE_MENTIONS", raising=False)
     assert mentions.write(tmp_path, speeches.load(conn), set()) == 0
     assert not (tmp_path / "erwaehnungen").exists()
+
+
+def test_nav_entry_is_optional():
+    assert "mentions" in pages.OPTIONAL_NAV
+    assert "erwaehnungen/index.html" not in pages.site_header("", None)

@@ -14,6 +14,7 @@ from cards import (
     data,
     debate,
     mentions,
+    pages,
     photos,
     questions,
     search,
@@ -32,6 +33,8 @@ def main(argv: list[str] | None = None) -> None:
     args = p.parse_args(argv)
 
     conn = data.connect()
+    if mentions.load() is not None:
+        pages.OPTIONAL_NAV.discard("mentions")
     cards, meta = data.cards(conn)
     kinds = Counter(c["kind"] for c in cards)
     in_gov = sum(1 for c in cards if c["government"])

@@ -36,6 +36,7 @@ NAV = (
     ("data", "daten.html", "Daten"),
     ("search", "suche.html", "Suche"),
 )
+OPTIONAL_NAV: set[str] = {"mentions"}  # left out of the header unless the cli finds its input
 FOOTER = (
     "Daten: Deutscher Bundestag (Plenarprotokolle, namentliche Abstimmungen), Deutscher Bundestag/Bundesrat – DIP, "
     'gesammelt mit <a href="https://github.com/jan-c-buchkremer/bundestag-data-foundation">bundestag-data-foundation'
@@ -79,6 +80,7 @@ def site_header(root: str, active: str | None) -> str:
     links = "".join(
         f'<a href="{root}{href}"{' class="on" aria-current="page"' if key == active else ""}>{label}</a>'
         for key, href, label in NAV
+        if key not in OPTIONAL_NAV
     )
     return (
         f'<header><a class="home" href="{root}index.html">Bundestag <span>21. Wahlperiode</span></a>'

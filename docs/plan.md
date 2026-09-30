@@ -298,3 +298,181 @@ former members of earlier Wahlperioden.
 | 5 | Container, compose service in `/srv/apps/bundestag`, Pages publish, `update.sh` hook (live since 2026-09-28) | the daily timer rebuilds and publishes the cards |
 | 6 | Topics (D3 b), photos, similar members, network | — |
 | 7 | Round 2: Plenum seating chart as the index entry (with last-sitting speakers and the Regierungsbank), Wahlkreis map; vote and sitting pages, photos and government cards follow in their own branches | Plenum and map built 2026-09-28 |
+
+---
+
+## 11. Entity model (restructure, 2026-09-30)
+
+The site grew page by page, so the same fact can be reached several ways, some worse than others: a place typed
+into the index filter, picked in the Wahlkreise view or found through the Gemeinde search gives three different
+member lists; a vote is a page of its own and a list item on a bill page; a speech is drawn by `card.js`, by
+`pages.speech_row` and by the bill page, each differently. From here on the site is organised around the
+real-world entities parliament consists of, under two rules:
+
+- **one entity, one canonical URL** (every other way in is an entry point or a redirect to it), and
+- **one kind of fact, one rendering component** (`facts.py`), parameterised by the entity that filters it.
+
+Every entity page is the same template: a header, then the same facets in the same order, each filtered by the
+entity: *Mitglieder* (people with dates; for groups and places), *Reden*, *Abstimmungen und Beschlüsse*,
+*Drucksachen*, and for places an empty *Erwähnungen* slot. A facet that does not apply to an entity says why
+instead of disappearing (the Bundesregierung does not vote as a group; a committee holds no speeches).
+
+### 11.1 Entities
+
+| Entity | What it is | Source | Canonical page |
+|---|---|---|---|
+| **Person** | an MdB of WP 21, a minister or Staatssekretär, a speaker without a mandate (D9) | `person`, `mandate`, `government_role`, `speech` | `<person id>.html` |
+| **Group** | a Fraktion (`membership` kind fraction), the Bundesregierung (`government_role`), an Ausschuss or other Gremium (`membership` kind committee/other) | Stammdaten, Wikidata | `fraktionen/<token>.html`, `gremien/bundesregierung.html`, `gremien/<slug>.html` |
+| **Procedure** | a DIP Vorgang that reaches the plenum: every Gesetzgebung, and every other Vorgang (Antrag, Beschlussempfehlung, Entschließungsantrag, …) with a debate or a decision in the store | `vorgang`, `vorgang_drucksache`, `vorgang_position`, `agenda_item_vorlage`, `decision`, `decision_fraction`, `roll_call_vote`, `individual_vote` | `vorgaenge/<vorgang id>.html` |
+| **Place** | Bund ⊃ Land ⊃ Wahlkreis (the 299 Wahlkreise of the 2025 election) | `constituency`, `constituency_result`, `election_candidacy`, `mandate` | `orte/index.html`, `orte/<land slug>.html`, `orte/wahlkreis-<nr>.html` |
+| **Time** | Wahlperiode ⊃ Sitzungswoche ⊃ Sitzung ⊃ Tagesordnungspunkt (⊃ Unterpunkt) | `sitting`, `agenda_item`, `agenda_sub_item` | `sitzungen/index.html`, `woche/<YYYY-Www>.html`, `sitzungen/<wp>-<n>.html`, `…#top-<pos>`, `…#top-<pos>-<label>` |
+| **Topic** | a period theme of the Themenlandschaft | `speech_themes.json` (`LANDSCAPE_THEMES`) | `themen/<theme id>.html` (not permanent, see 11.6) |
+
+Atomic facts, each with one component in `facts.py`:
+
+| Fact | Component | Filters it is used with |
+|---|---|---|
+| Speech (Rede, kurzer Beitrag, Zwischenfrage, Befragung, Fragestunde) | `facts.speech` / `facts.speech_list` | person (card), group, place, procedure (debates), sitting (agenda items), topic |
+| Vote (how it was voted: roll call or show of hands) | `facts.vote` | procedure (timeline point), sitting, person (own vote on the card), group (fraction line), place (the place's members) |
+| Decision (what was decided, with result) | `facts.decision` (embeds `facts.vote`) | procedure, sitting, week, group, person |
+| Drucksache | `facts.drucksache` / `facts.drucksache_list` | person (authored, reported), group (Fraktion or Bundesregierung as Urheber, committee Beschlussempfehlungen), procedure, sitting (Vorlagen), place |
+
+A speech component shows a short excerpt and links the full text on `reden/<id>.html`, which stays the canonical
+full-text view (it covers every speech; the landscape only the ones on its map). A speech on the landscape's map
+also links `<YYYY-Www>.html#rede=<speech id>` for its topic context.
+
+**Agenda item ≠ Vorgang ≠ vote.** An agenda item can carry several Vorlagen of several Vorgänge; a block item has
+sub-items, each with its own Vorlagen, decisions and (with `speech.sub_item_id`) speeches; a Vorgang is debated
+under several agenda items in several sittings; a decision may concern a Drucksache that belongs to no Vorgang or to
+several. The pages link these many-to-many: an agenda item lists its Vorlagen with a link to each Vorgang, a Vorgang
+lists every agenda item (or sub-item anchor) that named one of its Drucksachen, and a decision is a point on a
+Vorgang's timeline only when it belongs to exactly one Vorgang.
+
+### 11.2 URL scheme
+
+| Entity | URL | Status |
+|---|---|---|
+| Person | `<person id>.html`, `<person id>.json`, `fotos/<person id>.jpg`; tabs as `#reden`, `#abstimmungen`, … | unchanged |
+| Fraktion | `fraktionen/<token>.html` (`cdu`, `spd`, `afd`, `gru`, `lin`, `frl`) | unchanged, extended |
+| Ausschuss, Gremium | `gremien/<slug>.html`; index `gremien/index.html` | unchanged, extended |
+| Bundesregierung | `gremien/bundesregierung.html` | new |
+| Vorgang | `vorgaenge/<vorgang id>.html`; index `vorgaenge/index.html` (glossary `#status-<slug>`, `#glossar`) | new, replaces `gesetze/` |
+| Decision on a Vorgang | `vorgaenge/<vorgang id>.html#abst-<page id>` | new |
+| Decision without exactly one Vorgang | `abstimmungen/<page id>.html` | unchanged |
+| Abstimmungen overview, Geschlossenheit | `abstimmungen/index.html`, `abstimmungen/geschlossenheit.html` | unchanged |
+| Bund | `orte/index.html` | new |
+| Land | `orte/<land slug>.html` (`bayern`, `baden-wuerttemberg`, …) | new |
+| Wahlkreis | `orte/wahlkreis-<nr>.html` (numbers of the 2025 Wahlkreiseinteilung) | new |
+| Gemeinde lookup (entry point) | `wahlkreise/suche.html` | unchanged URL, now leads to place pages |
+| Wahlperiode | `sitzungen/index.html` | unchanged, is the period level |
+| Sitzungswoche | `woche/<YYYY-Www>.html`, `woche/feed.xml` (entry ids unchanged) | unchanged |
+| Sitzung | `sitzungen/<wp>-<n>.html` | unchanged |
+| Tagesordnungspunkt, Unterpunkt | `sitzungen/<wp>-<n>.html#top-<pos>`, `#top-<pos>-<label>` | unchanged |
+| Speech | `reden/<page id>.html`, parts as `#<part id>` | unchanged |
+| Topic | `themen/index.html`, `themen/<theme id>.html` | new, only with `LANDSCAPE_THEMES`, not permanent |
+| Search | `suche.html?q=…` (entity index `suche.json`, speeches in `pagefind/`) | unchanged URL |
+
+### 11.3 Redirect table
+
+GitHub Pages is static, so a moved page leaves a stub at the old path (`redirects.py`): a meta refresh, a
+canonical link, a visible link, and a `location.replace` that carries `location.hash` over and maps old fragments
+to the new target. The live `out/` folder is never emptied, so every old page that is not rebuilt as a page must be
+rebuilt as a stub, or it would keep serving stale content.
+
+| Old URL | New URL | Fragments | How |
+|---|---|---|---|
+| `gesetze/<id>.html` | `vorgaenge/<id>.html` | kept | stub for every Gesetzgebung Vorgang |
+| `gesetze/index.html`, `#status-<slug>`, `#glossar` | `vorgaenge/index.html`, same fragment | kept | stub |
+| `abstimmungen/<page id>.html`, decision of exactly one Vorgang | `vorgaenge/<vorgang id>.html#abst-<page id>` | any old fragment → `#abst-<page id>` (vote pages had no anchors) | stub |
+| `abstimmungen/<page id>.html`, no or several Vorgänge | unchanged | – | page |
+| `woche/index.html` | `sitzungen/index.html` | kept | stub |
+| `sitzungen/<wp>-<n>.html#top-<pos>`, `#top-<pos>-<label>` (the landscape) | unchanged | ids unchanged | page |
+| `<person id>.html`, `.json`, `fotos/<id>.jpg`, `#<tab>` | unchanged | – | page |
+| `reden/<id>.html`, `#<part id>` | unchanged | – | page |
+| `woche/<week>.html`, `woche/feed.xml` | unchanged; feed entry ids stay `…/woche/<week>.html` | – | page |
+| `fraktionen/…`, `gremien/…` | unchanged | – | page |
+| `wahlkreise/suche.html` | unchanged | – | entry point |
+| `suche.html?q=…` | unchanged: `q` fills the entity search and the Reden section | – | page |
+| `index.html#ansicht=…&q=…&state=…&wk=<nr>…` | unchanged; `wk` selects the Wahlkreis on the map and offers `orte/wahlkreis-<nr>.html` | – | page |
+| `kompass.html`, `abstimmungen/geschlossenheit.html` | unchanged; links to votes go to the canonical target directly | – | page |
+
+`tests/test_e2e.py` builds the fixture store and checks that every row of this table resolves in the output, stubs
+included, with `scripts/check_links.py --anchors` over the whole site.
+
+### 11.4 Places
+
+- **Direct mandates by Wahlkreis**: the winner of `election_candidacy` (`elected_via = constituency`); without the
+  election tables, the Stammdaten mandate of type Direktwahl.
+- **List mandates by Land**: `election_candidacy.list_state`, else the Stammdaten `mandate.state` (Nachrücker have
+  no row in the Bundeswahlleiterin's file). Every list member is listed on the Land page and on *every* Wahlkreis
+  page of that Land, marked "Landesliste"; the one who stood in that Wahlkreis is marked "hat hier kandidiert".
+  A member whose Land is unknown (a Nachrücker only in the vote lists) is listed on the Bund page, so nobody drops
+  out of the regional views.
+- **Moved up or left, with dates**: from the WP 21 mandate's `from_date` (after the constituent sitting) and
+  `to_date`, as the Karrieren page.
+- **A Wahlkreis without a direct member says why**: no Zweitstimmendeckung (with the strongest party's first-vote
+  share), or the direct member left and the seat passed to the Land list.
+- The index map, the index's Wahlkreise list and the Gemeinde lookup are entry points: they link the place pages and
+  no longer render their own member lists. The index's member filter matches names, offices and committees; a Land
+  or Wahlkreis typed there offers a link to its place page.
+- Mentions of places in speeches: an empty facet slot (11.8).
+
+### 11.5 Time
+
+One hierarchy with breadcrumbs up and links down: `sitzungen/index.html` (Wahlperiode) → `woche/<week>.html` →
+`sitzungen/<wp>-<n>.html` → `#top-<pos>` → `#top-<pos>-<label>`. The week page is the week entity; it links the
+landscape's week page (`<YYYY-Www>.html`) for the topic map and no longer lists the week's clusters itself. A sitting
+page is the zoom level below the week, not a concept of its own; agenda items stay anchors on it.
+
+### 11.6 Topics
+
+The landscape's period theme is the topic entity, read from `speech_themes.json` (`LANDSCAPE_THEMES`). Week clusters
+are not entities: their ids change with every rebuild of a week. **The period theme's id is not stable either**
+(checked in `bundestag-topic-landscape/src/landscape/period.py`: `model()` numbers themes by size, and the model is
+recomputed whenever the set of speeches changes, i.e. after every new sitting week). So `themen/<theme id>.html`
+is built only when `LANDSCAPE_THEMES` is set, says on the page that its address may change, and nothing links to it
+from outside the site. **Landscape requirement:** stable theme ids across rebuilds (e.g. match each new theme to the
+previous model's theme with the largest speech overlap and keep its id, new ids only for new themes), with a
+retired-id list so the cards site can write stubs.
+
+### 11.7 Search
+
+`suche.html` resolves entities first, client-side, from `suche.json` (written by the build): persons, groups,
+places (Länder, Wahlkreise, Gemeinden → their Wahlkreis), Vorgänge, topics and sitting weeks, grouped by type,
+each linking its canonical page. Below the entities, one "Reden" section with Pagefind full-text hits in speeches,
+with the filters Fraktion, Person, Monat and Thema. `suche.html?q=…` keeps working. Pagefind now indexes only the
+speech pages; the other pages are found as entities.
+
+### 11.8 Out of scope, designed only
+
+**Place mentions in speeches.** Needs a gazetteer with disambiguation, built in the foundation (facts with
+provenance): Gemeinden and Kreise from `constituency_municipality` (AGS, Kreis, Land), Länder, and the Wahlkreis
+names. Candidates are capitalised tokens and n-grams matching a gazetteer name, skipping sentence starts. Ambiguity
+is the normal case: 30+ "Neustadt", "Halle (Saale)" vs. "Halle (Westf.)", and names that are ordinary words
+("Essen", "Weil", "Bühl"). A mention counts only when (a) the name is unique in the gazetteer and not a dictionary
+word, or (b) a qualifier in the same sentence resolves it ("in Halle an der Saale", "Neustadt an der Weinstraße",
+the Kreis or Land named nearby), or (c) it follows a locative preposition ("in", "aus", "nach") and the speaker's
+own Wahlkreis or Land contains exactly one candidate. Everything else stays unresolved and is not shown. Foundation
+table `place_mention(speech_id, paragraph, ags, surface, method, confidence, …)`; the cards site fills the empty
+*Erwähnungen* facet on place pages from it, with each mention linking the paragraph on the speech page.
+
+**Cross-period search ("what did member X say about Y").** Needs earlier Wahlperioden in the foundation
+(protocols from WP 1 are on bundestag.de), person ids across periods (the Stammdaten have them), and topics that
+span periods, which the landscape's per-period model does not give. Design: the search resolves X to a person
+entity and Y to a topic entity or free text, then runs Pagefind with the filters `Person` and `Thema` (or the text)
+and a new `Wahlperiode` filter; results grouped by Wahlperiode. Requires stable topic ids (11.6) and one Pagefind
+index per period, merged with Pagefind's multisite search.
+
+**Postcode search.** Postponed (D8). Needs PLZ → Gemeinde (AGS) from OpenPLZ in the foundation as
+`postcode_municipality(plz, ags, …)`; a PLZ can span several Gemeinden and a Gemeinde several Wahlkreise, so the
+answer is a short list of Wahlkreise, each linking its place page, never a single guess.
+
+**Foundation and landscape changes** are made there, not here. Requirements found while building this:
+
+- Landscape: stable period theme ids (11.6).
+- Foundation: the decision parser misses "Linksfraktion" (e.g. 21/47/h2 has no position for Die Linke); the pages
+  show what the store has and do not patch it.
+- Foundation: a normalised Urheber → Fraktion field on `drucksache` (today the cards match DIP's `originators`
+  titles such as "Fraktion der SPD" by name, `data.originator_group`).
+- Foundation: the Land of a Nachrücker's list (the Bundeswahlleiterin's file has no row for them; the Stammdaten
+  `mandate.state` is used, and is missing for Nachrücker not yet in the Stammdaten).

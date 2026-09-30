@@ -85,7 +85,7 @@ def conn():
         ],
     )
     c.executemany(
-        "INSERT INTO speech VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'rede')",
+        "INSERT INTO speech VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'rede',NULL)",
         [
             # Regierungsbefragung: every question and answer is its own rede
             speech("ID10", 1, "9", "Stefanie Hubig, Bundesministerin", LONG, "21/88/1", role="Bundesministerin"),

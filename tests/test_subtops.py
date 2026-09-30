@@ -3,7 +3,7 @@ from cards import build, data, subtops
 SRC = "'https://x/21088.xml', 'BT-PlPr. 21/88', '2026-09-27'"
 
 
-def add_block(conn, speech_sub_item=False):
+def add_block(conn):
     """TOP 5, a block without debate: 5a a law (two votes), 5b a petition list (one vote); one speech during it."""
     conn.execute(
         "INSERT INTO agenda_item VALUES ('21/88/5','21/88',5,'Tagesordnungspunkt 5',"
@@ -30,8 +30,6 @@ def add_block(conn, speech_sub_item=False):
         )
     conn.executemany("INSERT INTO decision_fraction VALUES (?,?,?)",
                      [("21/88/h5", "SPD", "yes"), ("21/88/h5", "AfD", "no")])  # fmt: skip
-    if speech_sub_item:
-        conn.execute("ALTER TABLE speech ADD COLUMN sub_item_id TEXT")
     conn.execute(
         "INSERT INTO speech (id, sitting_id, agenda_item_id, position, person_id, speaker_name, text, source_url, "
         "source_document_id, retrieved_at, kind) VALUES ('ID50', '21/88', '21/88/5', 50, '3', 'Clara Cohn', 'Kurz.', "
@@ -88,7 +86,7 @@ def test_speech_without_sub_item_stays_with_the_block_with_a_note(conn, tmp_path
 
 
 def test_speech_with_sub_item_goes_under_its_sub_top(conn, tmp_path):
-    add_block(conn, speech_sub_item=True)
+    add_block(conn)
     conn.execute("UPDATE speech SET sub_item_id = '21/88/5/5b' WHERE id = 'ID50'")
     i = item(conn)
     assert [sp["id"] for sp in i["sub_items"][1]["speeches"]] == ["ID50"] and not i["block_speeches"]

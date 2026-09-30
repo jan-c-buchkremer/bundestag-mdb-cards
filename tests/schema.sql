@@ -101,8 +101,10 @@ CREATE TABLE IF NOT EXISTS speech (
     fraction TEXT,
     text TEXT NOT NULL,                 -- clean text: paragraphs of kind 'text', blank-line joined
     source_url TEXT NOT NULL, source_document_id TEXT NOT NULL, retrieved_at TEXT NOT NULL,
-    kind TEXT NOT NULL DEFAULT 'rede'   -- rede | fragestunde: a Fragestunde question, answer or
+    kind TEXT NOT NULL DEFAULT 'rede',  -- rede | fragestunde: a Fragestunde question, answer or
                                         -- Nachfrage; shown, but left out of speech counts and shares
+    sub_item_id TEXT REFERENCES agenda_sub_item(id)  -- the sub-item of a block item during which the speech was
+                                        -- given (its call-up is the last one before the speech), else NULL
 );
 
 CREATE TABLE IF NOT EXISTS speech_paragraph (

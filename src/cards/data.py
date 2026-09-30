@@ -322,6 +322,61 @@ def drucksachen(conn: sqlite3.Connection) -> dict[str, dict[str, list]]:
     return out
 
 
+# DIP's Urheber titles ("Fraktion der SPD", "Fraktion BÜNDNIS 90/DIE GRÜNEN", "Bundesregierung") -> the group
+_ORIGINATOR = (("cdu/csu", "CDU/CSU"), ("spd", "SPD"), ("afd", "AfD"), ("grünen", "BÜNDNIS 90/DIE GRÜNEN"),
+               ("linke", "Die Linke"))  # fmt: skip
+GOVERNMENT_GROUP = "Bundesregierung"
+
+
+def originator_group(title: str) -> str | None:
+    """The group behind a DIP Urheber title: a fraction, the Bundesregierung, or None (a committee, the Bundesrat, a
+    person). Matched by name; a normalised field in the foundation would be better (docs/plan.md 11.8)."""
+    t = title.lower()
+    if t.startswith("bundesregierung"):
+        return GOVERNMENT_GROUP
+    if "fraktion" in t or "gruppe" in t:
+        return next((f for key, f in _ORIGINATOR if key in t), None)
+    return None
+
+
+def drucksache_facts(conn: sqlite3.Connection) -> list[dict]:
+    """Every WP 21 Drucksache as the fact components show it, oldest first: number, type, title, date, Urheber and
+    the groups behind them, the DIP and PDF links, and its Vorgang when it belongs to exactly one."""
+    if not has_table(conn, "drucksache"):
+        return []
+    vindex = vorgang_index(conn)
+    out = []
+    for r in conn.execute("SELECT * FROM drucksache WHERE wahlperiode = ? ORDER BY date, number", (WP,)):
+        originators = json.loads(r["originators"] or "[]")
+        vs = vindex.get(r["number"], set())
+        bt = (r["publisher"] or "BT") == "BT"
+        out.append({
+            "id": r["id"], "number": r["number"], "type": r["type"], "date": r["date"],
+            "title": dip_subject(r["title"]) or r["title"], "originators": originators,
+            "groups": sorted({g for g in map(originator_group, originators) if g}),
+            "url": DIP_DOC.format(r["id"]), "pdf": r["pdf_url"] or (drucksache_pdf(r["number"]) if bt else None),
+            "cite": r["source_document_id"], "vorgang": next(iter(vs)) if len(vs) == 1 else None,
+        })  # fmt: skip
+    return out
+
+
+def speech_facts(cards: list[dict]) -> list[dict]:
+    """Every speech of the cards as the speech component takes it (with its speaker), oldest first: Reden, short
+    contributions, Befragung and Fragestunde turns. Zwischenfragen stay inside the rede they interrupt."""
+    out = []
+    for c in cards:
+        who = {"person": c["id"], "name": c["name"], "photo": bool(c.get("photo"))}
+        for key, kind in (
+            ("reden", "rede"),
+            ("kurz", "kurz"),
+            ("befragung", "befragung"),
+            ("fragestunde", "fragestunde"),
+        ):
+            for s in c.get(key) or []:
+                out.append({**s, **who, "kind": kind, "fraction": s.get("fraction") or c["fraction"]})
+    return sorted(out, key=lambda s: (s["date"], s["id"]))
+
+
 # ---------------------------------------------------------------- election (Bundeswahlleiterin)
 
 ELECTION = "btw25"  # the election that formed WP 21

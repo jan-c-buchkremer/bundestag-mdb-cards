@@ -32,8 +32,9 @@ def test_write(conn, tmp_path):
     decided = data.decisions(conn)
     rcm = data.roll_call_members(conn)
     counts = bodies.write(conn, tmp_path, cards, government, decided, rcm)
-    # the fixture only has SPD, CDU/CSU and Die Linke fraction memberships, plus fraktionslos always written
-    assert counts["gremien"] > 1 and counts["fraktionen"] == 4
+    # all six fractions are written (the Gremien index links them), though the fixture has only three
+    assert counts["gremien"] > 1 and counts["fraktionen"] == 6
+    assert (tmp_path / "fraktionen" / "afd.html").exists()
 
     index = (tmp_path / "gremien" / "index.html").read_text()
     assert 'href="gesundheit.html"' in index
@@ -45,6 +46,16 @@ def test_write(conn, tmp_path):
     spd = (tmp_path / "fraktionen" / "spd.html").read_text()
     assert 'href="../1.html"' in spd  # Anna Adler is SPD
     assert "Geschlossenheit" in spd
+    for key in ("mitglieder", "reden", "abstimmungen", "drucksachen"):  # the facets of every group page
+        assert f'<section class="facet" id="{key}">' in spd
+    assert "seit 25.03.2025" in spd  # members with dates
+    assert "21/100" in spd.split('id="drucksachen"', 1)[1]  # "Fraktion SPD" is the Urheber of Drs. 21/100
+    assert 'href="../reden/ID11.html' not in spd  # a question in the Befragung is no Rede of the fraction
+
+    gov = (tmp_path / "gremien" / "bundesregierung.html").read_text()
+    assert 'href="../9.html">Stefanie Hubig</a>' in gov and "Bundesministerin der Justiz" in gov
+    assert "Beamtin" not in gov and "stimmt im Bundestag nicht ab" in gov
+    assert 'href="bundesregierung.html"' in index
 
     frl = (tmp_path / "fraktionen" / "frl.html").read_text()
     assert "fraktionslos" in frl.lower() or "Aktuell keine Mitglieder" in frl

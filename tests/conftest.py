@@ -30,8 +30,8 @@ def vote_row(n, pid, last, fraction, vote, vote_id="21/88/1"):
     return (f"{vote_id}/{n}", vote_id, pid, last, "X", fraction, vote)
 
 
-@pytest.fixture
-def conn():
+def store() -> sqlite3.Connection:
+    """The fixture store, in memory: the schema of tests/schema.sql and a few rows of every table."""
     c = sqlite3.connect(":memory:")
     c.row_factory = sqlite3.Row
     c.executescript((Path(__file__).parent / "schema.sql").read_text())
@@ -270,6 +270,11 @@ def conn():
         " NULL, NULL)"
     )
     return c
+
+
+@pytest.fixture
+def conn():
+    return store()
 
 
 @pytest.fixture

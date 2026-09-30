@@ -78,14 +78,14 @@ def conn():
     c.execute("INSERT INTO sitting VALUES ('21/88',21,88,'2026-07-08',NULL,NULL,'https://x/21088.xml',"
               "'https://x/21088.pdf','https://x/21088.xml','BT-PlPr. 21/88','2026-09-27')")  # fmt: skip
     c.executemany(
-        "INSERT INTO agenda_item VALUES (?,'21/88',?,?,?,'[]','https://x/21088.xml',?,'2026-09-27')",
+        "INSERT INTO agenda_item VALUES (?,'21/88',?,?,?,'[]','https://x/21088.xml',?,'2026-09-27',0)",
         [
             ("21/88/1", 1, "Tagesordnungspunkt 1", "Befragung der Bundesregierung", PLPR),
             ("21/88/2", 2, "Tagesordnungspunkt 2", "Beratung des Antrags der Fraktion X | Mietpreisbremse", PLPR),
         ],
     )
     c.executemany(
-        "INSERT INTO speech VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'rede')",
+        "INSERT INTO speech VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'rede',NULL)",
         [
             # Regierungsbefragung: every question and answer is its own rede
             speech("ID10", 1, "9", "Stefanie Hubig, Bundesministerin", LONG, "21/88/1", role="Bundesministerin"),
@@ -266,7 +266,8 @@ def conn():
     )  # fmt: skip
     c.execute(
         "INSERT INTO decision VALUES ('21/88/1', '21/88', '21/88/2', 1, 1, 'namentlich', 'Antrag', NULL, 'angenommen',"
-        " '21/88/1', 'Damit ist der Antrag angenommen.', 'https://x/21088.xml', 'BT-PlPr. 21/88', '2026-09-27')"
+        " '21/88/1', 'Damit ist der Antrag angenommen.', 'https://x/21088.xml', 'BT-PlPr. 21/88', '2026-09-27',"
+        " NULL, NULL)"
     )
     return c
 

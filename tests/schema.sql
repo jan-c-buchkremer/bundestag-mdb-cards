@@ -63,6 +63,29 @@ CREATE TABLE IF NOT EXISTS agenda_item (
     top_id TEXT NOT NULL,               -- XML top-id attribute, e.g. "Tagesordnungspunkt 3"
     title TEXT,
     drucksache_numbers TEXT NOT NULL,   -- JSON array of "21/7300"
+    source_url TEXT NOT NULL, source_document_id TEXT NOT NULL, retrieved_at TEXT NOT NULL,
+    no_debate INTEGER NOT NULL DEFAULT 0  -- 1: the chair says no Aussprache is provided ("keine Aussprache vorgesehen")
+);
+
+CREATE TABLE IF NOT EXISTS agenda_sub_item (
+    id TEXT PRIMARY KEY,                -- "<agenda_item_id>/<label>", e.g. "21/96/6/41b"
+    agenda_item_id TEXT NOT NULL REFERENCES agenda_item(id),
+    label TEXT NOT NULL,                -- as called up: "41b"; Zusatzpunkte "ZP8", "ZP1a"
+    position INTEGER NOT NULL,          -- order within the agenda item
+    title TEXT,                         -- this sub-item's title lines, joined with " | "
+    drucksache_numbers TEXT NOT NULL,   -- JSON array of "21/7300", this sub-item's only
+    first_paragraph INTEGER NOT NULL,   -- agenda_item_paragraph.position of the chair's call-up
+    last_paragraph INTEGER NOT NULL,    -- … of the last paragraph before the next call-up (or the item's end)
+    source_url TEXT NOT NULL, source_document_id TEXT NOT NULL, retrieved_at TEXT NOT NULL,
+    no_debate INTEGER NOT NULL DEFAULT 0  -- 1: the chair says no Aussprache is provided (for the block or this item)
+);
+
+CREATE TABLE IF NOT EXISTS agenda_item_vorlage (
+    id TEXT PRIMARY KEY,                -- "<agenda_item_id or sub_item_id>/<drucksache_number>"
+    agenda_item_id TEXT NOT NULL REFERENCES agenda_item(id),
+    sub_item_id TEXT REFERENCES agenda_sub_item(id),  -- set for the Drucksachen of a sub-item, NULL otherwise
+    drucksache_number TEXT NOT NULL,    -- "21/7300"
+    vorgang_id TEXT REFERENCES vorgang(id),  -- the only Vorgang of that Drucksache in vorgang_drucksache; else NULL
     source_url TEXT NOT NULL, source_document_id TEXT NOT NULL, retrieved_at TEXT NOT NULL
 );
 
@@ -78,8 +101,10 @@ CREATE TABLE IF NOT EXISTS speech (
     fraction TEXT,
     text TEXT NOT NULL,                 -- clean text: paragraphs of kind 'text', blank-line joined
     source_url TEXT NOT NULL, source_document_id TEXT NOT NULL, retrieved_at TEXT NOT NULL,
-    kind TEXT NOT NULL DEFAULT 'rede'   -- rede | fragestunde: a Fragestunde question, answer or
+    kind TEXT NOT NULL DEFAULT 'rede',  -- rede | fragestunde: a Fragestunde question, answer or
                                         -- Nachfrage; shown, but left out of speech counts and shares
+    sub_item_id TEXT REFERENCES agenda_sub_item(id)  -- the sub-item of a block item during which the speech was
+                                        -- given (its call-up is the last one before the speech), else NULL
 );
 
 CREATE TABLE IF NOT EXISTS speech_paragraph (
@@ -328,7 +353,9 @@ CREATE TABLE IF NOT EXISTS decision (
     result TEXT,                        -- angenommen | abgelehnt | NULL (not found)
     roll_call_vote_id TEXT REFERENCES roll_call_vote(id),
     text TEXT NOT NULL,                 -- the chair's words the decision was read from
-    source_url TEXT NOT NULL, source_document_id TEXT NOT NULL, retrieved_at TEXT NOT NULL
+    source_url TEXT NOT NULL, source_document_id TEXT NOT NULL, retrieved_at TEXT NOT NULL,
+    sub_item_id TEXT REFERENCES agenda_sub_item(id),  -- the block item the chair had called up last, else NULL
+    vorgang_id TEXT REFERENCES vorgang(id)  -- the only Vorgang of drucksache_number in vorgang_drucksache, else NULL
 );
 
 CREATE TABLE IF NOT EXISTS decision_fraction (
@@ -342,6 +369,9 @@ CREATE INDEX IF NOT EXISTS speech_person ON speech(person_id);
 CREATE INDEX IF NOT EXISTS agenda_paragraph_item ON agenda_item_paragraph(agenda_item_id);
 CREATE INDEX IF NOT EXISTS decision_sitting ON decision(sitting_id);
 CREATE INDEX IF NOT EXISTS decision_agenda_item ON decision(agenda_item_id);
+CREATE INDEX IF NOT EXISTS agenda_sub_item_item ON agenda_sub_item(agenda_item_id);
+CREATE INDEX IF NOT EXISTS vorlage_item ON agenda_item_vorlage(agenda_item_id);
+CREATE INDEX IF NOT EXISTS vorlage_drucksache ON agenda_item_vorlage(drucksache_number);
 CREATE INDEX IF NOT EXISTS speech_sitting ON speech(sitting_id);
 CREATE INDEX IF NOT EXISTS paragraph_speech ON speech_paragraph(speech_id);
 CREATE INDEX IF NOT EXISTS vote_person ON individual_vote(person_id);

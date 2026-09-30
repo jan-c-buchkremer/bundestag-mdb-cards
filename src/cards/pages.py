@@ -187,6 +187,8 @@ def agenda_href(sitting: str, position: int, root: str = "../") -> str:
 
 
 def vote_page(d: dict, members: list[list] | None) -> str:
+    from cards import subtop_pages  # imports this module
+
     rc = d["kind"] == "namentlich"
     where = [e(long_date(d["date"]))]
     if d["sitting"]:
@@ -200,6 +202,13 @@ def vote_page(d: dict, members: list[list] | None) -> str:
         href = agenda_href(d["sitting"], a["position"])
         lines.append(f'<div><span class="k">Tagesordnung</span> <a href="{e(href)}">{e(a["label"])}</a> · '
                      f'{e(a["title"])}</div>')  # fmt: skip
+    if d.get("sub") and d["sitting"]:
+        sub = d["sub"]
+        href = subtop_pages.href(d["sitting"], d["agenda"]["position"], sub["label"])
+        lines.append(f'<div><span class="k">Unterpunkt</span> <a href="{e(href)}">{e(sub["label"])}</a> · '
+                     f'{e(sub["title"])}</div>')  # fmt: skip
+    if (d["agenda"] or {}).get("no_debate") or (d.get("sub") or {}).get("no_debate"):
+        lines.append('<div><span class="k">Aussprache</span> keine: laut Protokoll ohne Aussprache abgestimmt</div>')
     if d["drucksachen"]:
         lines.append(f'<div><span class="k">Drucksache{"n" if len(d["drucksachen"]) > 1 else ""}</span> '
                      f"{drs_links(d['drucksachen'])}</div>")  # fmt: skip
@@ -452,18 +461,24 @@ def sitting_page(s: dict, clusters: dict[str, dict] | None = None) -> str:
 
 
 def agenda_item(i: dict, s: dict, clusters: dict[str, dict] | None = None) -> str:
+    from cards import subtop_pages  # imports this module
+
+    subs = i.get("sub_items")
     parts = [f'<section class="top" id="top-{i["position"]}"><h3><span class="lbl">{e(i["label"])}</span> '
              f'{e(i["title"])}</h3>']  # fmt: skip
-    if len(i["segments"]) > 1 or (i["segments"] and i["segments"][0] != i["title"]):
+    if not subs and (len(i["segments"]) > 1 or (i["segments"] and i["segments"][0] != i["title"])):
         parts.append('<details class="full"><summary>Vollständiger Titel</summary>'
                      + "".join(f"<p>{e(x)}</p>" for x in i["segments"]) + "</details>")  # fmt: skip
-    if i["drucksachen"]:
+    if i["drucksachen"] and not subs:  # a block lists each Vorlage under its sub-TOP
         parts.append(f'<div class="drs"><span class="k">Drucksachen</span> {drs_links(i["drucksachen"], 8)}</div>')
-    if i["decisions"]:
+    parts.append(subtop_pages.no_debate_note(i))
+    if subs:
+        parts.append(subtop_pages.block(i, s))
+    if i["block_decisions"] if subs else i["decisions"]:
         rows = "".join(
             f'<a class="dec" href="../abstimmungen/{e(d["page"])}.html">{badge(d["result"])}'
             f'<span class="ti">{e(d["title"])}</span><span class="k">{kind_label(d["kind"])}</span></a>'
-            for d in i["decisions"]
+            for d in (i["block_decisions"] if subs else i["decisions"])
         )
         parts.append(f'<div class="decs"><div class="k">Beschlüsse</div>{rows}</div>')
     if i["referred"]:
@@ -475,7 +490,9 @@ def agenda_item(i: dict, s: dict, clusters: dict[str, dict] | None = None) -> st
     if i.get("fragestunde"):
         parts.append(f'<p class="explain">{n(i["fragestunde"])} Fragen, Antworten und Nachfragen in der Fragestunde. '
                      "Sie stehen auf den Karten der Beteiligten und zählen nicht als Reden.</p>")  # fmt: skip
-    if i["speeches"]:
+    if subs:
+        parts.append(subtop_pages.block_speeches(i, s))
+    elif i["speeches"]:
         parts.append(speeches_block(i, s))
     parts.append("</section>")
     return "".join(parts)

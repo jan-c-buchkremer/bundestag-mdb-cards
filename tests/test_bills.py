@@ -28,11 +28,11 @@ def add_bills(c):
     c.execute("UPDATE agenda_item SET drucksache_numbers = '[\"21/500\"]' WHERE id = '21/88/2'")
     c.execute(
         "INSERT INTO agenda_item VALUES ('21/88/4','21/88',4,'Tagesordnungspunkt 4','Sonstiges','[\"21/501\"]',"
-        "'u','d','t')"
+        "'u','d','t',0)"
     )
     c.execute(
         "INSERT INTO decision VALUES ('21/88/h1','21/88','21/88/2',1,2,'handzeichen','Gesetzentwurf','21/500',"
-        "'angenommen',NULL,'Der Gesetzentwurf ist angenommen.','u','d','t')"
+        "'angenommen',NULL,'Der Gesetzentwurf ist angenommen.','u','d','t',NULL,NULL)"
     )
     c.executemany("INSERT INTO decision_fraction VALUES ('21/88/h1',?,?)", [("SPD", "yes"), ("AfD", "no")])
     c.execute("UPDATE roll_call_vote SET vorgang_id = 'g1' WHERE id = '21/88/2'")

@@ -156,7 +156,7 @@ STYLE = """<style>
 </style>"""  # noqa: E501
 
 SCRIPT = """<script>
-(() => {
+document.addEventListener("DOMContentLoaded", () => {  // PAGE (the data script) comes after this one in the page
   const Q = PAGE.questions, MEMBERS = PAGE.members;
   const SHORT = PAGE.short, TOKEN = PAGE.token, ORDER = PAGE.order;
   const root = document.querySelector('.cps');
@@ -327,7 +327,7 @@ SCRIPT = """<script>
         : '<p class="note">Kein Mitglied mit diesem Wahlkreis gefunden.</p>';
     });
   })();
-})();
+});
 </script>"""  # noqa: E501
 
 

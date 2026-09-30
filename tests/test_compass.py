@@ -61,3 +61,11 @@ def test_page_when_curated(conn, tmp_path, monkeypatch):
     page = (tmp_path / "kompass.html").read_text()
     assert "öffentlich" in page and "curator only" not in page
     assert 'href="../kompass.html"' in (tmp_path / "abstimmungen" / "index.html").read_text()
+
+
+def test_script_waits_for_the_page_data():
+    # the inline script comes before the script that defines PAGE, so it must not read PAGE while the page is parsed
+    body = compass.SCRIPT
+    assert body.lstrip().startswith("<script>") and 'addEventListener("DOMContentLoaded"' in body
+    assert body.index('addEventListener("DOMContentLoaded"') < body.index("PAGE.questions")
+    assert body.rstrip().endswith("});\n</script>")

@@ -85,9 +85,9 @@ def missing_gap(missing: dict[str, list[dict]]) -> str:
     return (
         f"<li>Beratungen ohne Protokolltext: {n(k)} Beratungen in {n(len(missing))} Sitzungen, die das DIP im "
         "Plenarprotokoll verzeichnet, unter denen aber kein Tagesordnungspunkt im Datenbestand eine Drucksache des "
-        "Vorgangs nennt. Meist liegt es daran, dass der Bundestag das Protokoll beim Einlesen noch in der vorläufigen "
-        "Fassung ausgab, der die Debatten am späten Abend fehlen; das endgültige PDF enthält sie. Die Seiten der "
-        f"Vorgänge zeigen diese Schritte mit den Beschlüssen laut DIP.<ul>{rows}</ul></li>"
+        "Vorgangs nennt. Ein bekannter Grund: Der Bundestag gab manche Protokolle beim Einlesen noch in der "
+        "vorläufigen Fassung aus, der die Debatten am späten Abend fehlen; das endgültige PDF enthält sie. Die "
+        f"Seiten der Vorgänge zeigen diese Schritte mit den Beschlüssen laut DIP.<ul>{rows}</ul></li>"
     )
 
 

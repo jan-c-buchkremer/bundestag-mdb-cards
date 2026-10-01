@@ -304,7 +304,7 @@ def timeline(b: dict) -> list[dict]:
             sitting = missing = None
             if p["kind"] == "Plenarprotokoll" and p["chamber"] == "BT" and p["number"]:
                 sitting = (p["number"], *top.get(p["number"], (None, None)))
-                if p["number"] not in top and p["pages"]:
+                if p["number"] not in top and p["pages"] and "Beratung" in p["position"]:  # not a Mitteilung etc.
                     missing = {"sitting": p["number"], "pages": p["pages"], "pdf": protocol_pdf(p["number"], p["url"]),
                                "decisions": [x for x in p["decisions"] if isinstance(x, dict)]}  # fmt: skip
             tenor = "" if missing else "; ".join(

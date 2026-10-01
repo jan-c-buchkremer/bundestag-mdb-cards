@@ -637,6 +637,9 @@ JSON gzip-compressed, a fraction of that. To check on the real build.
   names its asker only when its Sammeldrucksache names exactly one, and the page says so. Meanwhile each row names who answered: the
   answerers of the question's ministry in its Sammeldrucksache (DIP's "Antwort" activity names the ministry) or in
   the Fragestunde (the speaker role names it), linked to their cards and to the speech with the answer (D30).
+- *The Ressort of a Frage*: on the live store (2026-10-01) the DIP steps of Schriftliche and Mündliche Fragen carry no
+  `ressort` (Kleine Anfragen do: 2,635 of 2,747), so the answerer match above finds nothing yet. Needed:
+  `vorgang_position.ressort` for the Fragen, or the ministry from the Sammeldrucksache.
 
 ### 12.6 Vorgänge whose debate is missing from the protocols
 
@@ -653,7 +656,11 @@ Drucksache, page) marked "Beschlüsse laut DIP" and kept apart from the votes pa
 that the protocol text of this debate is not in the data. `daten.html` lists these steps by sitting under "Bekannte
 Lücken", derived from the store (`procedures.missing_debates`), not a constant. The rule can also catch a debate whose
 agenda item names a different Drucksache; the note says what is known (no agenda item names one) rather than the
-cause.
+cause. Only steps whose position is a Beratung count (not a Mitteilung, a change of committee or a
+Geschäftsordnungsantrag). On the live store (2026-10-01) that gives 262 Beratungen in 44 sittings, more than the 8
+truncated protocols: e.g. sitting 21/40 has no agenda item for the 2nd/3rd Beratung of the e-Akte and
+Tierarzneimittel bills that DIP places there. To check in the foundation whether those protocols are preliminary
+too, or whether the parser drops items.
 
 **Foundation requirement:** detect the preliminary marker in a protocol; re-fetch it until the final version is
 served; flag incomplete sittings in the store (e.g. `sitting.preliminary`, `sitting.final_fetched_at`); and fall back to

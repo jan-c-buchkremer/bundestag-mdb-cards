@@ -27,7 +27,7 @@ def test_description():
 
 def test_index_payload(conn, tmp_path):
     cards, meta = data.cards(conn)
-    build.write_site(cards, meta, tmp_path, [], data.government(conn), data.last_sitting(conn))
+    build.write_site(cards, meta, tmp_path, data.government(conn), data.last_sitting(conn))
     page = (tmp_path / "index.html").read_text()
     payload = json.loads(page.split("const DATA = ", 1)[1].split(";\n", 1)[0])
     assert {g["id"]: g["card"] for g in payload["government"]} == {"9": True, "Q77": False, "2": True}
@@ -38,5 +38,5 @@ def test_index_payload(conn, tmp_path):
 
 def test_index_without_round2_tables(conn_without_round2, tmp_path):
     cards, meta = data.cards(conn_without_round2)
-    build.write_site(cards, meta, tmp_path, [], data.government(conn_without_round2), None)
+    build.write_site(cards, meta, tmp_path, data.government(conn_without_round2), None)
     assert '"government":[]' in (tmp_path / "index.html").read_text()

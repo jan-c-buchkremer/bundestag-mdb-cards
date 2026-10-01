@@ -25,7 +25,7 @@ from pathlib import Path
 
 from cards import urls
 from cards.data import VOTE_CHOICES, majority
-from cards.ui import FOOTER, ORDER, SHORT, TOKEN, fraction_order, shell
+from cards.ui import FOOTER, ORDER, SHORT, SITTING_TABS, TOKEN, fraction_order, shell, subtabs
 
 HERE = Path(__file__).parent
 CANDIDATES_PATH = HERE / "compass_candidates.json"
@@ -323,9 +323,11 @@ document.addEventListener("DOMContentLoaded", () => {  // PAGE (the data script)
     wkInput.addEventListener('input', () => {
       const nr = parseInt(wkInput.value, 10);
       if (!nr) { wkOut.innerHTML = ''; return; }
-      const here = MEMBERS.filter((m) => m.wk === nr);
+      // who represents the Wahlkreis, as its place page lists them: direct and over the Land list (places.py)
+      const ids = new Set(Places.expand(PAGE.places, String(nr)));
+      const here = MEMBERS.filter((m) => ids.has(m.id));
       wkOut.innerHTML = here.length
-        ? here.map(memberResultHtml).join('')
+        ? `<p class="note">Alle, die den Wahlkreis vertreten, direkt und über die Landesliste: <a href="orte/wahlkreis-${nr}.html">Zur Seite des Wahlkreises</a></p>` + here.map(memberResultHtml).join('')
         : '<p class="note">Kein Mitglied mit diesem Wahlkreis gefunden.</p>';
     });
   })();
@@ -333,9 +335,9 @@ document.addEventListener("DOMContentLoaded", () => {  // PAGE (the data script)
 </script>"""  # noqa: E501
 
 
-def page(questions: list[dict], members: list[dict]) -> str:
+def page(questions: list[dict], members: list[dict], places: dict | None = None) -> str:
     n_roll_call = sum(1 for q in questions if q["kind"] == "namentlich")
-    body = f"""<div class="cps">
+    body = f"""{subtabs("", SITTING_TABS, "votes")}<div class="cps">
 <h1>Wer stimmt wie ich?</h1>
 <p class="lead">{len(questions)} Abstimmungen des 21. Deutschen Bundestages, aus vielen Themen, Gesetzentwürfe der Regierung genauso wie Anträge der Opposition. Beantworte jede Frage mit Ja, Nein, Enthaltung oder überspringe sie, und sieh am Ende, welcher Fraktion deine Antworten am nächsten kommen.</p>
 <div class="disclaimer">Deine Antworten bleiben in deinem Browser. Nichts wird gespeichert und nichts wird an einen Server geschickt. Schließt du die Seite, sind die Antworten weg. Die Fraktionslinie zeigt oft die Koalitionsdisziplin, nicht immer die persönliche Meinung jedes einzelnen Mitglieds. Dieser Kompass ist eine Übersicht, keine Wahlempfehlung.</div>
@@ -391,13 +393,14 @@ def page(questions: list[dict], members: list[dict]) -> str:
 </div>{SCRIPT}"""  # noqa: E501
     data = {
         "kind": "compass", "questions": questions, "members": members,
+        "places": (places or {}).get("members", {}),
         "short": SHORT, "token": TOKEN, "order": list(ORDER),
     }  # fmt: skip
     desc = (f"{len(questions)} ausgewählte Abstimmungen des 21. Deutschen Bundestages als Quiz: Ja, Nein, "
             "Enthaltung oder überspringen, und sehen, welcher Fraktion man am nächsten kommt. Läuft vollständig "
             "im Browser, ohne Speicherung.")  # fmt: skip
-    return shell(root="", kind="p-compass", active=None, title="Wer stimmt wie ich?", desc=desc,
-                 head=STYLE, body=body, data=data)  # fmt: skip
+    return shell(root="", kind="p-compass", active="sittings", title="Wer stimmt wie ich?", desc=desc,
+                 head=STYLE + '<script src="places.js"></script>', body=body, data=data)  # fmt: skip
 
 
 def questions(decisions: list[dict], members: dict[str, list[list]]) -> list[dict]:
@@ -406,9 +409,10 @@ def questions(decisions: list[dict], members: dict[str, list[list]]) -> list[dic
     return qs if len(qs) >= MIN_QUESTIONS else []
 
 
-def write(out, qs: list[dict], cards: list[dict]) -> dict[str, int]:
-    """Write kompass.html from `questions()`; nothing when that is empty."""
+def write(out, qs: list[dict], cards: list[dict], places: dict | None = None) -> dict[str, int]:
+    """Write kompass.html from `questions()`; nothing when that is empty. `places` (places.index_payload) says who
+    represents a Wahlkreis, as on its place page (D25)."""
     if not qs:
         return {}
-    (out / "kompass.html").write_text(page(qs, member_index(cards)), encoding="utf-8")
+    (out / "kompass.html").write_text(page(qs, member_index(cards), places), encoding="utf-8")
     return {"kompass": 1}

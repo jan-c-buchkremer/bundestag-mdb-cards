@@ -43,7 +43,7 @@ _ALIASES = {
     "Sportausschuss": "Ausschuss für Sport und Ehrenamt",
     "Vermittlungsausschuss": "Mitglieder des Ausschusses nach Artikel 77 Abs. 2 des Grundgesetzes (Vermittlungsausschuss)",  # noqa: E501
 }
-_LEAD = re.compile(r"^(Vorsitzende[r]?|Delegationsleiter)$")
+_LEAD = careers.CHAIR  # the Rollen section lists the same chairs
 _DEPUTY_LEAD = re.compile(r"^Stellvertretende[rs]?\s+(Vorsitzende[r]?|Delegationsleiter)$")
 _OBLEUTE = re.compile(r"^(Obfrau|Obmann)$")
 _ORDENTLICH = re.compile(r"^Ordentliches Mitglied$")

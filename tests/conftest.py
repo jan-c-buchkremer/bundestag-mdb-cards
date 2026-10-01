@@ -46,6 +46,7 @@ def store() -> sqlite3.Connection:
             person("5", "Xaver", "Xaver", "SPD"),
             person("6", "Yvonne", "Yvonne", "SPD"),
             person("7", "Zora", "Zora", "CDU"),
+            person("10", "Lena", "Lose", "GRÜNE"),  # a list mandate whose Land the Stammdaten do not name
         ],
     )
     c.executemany(
@@ -60,6 +61,7 @@ def store() -> sqlite3.Connection:
             mandate("5", 21, "Landesliste", None, None, "NW"),
             mandate("6", 21, "Landesliste", None, None, "NW"),
             mandate("7", 21, "Landesliste", None, None, "NW"),
+            mandate("10", 21, "Landesliste", None, None, None),
         ],
     )
     c.executemany(
@@ -73,6 +75,7 @@ def store() -> sqlite3.Connection:
             membership("3", 1, "fraction", "Die Linke"),
             membership("3", 2, "other", "Präsidium", "Vizepräsidentin des Deutschen Bundestages"),
             membership("3", 3, "other", "Ältestenrat"),
+            membership("10", 1, "fraction", "BÜNDNIS 90/DIE GRÜNEN"),
         ],
     )
     c.execute("INSERT INTO sitting VALUES ('21/88',21,88,'2026-07-08',NULL,NULL,'https://x/21088.xml',"

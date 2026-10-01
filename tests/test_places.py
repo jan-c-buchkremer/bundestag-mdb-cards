@@ -1,4 +1,14 @@
+import json
+import re
+import shutil
+import subprocess
+from pathlib import Path
+
+import pytest
+
 from cards import careers, data, places
+
+JS = Path(__file__).parent.parent / "src" / "cards" / "places.js"
 
 
 def site(conn, tmp_path):
@@ -54,3 +64,90 @@ def test_representation_without_election_tables(conn):
     rep = places.representation(cards, data.constituencies(conn), None)
     assert [x["card"]["id"] for x in rep["wahlkreise"][14]["direct"]] == ["1"]  # the Stammdaten's Direktwahl
     assert {x["card"]["id"] for x in rep["lists"]["BY"]} == {"2"}
+
+
+def listed(page: str) -> list[str]:
+    """The person ids a place page lists in its Mitglieder facet."""
+    members = page.split('id="mitglieder"', 1)[1].split('<section class="facet"', 1)[0]
+    return re.findall(r'<a href="\.\./([^/"]+)\.html">', members)
+
+
+def node_expand(members: dict, keys: list[str]) -> dict[str, list[str]]:
+    """places.js `expand` run in Node over the payload, as the Abgeordnete page runs it."""
+    script = (f"const P = require({json.dumps(str(JS))}); const m = {json.dumps(members)};"
+              f"const keys = {json.dumps(keys)};"
+              "console.log(JSON.stringify(Object.fromEntries(keys.map(k => [k, P.expand(m, k)]))));")  # fmt: skip
+    return json.loads(subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True).stdout)
+
+
+def test_place_filter_lists_exactly_the_place_page_members(conn, tmp_path):
+    """The Abgeordnete page's place filter (places.index_payload, expanded by places.js) and the place page list the
+    same members, for a Wahlkreis and a Land, list members included (D25)."""
+    add_places(conn)
+    page = site(conn, tmp_path)
+    cards, _ = data.cards(conn)
+    payload = places.index_payload(cards, data.constituencies(conn))["members"]
+    cases = {"242": "wahlkreis-242", "243": "wahlkreis-243", "14": "wahlkreis-14", "BY": "bayern",
+             "NW": "nordrhein-westfalen", "MV": "mecklenburg-vorpommern"}  # fmt: skip
+    for key, name in cases.items():
+        assert set(places.expand(payload, key)) == set(listed(page(name))), key
+    assert set(places.expand(payload, "243")) == {"2"}  # no direct member: the Bavarian list member only
+    assert {"5", "6", "7"} <= set(places.expand(payload, "NW"))  # list members, the one who left included
+    if shutil.which("node"):
+        js = node_expand(payload, list(cases))
+        assert {k: set(v) for k, v in js.items()} == {k: set(places.expand(payload, k)) for k in cases}
+
+
+def test_compact_expands_to_membership(conn):
+    add_places(conn)
+    cards, _ = data.cards(conn)
+    rep = places.representation(cards, data.constituencies(conn), None)
+    full, small = places.membership(rep), places.compact(rep)
+    assert {k: places.expand(small, k) for k in full} == full
+    assert small["242"] == ["@BY:liste"]  # a Wahlkreis refers to its Land's list instead of repeating it
+
+
+def test_list_member_without_land_is_on_the_bund_page_only(conn, tmp_path):
+    """Lena Lose has a list mandate but no Land in the data: listed on the Bund page, in no Land's filter."""
+    page = site(conn, tmp_path)
+    bund = page("index")
+    assert 'href="../10.html"' in bund.split("Ohne Land in den Daten", 1)[1]
+    cards, _ = data.cards(conn)
+    payload = places.index_payload(cards, data.constituencies(conn))["members"]
+    assert not any("10" in places.expand(payload, k) for k in payload)
+
+
+def test_place_pages_link_the_filtered_plenum_and_the_hub(conn, tmp_path):
+    page = site(conn, tmp_path)
+    assert 'href="../index.html#ort=242">Im Plenum zeigen</a>' in page("wahlkreis-242")
+    assert 'href="../index.html#ort=BY">Im Plenum zeigen</a>' in page("bayern")
+    assert 'href="index.html#wk=242">Auf der Karte</a>' in page("wahlkreis-242")
+    hub = page("index")
+    for part in ('id="suche"', 'id="karte"', 'id="laender"', 'href="wahlkreis-242.html"', 'href="bayern.html"',
+                 '<script src="../wkmap.js"></script>'):  # fmt: skip
+        assert part in hub, part
+    index = json.loads((tmp_path / "orte" / "orte.json").read_text())
+    assert [242, "Fürth", "BY"] in index["wahlkreise"] and ["BY", "Bayern", "bayern"] in index["lands"]
+    stub = (tmp_path / "wahlkreise" / "suche.html").read_text()
+    assert 'href="../orte/index.html#suche"' in stub
+
+
+def test_place_search_and_old_index_states_in_node(conn):
+    """places.js: the place search over orte.json, and the old view states of the Abgeordnete page that moved."""
+    if not shutil.which("node"):
+        pytest.skip("node is not installed")
+    cards, _ = data.cards(conn)
+    rep = places.representation(cards, data.constituencies(conn), None)
+    index = places.place_index(rep, [{"n": "Fürth, Stadt", "d": "Fürth", "s": "BY", "w": [242]}])
+    slugs = {code: data.land_slug(code) for code in data.STATES}
+    script = (f"const P = require({json.dumps(str(JS))}); const idx = {json.dumps(index)};"
+              f"const s = {json.dumps(slugs)};"
+              "console.log(JSON.stringify({search: ['bayern', '242', 'fürth'].map(q => P.search(idx, q)),"
+              "legacy: ['#ansicht=wahlkreise', '#ansicht=wahlkreise&wk=14', '#ansicht=wahlkreise&state=BY',"
+              "'#ansicht=plenum&q=x', ''].map(h => P.legacyTarget(h, s))}));")  # fmt: skip
+    out = json.loads(subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True).stdout)
+    bayern, nr, fuerth = out["search"]
+    assert bayern[0] == {"kind": "land", "key": "BY", "label": "Bayern", "sub": "Land", "href": "orte/bayern.html"}
+    assert nr[0]["href"] == "orte/wahlkreis-242.html" and nr[0]["key"] == "242"
+    assert [h["kind"] for h in fuerth] == ["wk", "gemeinde"] and fuerth[1]["href"] == "orte/wahlkreis-242.html"
+    assert out["legacy"] == ["orte/index.html", "orte/wahlkreis-14.html", "orte/bayern.html", None, None]

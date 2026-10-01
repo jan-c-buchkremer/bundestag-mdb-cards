@@ -139,7 +139,7 @@ REDIRECTS = [
     ("woche/2026-W28.html", "woche/2026-W28.html", ""),
     ("fraktionen/spd.html", "fraktionen/spd.html", ""),
     ("gremien/gesundheit.html", "gremien/gesundheit.html", ""),
-    ("wahlkreise/suche.html", "wahlkreise/suche.html", ""),
+    ("wahlkreise/suche.html", "orte/index.html", "suche"),  # the Gemeinde lookup is the place search
     ("suche.html", "suche.html", ""),
     ("index.html", "index.html", ""),
     ("abstimmungen/geschlossenheit.html", "abstimmungen/geschlossenheit.html", ""),

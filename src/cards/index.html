@@ -8,6 +8,12 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="cards.css">
+<script src="places.js"></script>
+<script>
+// an old view state of this page that moved to the place pages (#ansicht=wahlkreise, wk=<nr>, state=<Land>):
+// go there before anything is drawn (places.js legacyTarget, docs/plan.md 12.6)
+(function () { var t = Places.legacyTarget(location.hash, __SLUGS__); if (t) location.replace(t); })();
+</script>
 <script src="parliament.js"></script>
 <style>
 h1 { font-size: 26px; font-weight: 600; letter-spacing: -.02em; margin: 8px 0 6px; }
@@ -37,14 +43,6 @@ h1 { font-size: 26px; font-weight: 600; letter-spacing: -.02em; margin: 8px 0 6p
 .people .row a.name:hover { color: var(--accent); }
 .people .row .tags { display: flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end; }
 .tag.gov { color: var(--reg-text); background: var(--reg-soft); }
-.wk .row { grid-template-columns: 44px 1fr; scroll-margin: 90px; }
-.wk .row.sel { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
-.wk .row .nr { color: var(--faint); font-variant-numeric: tabular-nums; font-size: 12.5px; padding-top: 1px; }
-.wk .who { margin-top: 3px; display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; }
-.wk .who a { display: inline-flex; align-items: center; gap: 6px; color: var(--text); }
-.wk .who a:hover { color: var(--accent); }
-.wk .who .k { color: var(--faint); font-size: 12px; }
-
 /* Plenum */
 .toggles { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin: 2px 0 6px; font-size: 13px; }
 .toggles label { color: var(--text); cursor: pointer; }
@@ -54,127 +52,87 @@ h1 { font-size: 26px; font-weight: 600; letter-spacing: -.02em; margin: 8px 0 6p
 .chart .note { color: var(--faint); font-size: 12px; margin: 4px 2px 0; }
 .pm-tip .sub { color: var(--muted); }
 
-/* Wahlkreise with the map */
-#side { display: none; }
-body.v-wahlkreise #side { display: block; }
-.map { position: relative; overflow: hidden; touch-action: pan-y; }  /* pinch and drag go to the map, a swipe scrolls the page */
-.map.zoomed { touch-action: none; }                                     /* zoomed in, one finger pans the map */
-.map svg { display: block; width: 100%; height: auto; }
-.map.drag svg, .map.drag path { cursor: grabbing; }
-.map path { stroke: var(--card); stroke-width: .6px; vector-effect: non-scaling-stroke; stroke-linejoin: round; cursor: pointer; transition: fill-opacity .12s; }
-.map path.dim { fill-opacity: .18; }
-.map path.sel { fill-opacity: 1; }
-/* hover and selection: an accent outline on a casing of the card colour, so it reads on black CDU/CSU regions as
-   well as on light ones; hover also brightens the region, and both lift it with a soft shadow */
-.map .ov path { fill: none; pointer-events: none; stroke-linejoin: round; }
-.map .ov g { filter: drop-shadow(0 1px 2.5px rgba(0,0,0,.35)); }
-.map .ov .case { stroke: var(--card); stroke-width: 4.5px; }
-.map .ov .hover { stroke: var(--accent); stroke-width: 1.8px; fill: rgba(255,255,255,.26); }
-.map .ov .sel { stroke: var(--accent); stroke-width: 2.6px; }
-.mapzoom { position: absolute; top: 8px; right: 8px; display: flex; flex-direction: column; background: var(--card); border: 1px solid var(--line); border-radius: 9px; box-shadow: 0 2px 8px rgba(0,0,0,.08); overflow: hidden; }
-.mapzoom button { width: 32px; height: 32px; border: 0; background: transparent; color: var(--text); font-size: 18px; line-height: 1; cursor: pointer; display: grid; place-items: center; }
-.mapzoom button + button { border-top: 1px solid var(--line); }
-.mapzoom button:hover { background: var(--bg); }
-.mapzoom button:disabled { color: var(--faint); cursor: default; background: transparent; }
-.mapzoom button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-.wk .row { cursor: pointer; }
-.map .info { position: absolute; left: 0; bottom: 0; max-width: 62%; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 7px 11px; font-size: 12.5px; box-shadow: 0 3px 12px rgba(0,0,0,.08); pointer-events: none; }
-.map .info[hidden] { display: none; }
-.map .info b { font-weight: 600; }
-.map .info .k { color: var(--muted); }
-.maplegend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--muted); margin: 8px 0 2px; }
-.maplegend span { display: inline-flex; align-items: center; gap: 5px; }
-.mapcredit { color: var(--faint); font-size: 11.5px; margin: 4px 0 0; }
-.mapcredit a { color: var(--muted); }
-.strip { display: none; }
-.maploading { color: var(--faint); font-size: 13px; padding: 30px 0; }
-
-/* desktop: the map fills the left column at viewport height and stays, everything else scrolls on the right */
-body.desk.v-wahlkreise main { max-width: 1400px; display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 32px; align-items: start; padding-top: 16px; }
-body.desk.v-wahlkreise #side { grid-column: 1; grid-row: 1 / span 2; position: sticky; top: 8px; height: calc(100vh - 84px); width: min(50vw, calc((100vh - 150px) * 0.74)); display: flex; flex-direction: column; }
-body.desk.v-wahlkreise #col { grid-column: 2; padding-top: 12px; }
-body.desk.v-wahlkreise footer { grid-column: 2; }
-body.desk.v-wahlkreise #side .map { flex: 1; min-height: 0; }
-body.desk.v-wahlkreise #side .map svg { height: 100%; width: 100%; }
-/* phone: the map between the filters and the list */
-body.v-wahlkreise:not(.desk) main { display: flex; flex-direction: column; }
-body.v-wahlkreise:not(.desk) #col { display: contents; }
-body.v-wahlkreise:not(.desk) .segmented { align-self: flex-start; }
-body.v-wahlkreise:not(.desk) #side { order: 1; }
-body.v-wahlkreise:not(.desk) #count, body.v-wahlkreise:not(.desk) #list { order: 2; }
-body.v-wahlkreise:not(.desk) footer { order: 3; }
-
-body:not(.desk) .map .info { display: none; }
-body:not(.desk) .strip:not([hidden]) { display: flex; align-items: center; gap: 10px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; margin: 8px 0 4px; font-size: 13px; }
-.strip .t { flex: 1; min-width: 0; }
-.strip .k { color: var(--muted); }
-.strip a.go { white-space: nowrap; font-weight: 500; }
-body:not(.desk) #side { margin-bottom: 14px; }
+/* the place filter (D25): picked from the place index of the Orte page, the members from places.py */
+.ortpick { position: relative; flex: 0 1 230px; min-width: 0; }
+.ortpick input { width: 100%; background: var(--card); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; font-size: 13.5px; }
+.ortpick .sug { position: absolute; z-index: 5; top: calc(100% + 4px); left: 0; width: min(380px, calc(100vw - 24px)); background: var(--card); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 6px 20px rgba(0,0,0,.08); max-height: 320px; overflow-y: auto; }
+.ortpick .sug[hidden] { display: none; }
+.ortpick .sug button { display: block; width: 100%; text-align: left; background: none; border: 0; border-top: 1px solid var(--line); padding: 7px 12px; color: var(--text); cursor: pointer; font-size: 13.5px; }
+.ortpick .sug button:first-child { border-top: 0; }
+.ortpick .sug button:hover, .ortpick .sug button.hi { background: var(--bg); }
+.ortpick .sug .d { color: var(--muted); font-size: 12px; }
+.placehint button { border: 1px solid var(--accent); background: var(--card); color: var(--accent); border-radius: 999px; padding: 2px 10px; font-size: 12.5px; cursor: pointer; }
+.ortbar { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 0 0 10px; padding: 8px 12px; background: var(--accent-soft); border-radius: 10px; font-size: 13.5px; }
+.ortbar[hidden] { display: none; }
+.ortbar .x { border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 15px; padding: 0 4px; }
+.ortbar a.go { font-weight: 500; }
+.viewbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 0 0 14px; }
+.viewbar button { border: 1px solid var(--line); background: var(--card); color: var(--text); border-radius: 8px; padding: 5px 12px; font-size: 13px; cursor: pointer; }
+.viewbar button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.viewbar .faint { font-size: 12.5px; }
 </style>
 </head>
 <body>
 __HEADER__
 <main>
-  <div id="side">
-    <div class="map" id="map"><div class="maploading">Karte wird geladen …</div></div>
-    <div class="strip" id="strip" hidden></div>
-    <div class="maplegend" id="maplegend"></div>
-    <p class="mapcredit" id="mapcredit"></p>
-  </div>
-  <div id="col">
   <h1>Abgeordnete des 21. Bundestages</h1>
   <p class="lead" id="lead"></p>
-  <div class="segmented" id="views" role="tablist"><button data-v="plenum" class="on">Plenum</button><button data-v="personen">Abgeordnete</button><button data-v="wahlkreise">Wahlkreise</button></div>
   <div class="filters">
-    <input type="search" id="q" placeholder="Name, Ort oder Ausschuss …" autocomplete="off">
-    <select id="state"><option value="">alle Länder</option></select>
-    <select id="type"><option value="">Direkt- und Listenmandate</option><option value="Direktwahl">direkt gewählt</option><option value="Landesliste">über die Landesliste</option></select>
-    <select id="committee"><option value="">alle Ausschüsse</option></select>
+    <input type="search" id="q" placeholder="Name, Amt oder Ausschuss …" autocomplete="off" aria-label="Abgeordnete filtern">
+    <div class="ortpick"><input type="search" id="ortq" placeholder="Ort: Land, Wahlkreis, Gemeinde …" autocomplete="off" aria-label="Nach Ort filtern"><div class="sug" id="ortsug" hidden></div></div>
+    <select id="type" aria-label="Mandat"><option value="">Direkt- und Listenmandate</option><option value="Direktwahl">direkt gewählt</option><option value="Landesliste">über die Landesliste</option></select>
+    <select id="committee" aria-label="Ausschuss"><option value="">alle Ausschüsse</option></select>
   </div>
+  <div class="ortbar" id="ortbar" hidden></div>
   <div class="placehint" id="places" hidden></div>
   <div class="chips" id="chips"></div>
-  <div class="toggles" id="toggles"></div>
+  <div class="viewbar"><button type="button" id="aslist" aria-pressed="false">Als Liste</button><div class="toggles" id="toggles"></div></div>
   <div class="chart" id="chartbox"><div id="chart"></div><p class="note">Sitze nach Fraktionen, wie in der Sitzverteilung des Bundestages; innerhalb einer Fraktion vorn die Fraktionsspitze, dann nach Land und Name. Das ist ein Schema, nicht die echte Sitzordnung.</p></div>
   <div class="count" id="count"></div>
   <div id="list"></div>
-  </div>
-  <footer>Daten: Deutscher Bundestag (Stammdaten, Plenarprotokolle, namentliche Abstimmungen), abgeordnetenwatch.de (CC0 1.0), Wikidata (CC0 1.0, Regierungsmitglieder), Die Bundeswahlleiterin (Ergebnisse und Wahlkreiskarte, dl-de/by-2-0), gesammelt mit <a href="https://github.com/jan-c-buchkremer/bundestag-data-foundation">bundestag-data-foundation</a>. Code: <a href="https://github.com/jan-c-buchkremer/bundestag-mdb-cards">bundestag-mdb-cards</a> (MIT). Die Liste ist alphabetisch; es gibt bewusst keine Rangliste.</footer>
+  __ROLES__
+  <footer>Daten: Deutscher Bundestag (Stammdaten, Plenarprotokolle, namentliche Abstimmungen), abgeordnetenwatch.de (CC0 1.0), Wikidata (CC0 1.0, Regierungsmitglieder), Die Bundeswahlleiterin (Ergebnisse, dl-de/by-2-0), gesammelt mit <a href="https://github.com/jan-c-buchkremer/bundestag-data-foundation">bundestag-data-foundation</a>. Code: <a href="https://github.com/jan-c-buchkremer/bundestag-mdb-cards">bundestag-mdb-cards</a> (MIT). Die Liste ist alphabetisch; es gibt bewusst keine Rangliste. Worüber debattiert wird, zeigt die <a href="https://jan-c-buchkremer.github.io/bundestag-topic-landscape/">Themenlandschaft ↗</a>.</footer>
 </main>
 <script>
 'use strict';
 const DATA = __DATA__;
-const { cards: CARDS, meta: META, constituencies: WAHLKREISE, gemeinde_search: GEMEINDE_SEARCH } = DATA;
-// the place pages (places.py): Land slugs and the Wahlkreise that have a page, orte/wahlkreis-<nr>.html
-const PLACES = DATA.places || { lands: {}, wahlkreise: [] };
-const WK_PAGES = new Set(PLACES.wahlkreise);
-const landHref = s => PLACES.lands[s] ? `orte/${PLACES.lands[s]}.html` : null;
-const wkHref = nr => WK_PAGES.has(nr) ? `orte/wahlkreis-${nr}.html` : null;
+const { cards: CARDS, meta: META } = DATA;
+// places (places.py index_payload): the members of every Land and Wahlkreis, computed once in Python and expanded
+// by places.js; the names and pages to label and link the filter. Never a membership rule of this page's own (D25).
+const PLACES = DATA.places || { lands: {}, wahlkreise: {}, members: {} };
+const placeName = k => PLACES.lands[k] ? PLACES.lands[k].name : PLACES.wahlkreise[k] ? `Wahlkreis ${k}: ${PLACES.wahlkreise[k].name}` : null;
+const placeHref = k => PLACES.lands[k] ? `orte/${PLACES.lands[k].slug}.html` : PLACES.wahlkreise[k] ? `orte/wahlkreis-${k}.html` : null;
 const link = (href, text) => href ? `<a href="${esc(href)}">${text}</a>` : text;
+// the places this page knows by name, as an index in the shape of orte/orte.json (without the Gemeinden), so a
+// place typed into the name filter is found by the same search as on the Orte page
+const NAMED = {
+  lands: Object.entries(PLACES.lands).map(([code, l]) => [code, l.name, l.slug]),
+  wahlkreise: Object.entries(PLACES.wahlkreise).map(([nr, w]) => [+nr, w.name, w.land]),
+  gemeinden: [],
+};
 const GOVERNMENT = DATA.government || [];
 const LAST = DATA.last_sitting;
 const LANDSCAPE = 'https://jan-c-buchkremer.github.io/bundestag-topic-landscape/';
-const pct = x => x.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' %';
 const FRACTIONS = ['CDU/CSU', 'AfD', 'SPD', 'BÜNDNIS 90/DIE GRÜNEN', 'Die Linke', 'fraktionslos'];
 const FRACTION_COLORS = { 'CDU/CSU': '--cdu', 'SPD': '--spd', 'AfD': '--afd', 'BÜNDNIS 90/DIE GRÜNEN': '--gru', 'Die Linke': '--lin', 'fraktionslos': '--frl' };
-const PARTY_FRACTION = { CDU: 'CDU/CSU', CSU: 'CDU/CSU', SPD: 'SPD', AfD: 'AfD', 'GRÜNE': 'BÜNDNIS 90/DIE GRÜNEN', 'Die Linke': 'Die Linke' };
-const STATES = { BW: 'Baden-Württemberg', BY: 'Bayern', BE: 'Berlin', BB: 'Brandenburg', HB: 'Bremen', HH: 'Hamburg', HE: 'Hessen', MV: 'Mecklenburg-Vorpommern',
-  NI: 'Niedersachsen', NW: 'Nordrhein-Westfalen', RP: 'Rheinland-Pfalz', SL: 'Saarland', SN: 'Sachsen', ST: 'Sachsen-Anhalt', SH: 'Schleswig-Holstein', TH: 'Thüringen' };
+const STATES = Object.fromEntries(Object.entries(PLACES.lands).map(([code, l]) => [code, l.name]));
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 const color = f => FRACTION_COLORS[f] ? css(FRACTION_COLORS[f]) : css('--reg');
 const shortDate = d => `${d.slice(8, 10)}.${d.slice(5, 7)}.${d.slice(0, 4)}`;
 const norm = s => String(s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 const $ = id => document.getElementById(id);
-const mq = matchMedia('(max-width: 900px), (pointer: coarse) and (max-width: 1100px)');  // the phone layout, as in the landscape
 
 const members = CARDS.filter(c => c.kind === 'member');
 const speakers = CARDS.filter(c => c.kind === 'speaker');
 const current = members.filter(c => !c.left);
 const BY_ID = new Map(CARDS.map(c => [c.id, c]));
 const SPOKE = new Set(LAST ? LAST.speakers : []);
-$('lead').textContent = `Eine Karte für jedes der ${members.length} Mitglieder der 21. Wahlperiode (${current.length} davon heute im Bundestag) und für ${speakers.length} Rednerinnen und Redner ohne Mandat. Jede Karte zeigt Reden, namentliche Abstimmungen und Ausschüsse, jede Angabe mit Quelle. Stand: Plenarprotokolle bis ${shortDate(META.sittings.to)}, Stammdaten ${META.stammdaten.doc.split(' ').pop()}.`;
+$('lead').textContent = `Eine Karte für jedes der ${members.length} Mitglieder der 21. Wahlperiode (${current.length} davon heute im Bundestag) und für ${speakers.length} Rednerinnen und Redner ohne Mandat. Jede Karte zeigt Reden, namentliche Abstimmungen und Ausschüsse, jede Angabe mit Quelle. Unten: wer welche Rolle hat. Stand: Plenarprotokolle bis ${shortDate(META.sittings.to)}, Stammdaten ${META.stammdaten.doc.split(' ').pop()}.`;
 
-const state = { view: 'plenum', q: '', state: '', type: '', committee: '', fractions: new Set(), flags: new Set(), redner: false, wk: null };
+// view: the plenum, or the same filter as a list ("Als Liste"); ort: a Land code or a Wahlkreis number
+const state = { view: 'plenum', q: '', ort: '', type: '', committee: '', fractions: new Set(), flags: new Set(), redner: false };
+let PLACE = null;  // the members of state.ort, from PLACES.members
 const FLAGS = {
   first: ['erstmals im Bundestag', c => c.first_term],
   office: ['mit Amt', c => !!c.office],
@@ -184,30 +142,35 @@ const FLAGS = {
 };
 const PLENUM_FLAGS = new Set(['first', 'office', 'gov']);  // former members and non-members have no seat
 
-for (const s of Object.keys(STATES).sort((a, b) => STATES[a].localeCompare(STATES[b]))) $('state').insertAdjacentHTML('beforeend', `<option value="${s}">${STATES[s]}</option>`);
 for (const c of [...new Set(CARDS.flatMap(c => c.committees))].sort((a, b) => a.localeCompare(b, 'de'))) $('committee').insertAdjacentHTML('beforeend', `<option>${esc(c)}</option>`);
 
-// names, offices and committees; a place typed here leads to its place page instead (placeHints, D17)
+// names, offices and committees; a place typed here offers the place filter instead (placeHints, D25)
 function haystack(c) { return norm([c.name, c.role, c.office, c.gov, ...(c.committees || [])].join(' ')); }
 const HAY = new Map(CARDS.map(c => [c.id, haystack(c)]));
+
+function setPlace(key) {
+  state.ort = key && placeName(key) ? key : '';
+  PLACE = state.ort ? new Set(Places.expand(PLACES.members, state.ort)) : null;
+}
 
 function matches(c, skip) {
   const words = norm(state.q).split(/\s+/).filter(Boolean);
   const hay = HAY.get(c.id) ?? haystack(c);
   if (words.some(w => !hay.includes(w))) return false;
-  if (state.state && c.state !== state.state) return false;
+  if (PLACE && !PLACE.has(c.id)) return false;
   if (state.type && c.type !== state.type) return false;
   if (state.committee && !(c.committees || []).includes(state.committee)) return false;
   if (skip !== 'fraction' && state.fractions.size && !state.fractions.has(c.fraction || 'fraktionslos')) return false;
   for (const f of state.flags) {
-    if (state.view === 'plenum' && !PLENUM_FLAGS.has(f)) continue;  // kept for the Abgeordnete view
+    if (state.view === 'plenum' && !PLENUM_FLAGS.has(f)) continue;  // kept for the list
     if (skip !== f && FLAGS[f] && !FLAGS[f][1](c)) return false;
   }
-  if (!state.flags.has('left') && c.left && skip !== 'left') return false;  // former members only on request
+  // former members only on request, or when a place is picked: its page lists them too, marked
+  if (!state.flags.has('left') && !PLACE && c.left && skip !== 'left') return false;
   if (!state.flags.has('speaker') && c.kind === 'speaker' && skip !== 'speaker') return false;
   return true;
 }
-const filtering = () => !!(state.q || state.state || state.type || state.committee || state.fractions.size || [...state.flags].some(f => state.view !== 'plenum' || PLENUM_FLAGS.has(f)));
+const filtering = () => !!(state.q || PLACE || state.type || state.committee || state.fractions.size || [...state.flags].some(f => state.view !== 'plenum' || PLENUM_FLAGS.has(f)));
 
 function renderChips() {
   const plenum = state.view === 'plenum';
@@ -224,8 +187,8 @@ function renderChips() {
 
 function personRow(c) {
   const where = c.kind === 'speaker' ? esc(c.role || 'ohne Mandat')
-    : c.type === 'Direktwahl' ? link(wkHref(c.number), `Wahlkreis ${c.number} · ${esc(c.constituency)}`)
-    : c.type ? link(landHref(c.state), `Landesliste ${STATES[c.state] || c.state}`) : 'neu, noch nicht in den Stammdaten';
+    : c.type === 'Direktwahl' ? link(placeHref(String(c.number)), `Wahlkreis ${c.number} · ${esc(c.constituency)}`)
+    : c.type ? link(placeHref(c.state), `Landesliste ${STATES[c.state] || c.state}`) : 'neu, noch nicht in den Stammdaten';
   const tags = [
     c.gov && `<span class="tag gov" title="${esc(c.gov)}">Regierung</span>`,
     c.office && `<span class="tag">${esc(c.office)}</span>`,
@@ -238,19 +201,21 @@ function personRow(c) {
 }
 const byName = (a, b) => a.last.localeCompare(b.last, 'de') || a.name.localeCompare(b.name, 'de');
 
-// a Land or Wahlkreis typed into the filter or picked in the Land menu: links to its place page, where everyone
-// who represents it is listed (direct and list mandates, moved up and left), instead of filtering by place text
+// the picked place: its name, the link to its page (the place owns its views), and a way out
+function renderOrt() {
+  const bar = $('ortbar');
+  bar.hidden = !state.ort;
+  if (!state.ort) return;
+  bar.innerHTML = `<span><b>${esc(placeName(state.ort))}</b>: ${PLACE.size} ${PLACE.size === 1 ? 'Mitglied' : 'Mitglieder'}, wie auf der Seite des Ortes</span><a class="go" href="${esc(placeHref(state.ort))}">Zur Seite von ${esc(PLACES.lands[state.ort] ? PLACES.lands[state.ort].name : `Wahlkreis ${state.ort}`)} →</a><button type="button" class="x" id="ortx" aria-label="Ort entfernen" title="Ort entfernen">×</button>`;
+  $('ortx').onclick = () => { setPlace(''); $('ortq').value = ''; render(); };
+}
+
+// a Land or Wahlkreis typed into the name filter offers the place filter instead of matching text (D25)
 function placeHints() {
-  const q = norm(state.q).trim();
-  const out = [];
-  if (state.state && landHref(state.state)) out.push(`<a href="${landHref(state.state)}">${esc(STATES[state.state])}</a>`);
-  if (q.length >= 2) {
-    for (const [code, name] of Object.entries(STATES)) if (code !== state.state && norm(name).includes(q) && landHref(code)) out.push(`<a href="${landHref(code)}">${esc(name)}</a>`);
-    const wks = [...WK.values()].filter(w => wkHref(w.nr) && (String(w.nr) === q || norm(w.name).includes(q))).slice(0, 6);
-    for (const w of wks) out.push(`<a href="${wkHref(w.nr)}">Wahlkreis ${w.nr} · ${esc(w.name)}</a>`);
-  }
-  $('places').innerHTML = out.length ? `<span class="k">Orte</span>${out.slice(0, 8).join('')}<span class="faint">Wer den Ort vertritt, steht auf seiner Seite.</span>` : '';
-  $('places').hidden = !out.length;
+  const q = state.q.trim();
+  const hits = q.length >= 2 ? Places.search(NAMED, q, 6).filter(h => h.key !== state.ort) : [];
+  $('places').innerHTML = hits.length ? `<span class="k">Orte</span>${hits.map(h => `<button type="button" data-ort="${esc(h.key)}">Nach ${esc(h.label)} filtern</button>`).join('')}<span class="faint">Ein Ort filtert nach allen, die ihn vertreten, direkt und über die Landesliste.</span>` : '';
+  $('places').hidden = !hits.length;
 }
 
 function renderPeople() {
@@ -296,10 +261,12 @@ function renderPlenum() {
     highlight: f || state.redner ? hit : null,
   });
   const on = current.filter(c => matches(c) && (!state.redner || SPOKE.has(c.id)));
-  const listed = state.redner ? CARDS.filter(c => SPOKE.has(c.id) && (!f || matches({ ...c, kind: 'member' }))).sort(byName) : f ? on.sort(byName) : [];
+  const listed = state.redner ? CARDS.filter(c => SPOKE.has(c.id) && (!f || matches({ ...c, kind: 'member' }))).sort(byName)
+    : f ? CARDS.filter(c => matches(c) && (!c.left || PLACE)).sort(byName) : [];
+  const gone = PLACE ? CARDS.filter(c => c.left && matches(c)).length : 0;  // listed on the place page, no seat
   $('count').textContent = state.redner
     ? `${listed.length} Redner:innen in der Sitzung ${LAST.id} am ${shortDate(LAST.date)}${f ? ' passend zum Filter' : ''}; ${on.length} davon mit Sitz im Plenum`
-    : f ? `${on.length} von ${current.length} Sitzen passen zum Filter` : `${current.length} Sitze${GOVERNMENT.length ? `, ${GOVERNMENT.length} Mitglieder der Bundesregierung auf der Regierungsbank` : ''}. Ein Sitz öffnet die Karte.`;
+    : f ? `${on.length} von ${current.length} Sitzen passen zum Filter${gone ? `; dazu ${gone} ausgeschieden, ohne Sitz (in der Liste)` : ''}` : `${current.length} Sitze${GOVERNMENT.length ? `, ${GOVERNMENT.length} Mitglieder der Bundesregierung auf der Regierungsbank` : ''}. Ein Sitz öffnet die Karte.`;
   $('list').innerHTML = listed.length ? `<div class="rows people">${listed.map(personRow).join('')}</div>` : f || state.redner ? '<div class="rows"><div class="empty">Keine Treffer.</div></div>' : '';
 }
 
@@ -310,281 +277,84 @@ function renderToggles() {
   $('redner').onchange = e => { state.redner = e.target.checked; render(); };
 }
 
-// ------------------------------------------------------------------ Wahlkreise
+// ------------------------------------------------------------------ the place picker (places.js over orte/orte.json)
 
-const WK = new Map();  // number → {nr, name, state, direct, list, official}
-for (const w of WAHLKREISE) WK.set(w.number, { nr: w.number, name: w.name, state: w.state, direct: [], list: [], official: w });
-for (const c of members) {
-  if (!c.number) continue;
-  const w = WK.get(c.number) || WK.set(c.number, { nr: c.number, name: c.constituency, state: c.state, direct: [], list: [] }).get(c.number);
-  (c.type === 'Direktwahl' ? w.direct : w.list).push(c);
-}
-for (const w of WK.values()) w.direct.sort((a, b) => !!a.left - !!b.left);  // the sitting member first
-const WK_HAY = new Map([...WK.values()].map(w => [w.nr, norm([w.nr, w.name, STATES[w.state]].join(' '))]));
-function wkShown(w) {
-  if (state.state && w.state !== state.state) return false;
-  return norm(state.q).split(/\s+/).filter(Boolean).every(x => WK_HAY.get(w.nr).includes(x));
-}
-const seatFraction = w => w.official ? (w.official.seat_party ? PARTY_FRACTION[w.official.seat_party] || 'fraktionslos' : null)
-  : w.direct[0] ? w.direct[0].fraction || 'fraktionslos' : null;
-const NO_SEAT = '#d4d4cf';
-
-function renderWahlkreise() {
-  const shown = [...WK.values()].sort((a, b) => a.nr - b.nr).filter(wkShown);
-  $('count').textContent = `${shown.length} von ${WK.size} Wahlkreisen`;
-  const official = WAHLKREISE.length > 0;
-  $('list').innerHTML = `<p class="explain">Jeder Wahlkreis führt zu seiner Seite: wer ihn direkt gewonnen hat, und alle, die über die Landesliste des Landes im Bundestag sitzen, auch Nachgerückte und Ausgeschiedene. Seit der Wahlrechtsreform 2023 erhält ein Wahlkreissieger nur einen Sitz, wenn die Zweitstimmen seiner Partei im Land dafür reichen (Zweitstimmendeckung)${official ? `; ${WAHLKREISE.filter(w => !w.seat_party).length} Wahlkreise haben deshalb kein direkt gewähltes Mitglied. Ergebnisse: Die Bundeswahlleiterin, Bundestagswahl 2025` : ''}. <a href="orte/index.html">Alle Länder →</a>${GEMEINDE_SEARCH ? ' · <a href="wahlkreise/suche.html">Wahlkreis per Gemeinde oder Stadt suchen →</a>' : ''}</p>
-    <div class="rows wk">${shown.map(w => `<div class="row${state.wk === w.nr ? ' sel' : ''}" id="wk-${w.nr}" data-nr="${w.nr}"><div class="nr">${w.nr}</div><div class="t">${link(wkHref(w.nr), esc(w.name))} <span class="faint">· ${link(landHref(w.state), STATES[w.state] || w.state)}${w.official?.turnout ? ` · Wahlbeteiligung ${pct(w.official.turnout)}` : ''}</span></div></div>`).join('') || '<div class="empty">Keine Treffer.</div>'}</div>`;
-  styleMap();
-}
-
-let MAP = null;       // {paths: Map nr → <path>}
-let mapLoading = null;
-function loadMap() {
-  if (mapLoading) return mapLoading;
-  mapLoading = fetch('wahlkreise.json').then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).then(geo => {
-    const paths = Object.entries(geo.paths).map(([nr, d]) => `<path data-nr="${nr}" d="${d}"></path>`).join('');
-    $('map').innerHTML = `<svg viewBox="${geo.viewBox}" role="img" aria-label="Karte der 299 Wahlkreise, gefärbt nach der Partei des direkt gewählten Mitglieds"><g>${paths}</g><g class="ov"><g id="ovsel"><path class="case"></path><path class="sel"></path></g><g id="ovhover"><path class="case"></path><path class="hover"></path></g></g></svg><div class="info" id="mapinfo" hidden></div>`
-      + '<div class="mapzoom"><button type="button" data-z="in" aria-label="Karte vergrößern" title="Vergrößern">+</button><button type="button" data-z="out" aria-label="Karte verkleinern" title="Verkleinern">−</button><button type="button" data-z="reset" aria-label="Ganze Karte zeigen" title="Ganze Karte">⟲</button></div>';
-    $('mapcredit').innerHTML = `Karte: ${esc(geo.attribution)}, <a href="${esc(geo.source)}">${esc(geo.licence)}</a>, vereinfacht.`;
-    const seen = new Set([...WK.values()].map(seatFraction));
-    $('maplegend').innerHTML = FRACTIONS.filter(f => seen.has(f)).map(f => `<span><i class="dot" style="background:${color(f)}"></i>${esc(f === 'BÜNDNIS 90/DIE GRÜNEN' ? 'Grüne' : f)}</span>`).join('')
-      + (seen.has(null) ? `<span><i class="dot" style="background:${NO_SEAT}"></i>kein Direktmandat (Zweitstimmendeckung)</span>` : '');
-    MAP = { paths: new Map([...$('map').querySelectorAll('path')].map(p => [+p.dataset.nr, p])) };
-    for (const [nr, p] of MAP.paths) {
-      const w = WK.get(nr);
-      const f = w ? seatFraction(w) : null;
-      p.setAttribute('fill', f ? color(f) : NO_SEAT);
-    }
-    wireMap();
-    ZOOM = mapZoom($('map').querySelector('svg'), geo.viewBox);
-    styleMap();
-    if (state.wk != null) ZOOM.to(state.wk, false);
-  }).catch(() => { $('map').innerHTML = '<div class="maploading">Die Karte konnte nicht geladen werden.</div>'; });
-  return mapLoading;
-}
-
-let hoverNr = null;
-function info(nr) {
-  const w = WK.get(nr);
-  if (!w) return '';
-  return `<b>${w.nr} · ${esc(w.name)}</b><br><span class="k">${esc(STATES[w.state] || '')}</span>`;
-}
-function showInfo() {
-  const box = $('mapinfo');
-  if (!box) return;
-  const nr = hoverNr ?? state.wk;
-  box.hidden = nr == null;
-  if (nr != null) box.innerHTML = info(nr);
-}
-function styleMap() {
-  if (!MAP) return;
-  for (const [nr, p] of MAP.paths) {
-    const w = WK.get(nr);
-    p.classList.toggle('dim', !w || !wkShown(w));
-    p.classList.toggle('sel', state.wk === nr);
-  }
-  // outlines on top of the neighbours, as copies: moving the path itself under the pointer would swallow clicks
-  for (const [id, nr] of [['ovsel', state.wk], ['ovhover', hoverNr]]) {
-    const o = $(id), src = nr != null && MAP.paths.get(nr);
-    o.style.display = src ? '' : 'none';
-    if (src) o.querySelectorAll('path').forEach(x => x.setAttribute('d', src.getAttribute('d')));
-  }
-  showInfo();
-  const strip = $('strip');
-  const w = state.wk != null && WK.get(state.wk);
-  strip.hidden = !w;
-  if (w) {
-    strip.innerHTML = `<div class="t"><b>${w.nr} · ${esc(w.name)}</b><br><span class="k">${esc(STATES[w.state] || '')}</span></div>${wkHref(w.nr) ? `<a class="go" href="${wkHref(w.nr)}">Wer den Wahlkreis vertritt →</a>` : ''}`;
-  }
-}
-function select(nr, scroll, zoom) {
-  state.wk = state.wk === nr ? null : nr;
-  if (zoom && state.wk != null && ZOOM) ZOOM.to(state.wk, true);
-  document.querySelectorAll('.wk .row.sel').forEach(r => r.classList.remove('sel'));
-  const row = state.wk != null && $(`wk-${state.wk}`);
-  if (row) { row.classList.add('sel'); if (scroll) row.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
-  styleMap();
-  writeHash();
-}
-function wireMap() {
-  const svg = $('map').querySelector('svg');
-  const nrOf = e => e.target.closest && e.target.closest('path') ? +e.target.closest('path').dataset.nr : null;
-  svg.addEventListener('pointerover', e => { if (e.pointerType === 'mouse') { hoverNr = nrOf(e); styleMap(); } });
-  svg.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') { hoverNr = null; styleMap(); } });
-  svg.addEventListener('click', e => { const nr = nrOf(e); if (nr != null) select(nr, document.body.classList.contains('desk')); });
-  $('list').addEventListener('pointerover', e => {
-    if (e.pointerType !== 'mouse' || state.view !== 'wahlkreise') return;
-    const row = e.target.closest('.wk .row');
-    const nr = row ? +row.dataset.nr : null;
-    if (nr !== hoverNr) { hoverNr = nr; styleMap(); }
-  });
-  $('list').addEventListener('pointerleave', () => { if (hoverNr != null) { hoverNr = null; styleMap(); } });
-  // a Wahlkreis picked in the list: select it and zoom the map to it (links in the row still open the cards)
-  $('list').addEventListener('click', e => {
-    if (state.view !== 'wahlkreise' || e.target.closest('a')) return;
-    const row = e.target.closest('.wk .row');
-    if (row) select(+row.dataset.nr, false, true);
+let ORTE = null, ortLoading = null, ortItems = [], ortHi = -1;
+const loadOrte = () => ortLoading ??= fetch('orte/orte.json').then(r => r.ok ? r.json() : NAMED).catch(() => NAMED).then(x => { ORTE = x; });
+function ortSuggest() {
+  const q = $('ortq').value.trim(), box = $('ortsug');
+  if (q.length < 2) { box.hidden = true; return; }
+  loadOrte().then(() => {
+    ortItems = Places.search(ORTE, q, 12);
+    ortHi = -1;
+    box.innerHTML = ortItems.map((h, i) => `<button type="button" data-i="${i}">${esc(h.label)} <span class="d">${esc(h.sub)}</span></button>`).join('') || '<button type="button" disabled>Kein Ort gefunden</button>';
+    box.hidden = false;
   });
 }
-
-// Zoom and pan by changing the viewBox (strokes do not scale): wheel, pinch, drag, the +/−/⟲ buttons, and
-// to(nr) for a Wahlkreis. The aspect ratio never changes, so the map keeps its height on the phone.
-let ZOOM = null;
-const MAX_ZOOM = 24;  // the smallest Wahlkreise (Berlin, Munich) need about this much to fill the map
-function mapZoom(svg, viewBox) {
-  const box = $('map'), base = viewBox.split(/[\s,]+/).map(Number);
-  let vb = base.slice(), frame = 0;
-  const reduce = matchMedia('(prefers-reduced-motion: reduce)');
-  function clamp([x, y, w]) {
-    w = Math.min(base[2], Math.max(base[2] / MAX_ZOOM, w));
-    const h = w * base[3] / base[2];
-    return [Math.min(Math.max(x, base[0]), base[0] + base[2] - w), Math.min(Math.max(y, base[1]), base[1] + base[3] - h), w, h];
-  }
-  function apply(v) {
-    vb = clamp(v);
-    svg.setAttribute('viewBox', vb.map(t => +t.toFixed(3)).join(' '));
-    const zoomed = vb[2] < base[2] * 0.999;
-    box.classList.toggle('zoomed', zoomed);
-    buttons.out.disabled = buttons.reset.disabled = !zoomed;
-    buttons.in.disabled = vb[2] <= base[2] / MAX_ZOOM * 1.001;
-  }
-  function animate(target) {
-    cancelAnimationFrame(frame);
-    target = clamp(target);
-    if (reduce.matches) return apply(target);
-    const from = vb.slice(), t0 = performance.now();
-    const c0 = [from[0] + from[2] / 2, from[1] + from[3] / 2], c1 = [target[0] + target[2] / 2, target[1] + target[3] / 2];
-    const step = now => {
-      const t = Math.min(1, (now - t0) / 320), e = 1 - Math.pow(1 - t, 3);
-      const w = Math.exp(Math.log(from[2]) + (Math.log(target[2]) - Math.log(from[2])) * e);  // log scale: in and out feel alike
-      const h = w * base[3] / base[2];
-      apply([c0[0] + (c1[0] - c0[0]) * e - w / 2, c0[1] + (c1[1] - c0[1]) * e - h / 2, w]);
-      if (t < 1) frame = requestAnimationFrame(step);
-    };
-    frame = requestAnimationFrame(step);
-  }
-  const toUser = (cx, cy) => {
-    const m = svg.getScreenCTM();
-    return m ? new DOMPoint(cx, cy).matrixTransform(m.inverse()) : { x: vb[0] + vb[2] / 2, y: vb[1] + vb[3] / 2 };
-  };
-  const around = (f, p, v = vb) => [p.x - (p.x - v[0]) / f, p.y - (p.y - v[1]) / f, v[2] / f];
-  const centre = () => ({ x: vb[0] + vb[2] / 2, y: vb[1] + vb[3] / 2 });
-
-  const buttons = {};
-  box.querySelectorAll('.mapzoom button').forEach(b => { buttons[b.dataset.z] = b; });
-  box.querySelector('.mapzoom').addEventListener('click', e => {
-    const z = e.target.closest('button')?.dataset.z;
-    if (z === 'in') animate(around(1.8, centre()));
-    else if (z === 'out') animate(around(1 / 1.8, centre()));
-    else if (z === 'reset') animate(base);
-  });
-
-  svg.addEventListener('wheel', e => {
+function ortPick(h) {
+  $('ortsug').hidden = true;
+  $('ortq').value = '';
+  setPlace(h.key);
+  render();
+}
+$('ortq').addEventListener('focus', loadOrte);
+$('ortq').addEventListener('input', ortSuggest);
+$('ortq').addEventListener('keydown', e => {
+  const box = $('ortsug');
+  if (box.hidden || !ortItems.length) return;
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
     e.preventDefault();
-    cancelAnimationFrame(frame);
-    const dy = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1);
-    apply(around(Math.exp(-dy * (e.ctrlKey ? 0.01 : 0.0022)), toUser(e.clientX, e.clientY)));  // ctrlKey: trackpad pinch
-  }, { passive: false });
-
-  // pointers: one drags (after a few pixels, so a click still selects), two pinch
-  const down = new Map();
-  let moved = false, last = null;
-  const mid = () => { const [a, b] = [...down.values()]; return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, d: Math.hypot(a.x - b.x, a.y - b.y) }; };
-  svg.addEventListener('pointerdown', e => {
-    if (e.pointerType === 'mouse' && e.button !== 0) return;
-    down.set(e.pointerId, { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY });
-    if (down.size === 1) moved = false;
-    last = down.size === 2 ? mid() : null;
-    cancelAnimationFrame(frame);
-  });
-  svg.addEventListener('pointermove', e => {
-    const p = down.get(e.pointerId);
-    if (!p) return;
-    const px = p.x, py = p.y;
-    p.x = e.clientX; p.y = e.clientY;
-    if (down.size === 2) {
-      const m = mid();
-      if (last && last.d > 0) {
-        const a = toUser(last.x, last.y), b = toUser(m.x, m.y);
-        const v = around(m.d / last.d, b, [vb[0] + (a.x - b.x), vb[1] + (a.y - b.y), vb[2]]);
-        apply(v);
-      }
-      last = m;
-      moved = true;
-      if (!svg.hasPointerCapture(e.pointerId)) svg.setPointerCapture(e.pointerId);
-      return;
-    }
-    if (!moved && Math.hypot(p.x - p.x0, p.y - p.y0) < 5) return;
-    if (!moved) { moved = true; svg.setPointerCapture(e.pointerId); box.classList.add('drag'); }
-    const a = toUser(px, py), b = toUser(p.x, p.y);
-    apply([vb[0] - (b.x - a.x), vb[1] - (b.y - a.y), vb[2]]);
-  });
-  const up = e => {
-    down.delete(e.pointerId);
-    last = down.size === 2 ? mid() : null;
-    if (!down.size) box.classList.remove('drag');
-  };
-  svg.addEventListener('pointerup', up);
-  svg.addEventListener('pointercancel', e => { up(e); moved = false; });
-  // a drag or pinch is not a click on the Wahlkreis under the pointer
-  svg.addEventListener('click', e => { if (moved) { e.stopPropagation(); e.preventDefault(); moved = false; } }, true);
-
-  apply(base);
-  return {
-    to(nr, smooth) {  // the Wahlkreis in the middle with room around it
-      const path = MAP && MAP.paths.get(nr);
-      if (!path) return;
-      const bb = path.getBBox();
-      const w = Math.max(bb.width * 2.6, bb.height * 2.6 * base[2] / base[3]);
-      const h = w * base[3] / base[2];
-      const target = [bb.x + bb.width / 2 - w / 2, bb.y + bb.height / 2 - h / 2, w];
-      smooth ? animate(target) : apply(target);
-    },
-    reset() { animate(base); },
-  };
-}
+    ortHi = Math.max(0, Math.min(ortItems.length - 1, ortHi + (e.key === 'ArrowDown' ? 1 : -1)));
+    box.querySelectorAll('button').forEach((b, i) => b.classList.toggle('hi', i === ortHi));
+  } else if (e.key === 'Enter') { e.preventDefault(); ortPick(ortItems[Math.max(0, ortHi)]); }
+  else if (e.key === 'Escape') box.hidden = true;
+});
+$('ortsug').addEventListener('click', e => { const b = e.target.closest('button[data-i]'); if (b) ortPick(ortItems[+b.dataset.i]); });
+document.addEventListener('click', e => { if (!e.target.closest('.ortpick')) $('ortsug').hidden = true; });
+$('places').addEventListener('click', e => {
+  const b = e.target.closest('button[data-ort]');
+  if (!b) return;
+  setPlace(b.dataset.ort);
+  state.q = ''; $('q').value = '';
+  render();
+});
 
 // ------------------------------------------------------------------ view and URL
 
 function writeHash() {
   const h = new URLSearchParams();
   if (state.view !== 'plenum') h.set('ansicht', state.view);
-  for (const k of ['q', 'state', 'type', 'committee']) if (state[k]) h.set(k, state[k]);
+  for (const k of ['q', 'ort', 'type', 'committee']) if (state[k]) h.set(k, state[k]);
   if (state.fractions.size) h.set('fraktion', [...state.fractions].join('|'));
   if (state.flags.size) h.set('nur', [...state.flags].join('|'));
   if (state.redner && state.view === 'plenum') h.set('redner', '1');
-  if (state.wk != null && state.view === 'wahlkreise') h.set('wk', state.wk);
   history.replaceState(null, '', h.size ? '#' + h : location.pathname);
 }
 
 function render() {
   const v = state.view;
-  document.body.classList.toggle('desk', !mq.matches);
-  for (const x of ['plenum', 'personen', 'wahlkreise']) document.body.classList.toggle('v-' + x, v === x);
-  for (const id of ['type', 'committee', 'chips']) $(id).style.display = v === 'wahlkreise' ? 'none' : '';
   $('chartbox').style.display = v === 'plenum' ? '' : 'none';
-  $('q').placeholder = v === 'wahlkreise' ? 'Wahlkreis, Nummer oder Land …' : 'Name, Ort, Ausschuss oder Amt …';
-  document.querySelectorAll('#views button').forEach(b => { b.classList.toggle('on', b.dataset.v === v); b.setAttribute('aria-selected', b.dataset.v === v); });
+  $('aslist').setAttribute('aria-pressed', v === 'personen');
+  $('aslist').textContent = v === 'personen' ? 'Als Plenum' : 'Als Liste';
   renderToggles();
+  renderOrt();
   placeHints();
-  if (v === 'plenum') { renderChips(); renderPlenum(); }
-  else if (v === 'personen') { renderChips(); renderPeople(); }
-  else { renderWahlkreise(); loadMap(); }
+  renderChips();
+  if (v === 'plenum') renderPlenum(); else renderPeople();
   writeHash();
 }
 
 const h = new URLSearchParams(location.hash.slice(1));
-state.view = ['plenum', 'personen', 'wahlkreise'].includes(h.get('ansicht')) ? h.get('ansicht') : 'plenum';
-for (const k of ['q', 'state', 'type', 'committee']) { state[k] = h.get(k) || ''; $(k).value = state[k]; }
+state.view = h.get('ansicht') === 'personen' ? 'personen' : 'plenum';
+for (const k of ['q', 'type', 'committee']) { state[k] = h.get(k) || ''; $(k).value = state[k]; }
+setPlace(h.get('ort') || h.get('state') || '');  // state=<Land>: the old Land menu, now the place filter
 (h.get('fraktion') || '').split('|').filter(Boolean).forEach(f => state.fractions.add(f));
 (h.get('nur') || '').split('|').filter(k => k in FLAGS).forEach(f => state.flags.add(f));
 state.redner = h.get('redner') === '1' && !!LAST;
-state.wk = h.get('wk') ? +h.get('wk') : null;
 
 $('q').oninput = e => { state.q = e.target.value; render(); };
-for (const k of ['state', 'type', 'committee']) $(k).onchange = e => { state[k] = e.target.value; render(); };
-$('views').onclick = e => { const b = e.target.closest('button'); if (b) { state.view = b.dataset.v; render(); } };
+for (const k of ['type', 'committee']) $(k).onchange = e => { state[k] = e.target.value; render(); };
+$('aslist').onclick = () => { state.view = state.view === 'plenum' ? 'personen' : 'plenum'; render(); };
 $('chips').onclick = e => {
   const b = e.target.closest('.chip');
   if (!b) return;
@@ -592,7 +362,6 @@ $('chips').onclick = e => {
   set.has(v) ? set.delete(v) : set.add(v);
   render();
 };
-mq.addEventListener('change', render);
 render();
 </script>
 </body>

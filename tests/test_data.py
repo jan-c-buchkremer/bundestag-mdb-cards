@@ -52,7 +52,7 @@ def test_votes_against_fraction_line(conn):
 
 def test_card_kinds(conn):
     cards, _ = by_id(conn)
-    assert set(cards) == {"1", "2", "3", "4", "5", "6", "7", "9", "Q79"}
+    assert set(cards) == {"1", "2", "3", "4", "5", "6", "7", "9", "10", "Q79"}
     dahl = cards["4"]  # votes, but no WP 21 mandate in the Stammdaten yet
     assert (dahl["kind"], dahl["in_stammdaten"], dahl["fraction"], dahl["first_vote"]) == (
         "member", False, "CDU/CSU", "2026-07-08",

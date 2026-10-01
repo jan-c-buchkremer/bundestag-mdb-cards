@@ -12,7 +12,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 from cards import facts, urls
-from cards.ui import FOOTER, LANDSCAPE, crumbs, e, long_date, n, shell, short_date
+from cards.ui import FOOTER, LANDSCAPE, SITTING_TABS, crumbs, e, long_date, n, shell, short_date, subtabs
 
 TOPICS = 5  # clusters under "Worum ging es"
 
@@ -49,7 +49,7 @@ def vote_page(d: dict, members: list[list] | None) -> str:
     parts.append(f"<footer>{FOOTER}</footer>")
     desc = (f"{'Namentliche Abstimmung' if rc else 'Abstimmung per Handzeichen'} im Bundestag am "
             f"{long_date(d['date'])}: {d['title']} – {d['result'] or 'ohne Ergebnis'}.")  # fmt: skip
-    return shell(root="../", kind="p-vote", active="votes", title=d["title"][:90], desc=desc,
+    return shell(root="../", kind="p-vote", active="sittings", title=d["title"][:90], desc=desc,
                  head='<script src="../parliament.js"></script>', body="".join(parts),
                  data={"kind": "vote", "id": d["id"]})  # fmt: skip
 
@@ -84,7 +84,7 @@ def votes_index(decisions: list[dict], meta: dict, compass: bool = False) -> str
         out.append(f'<section class="grp"><h3>{label} · {e(long_date(first["date"], True))}</h3>'
                    f'<div class="rows">{rows}</div></section>')  # fmt: skip
     first_date = min((d["date"] for d in decisions), default=meta["sittings"]["from"])
-    body = f"""<h1>Abstimmungen</h1>
+    body = f"""{subtabs("../", SITTING_TABS, "votes")}<h1>Abstimmungen</h1>
 <p class="lead">{n(len(decisions))} Beschlüsse seit {e(long_date(first_date))}: {n(kinds["namentlich"])} namentliche Abstimmungen mit der Stimme jedes Mitglieds, {n(kinds["handzeichen"])} Abstimmungen per Handzeichen, bei denen das Protokoll nur festhält, wie die Fraktionen gestimmt haben. {n(results["angenommen"])} angenommen, {n(results["abgelehnt"])} abgelehnt. Überweisungen an Ausschüsse, Wahlen und Fragen der Tagesordnung sind keine Beschlüsse in der Sache und fehlen hier. Ein Beschluss, der zu genau einem <a href="../vorgaenge/index.html">Vorgang</a> gehört, steht im Ablauf dieses Vorgangs. Wie geschlossen die Fraktionen in den namentlichen Abstimmungen gestimmt haben und wer wann abgewichen ist, zeigt die Seite <a href="geschlossenheit.html">Geschlossenheit der Fraktionen</a>.{compass_link(compass)}</p>
 <div class="filters">
   <input type="search" id="q" placeholder="Titel, Drucksache oder Tagesordnungspunkt …" autocomplete="off">
@@ -94,7 +94,7 @@ def votes_index(decisions: list[dict], meta: dict, compass: bool = False) -> str
 <div class="count" id="count"></div>
 <div id="groups">{"".join(out)}</div>
 <footer>{FOOTER}</footer>"""  # noqa: E501
-    return shell(root="../", kind="p-votes", active="votes", title="Abstimmungen im Bundestag",
+    return shell(root="../", kind="p-votes", active="sittings", title="Abstimmungen im Bundestag",
                  desc=f"Alle {len(decisions)} Beschlüsse des 21. Deutschen Bundestages, namentlich und per "
                  "Handzeichen, mit Ergebnis und Quelle.", body=body, data={"kind": "votes"})  # fmt: skip
 

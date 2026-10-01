@@ -22,24 +22,34 @@ ORDER = ("AfD", "CDU/CSU", "BÜNDNIS 90/DIE GRÜNEN", "SPD", "Die Linke", NO_FRA
 SHORT = {"BÜNDNIS 90/DIE GRÜNEN": "Grüne"}
 TOKEN = {"CDU/CSU": "cdu", "SPD": "spd", "AfD": "afd", "BÜNDNIS 90/DIE GRÜNEN": "gru", "Die Linke": "lin",
          NO_FRACTION: "frl"}  # fmt: skip
-NAV = (
-    ("cards", "index.html", "Abgeordnete"),
+# The top bar (docs/plan.md 12.1, D26): a search field at the left end, then the sections in this order. The home
+# item (Abgeordnete, the landing page) sits in the centre column of a three-column grid, so it stays centred whatever
+# the widths of the two sides; Debattenkultur is a statistics page, quieter than the research items; Daten is last.
+NAV_LEFT = (
     ("places", "orte/index.html", "Orte"),
     ("bodies", "gremien/index.html", "Gremien"),
+)
+NAV_HOME = ("cards", "index.html", "Abgeordnete")
+NAV_RIGHT = (
     ("bills", "vorgaenge/index.html", "Vorgänge"),
-    ("votes", "abstimmungen/index.html", "Abstimmungen"),
     ("sittings", "sitzungen/index.html", "Sitzungen"),
     ("questions", "regierung/index.html", "Fragen"),
     ("debate", "debatte/index.html", "Debattenkultur"),
-    ("careers", "karrieren/index.html", "Karrieren"),
     ("data", "daten.html", "Daten"),
-    ("search", "suche.html", "Suche"),
+)
+NAV = (*NAV_LEFT, NAV_HOME, *NAV_RIGHT)
+QUIET = {"debate"}  # informative statistics, not a research tool
+# the sub-tabs of Sitzungen (D27): every vote belongs to a sitting, so Abstimmungen is a view of the time hierarchy
+SITTING_TABS = (
+    ("calendar", "sitzungen/index.html", "Sitzungswochen"),
+    ("votes", "abstimmungen/index.html", "Abstimmungen"),
 )
 FOOTER = (
     "Daten: Deutscher Bundestag (Plenarprotokolle, namentliche Abstimmungen), Deutscher Bundestag/Bundesrat – DIP, "
     'gesammelt mit <a href="https://github.com/jan-c-buchkremer/bundestag-data-foundation">bundestag-data-foundation'
     "</a>. Beschlüsse per Handzeichen sind regelbasiert aus dem Text der Sitzungsleitung gelesen. Code: "
-    '<a href="https://github.com/jan-c-buchkremer/bundestag-mdb-cards">bundestag-mdb-cards</a> (MIT).'
+    '<a href="https://github.com/jan-c-buchkremer/bundestag-mdb-cards">bundestag-mdb-cards</a> (MIT). Worüber '
+    f'debattiert wird, zeigt die <a href="{LANDSCAPE}">Themenlandschaft ↗</a>.'
 )
 
 
@@ -82,16 +92,41 @@ def frac_link(f: str | None, root: str = "../") -> str:
 
 
 def site_header(root: str, active: str | None) -> str:
-    """The header of every page; `root` is the way back to the site root ("" or "../")."""
+    """The header of every page; `root` is the way back to the site root ("" or "../"). The search field submits to
+    suche.html?q=…; nav.js adds the suggestions from the entity index and the phone's search icon."""
+
+    def link(key: str, href: str, label: str, cls: str = "") -> str:
+        on = key == active
+        classes = " ".join(x for x in (cls, "quiet" if key in QUIET else "", "on" if on else "") if x)
+        return (f'<a href="{root}{href}" data-nav="{key}"{f' class="{classes}"' if classes else ""}'
+                f'{' aria-current="page"' if on else ""}>{label}</a>')  # fmt: skip
+
+    search = (
+        f'<form class="nav-q" role="search" action="{root}suche.html" data-root="{root}">'
+        '<button type="button" class="nav-qi" aria-label="Suche öffnen" aria-expanded="false">'
+        '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><circle cx="7" cy="7" r="5" fill="none" '
+        'stroke="currentColor" stroke-width="1.6"/><path d="M11 11l3.5 3.5" stroke="currentColor" stroke-width="1.6" '
+        'stroke-linecap="round"/></svg></button>'
+        '<input type="search" name="q" placeholder="Suche" autocomplete="off" '
+        'aria-label="Suche: Person, Ort, Vorgang …">'
+        '<div class="nav-sug" hidden></div></form>'
+    )
+    left = "".join(link(*x) for x in NAV_LEFT)
+    right = "".join(link(*x) for x in NAV_RIGHT)
+    return (
+        f'<header><nav class="site" aria-label="Bereiche"><div class="nav-l">{search}{left}</div>'
+        f'<div class="nav-c">{link(*NAV_HOME, cls="home")}</div><div class="nav-r">{right}</div></nav>'
+        f'<script src="{root}nav.js" defer></script></header>'
+    )
+
+
+def subtabs(root: str, tabs: tuple[tuple[str, str, str], ...], active: str) -> str:
+    """Sub-tabs of a section (Sitzungswochen | Abstimmungen), styled as the card's tabs."""
     links = "".join(
         f'<a href="{root}{href}"{' class="on" aria-current="page"' if key == active else ""}>{label}</a>'
-        for key, href, label in NAV
+        for key, href, label in tabs
     )
-    return (
-        f'<header><a class="home" href="{root}index.html">Bundestag <span>21. Wahlperiode</span></a>'
-        f'<nav class="site" aria-label="Bereiche">{links}<a class="ext" href="{LANDSCAPE}">Themenlandschaft ↗</a>'
-        "</nav></header>"
-    )
+    return f'<nav class="tabs sub" aria-label="Ansichten"><div class="tabs-in">{links}</div></nav>'
 
 
 def shell(*, root: str, kind: str, active: str, title: str, desc: str, body: str, data: object, head: str = "") -> str:

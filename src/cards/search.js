@@ -212,6 +212,9 @@ if (typeof document !== 'undefined' && document.getElementById('search')) {
   boot();
 }
 
+// the top bar's search field (nav.js) ranks its suggestions with the same resolve()
+if (typeof window !== 'undefined') window.cardsSearch = { resolve, norm };
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { esc, markSafe, formatDate, resultRow, queryString, sortValues, filterGroupHtml, norm, resolve,
     entitiesHtml };

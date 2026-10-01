@@ -10,8 +10,13 @@ the page says so.
 
 Who asked a Schriftliche or Mündliche Frage: DIP names the askers per Sammeldrucksache (`drucksache_author`,
 activity "Frage"), not per question, so a question's asker is known here only when its Sammeldrucksache names
-exactly one; otherwise the row links the Sammeldrucksache and says that DIP names the askers there (a foundation
-requirement: the asker per question from DIP's Aktivität with its Vorgangsbezug)."""
+exactly one (a foundation requirement: the asker per question from DIP's Aktivität with its Vorgangsbezug). Who
+answered is the next best thing, and it is known: a question has its ministry (`vorgang_position.ressort`), and the
+answerers name theirs, in the Sammeldrucksache's "Antwort" activities ("Daniela Ludwig, Parl. Staatssekr.,
+Bundesministerium des Innern") and, for a Mündliche Frage, in the speaker role of the government member answering
+in the Fragestunde ("Parl. Staatssekretärin beim Bundesminister des Innern"). The row names the answerers of its
+ministry there (usually one, sometimes the two Parlamentarische Staatssekretäre of a ministry), linked to their
+cards and, in the Fragestunde, to the speech page with the answer (`ministry_key`)."""
 
 from __future__ import annotations
 
@@ -217,6 +222,22 @@ def fragestunden(conn: sqlite3.Connection) -> tuple[int, int]:
 
 # ---------------------------------------------------------------- the research view: one JSON per kind
 
+_MINISTER = re.compile(r"bundesminister(?:ium|in)?\s+(.+)$")
+_MINISTRY_ALIASES = {"auswärtiges amt": "des auswärtigen"}
+
+
+def ministry_key(text: str | None) -> str | None:
+    """The ministry a DIP Ressort, an answerer's activity or a speaker role names, as one key: "Bundesministerium
+    des Innern", "…, Parl. Staatssekr., Bundesministerium des Innern" and "Parl. Staatssekretärin beim Bundesminister
+    des Innern" all give "des innern"."""
+    if not text:
+        return None
+    t = text.split(",")[-1].strip().lower()
+    m = _MINISTER.search(t)
+    key = m.group(1).strip() if m else t
+    return _MINISTRY_ALIASES.get(key, key)
+
+
 KINDS = (  # slug, tab label, what one row is
     ("kleine-anfragen", "Kleine Anfragen", "Kleine Anfrage"),
     ("schriftliche-fragen", "Schriftliche Fragen", "Schriftliche Frage"),
@@ -344,7 +365,8 @@ def research_written(conn: sqlite3.Connection, pk: Packer, ressorts: dict[str, s
     """Schriftliche (kind "Schriftliche Frage") or Mündliche Fragen ("Mündliche Frage"), one row per DIP Vorgang:
     [vorgang id, date (null: the Sammeldrucksache's), title, status (index), ministry, Sammeldrucksache (doc index)
     or null, asker (person index) or null, answer in the plenum [sitting id or null, agenda position or null, pages,
-    PDF, protocol number] or null (Mündliche Fragen)]."""
+    PDF, protocol number] or null (Mündliche Fragen), answered by [[person index, speech id or null]]]: the answerers
+    of the question's ministry in its Sammeldrucksache, or in the Fragestunde of its sitting (`ministry_key`)."""
     dtype = "Schriftliche Fragen" if kind == "Schriftliche Frage" else "Fragen"
     collected: dict[str, sqlite3.Row] = {}
     for r in conn.execute(
@@ -360,6 +382,21 @@ def research_written(conn: sqlite3.Connection, pk: Packer, ressorts: dict[str, s
         (dtype,),
     ):
         askers[r["drucksache_id"]].append((r["person_id"], r["name"]))
+    signed: dict[str, list[tuple]] = defaultdict(list)  # Sammeldrucksache -> its answerers, with their ministry
+    for r in conn.execute(
+        """SELECT a.drucksache_id, a.person_id, a.name FROM drucksache_author a JOIN drucksache d
+           ON d.id = a.drucksache_id WHERE d.type = ? AND a.activity_type = 'Antwort' ORDER BY a.rowid""",
+        (dtype,),
+    ):
+        signed[r["drucksache_id"]].append((r["person_id"], r["name"].split(",")[0], ministry_key(r["name"])))
+    spoke: dict[str, list[tuple]] = defaultdict(list)  # sitting -> the government's turns in its Fragestunde
+    for r in conn.execute(
+        """SELECT s.id, s.sitting_id, s.person_id, s.speaker_name, s.speaker_role FROM speech s
+            JOIN agenda_item a ON a.id = s.agenda_item_id WHERE a.title LIKE 'Fragestunde%'
+            AND s.speaker_role IS NOT NULL ORDER BY s.position"""
+    ):
+        spoke[r["sitting_id"]].append((r["person_id"], r["speaker_name"].split(",")[0], ministry_key(r["speaker_role"]),
+                                       r["id"]))  # fmt: skip
     plenum: dict[str, sqlite3.Row] = {}
     first: dict[str, str] = {}
     if has_table(conn, "vorgang_position"):
@@ -385,10 +422,18 @@ def research_written(conn: sqlite3.Connection, pk: Packer, ressorts: dict[str, s
             answer = [sid if sid in sittings else None, fragestunde.get(sid), p["pages"], p["pdf_url"],
                       p["document_number"]]  # fmt: skip
         date = c["date"] if c else first.get(v["id"])
+        key = ministry_key(ressorts.get(v["id"]))
+        by: dict[str, list] = {}
+        if key:
+            for pid, name, k, *speech in [*(signed.get(c["id"], []) if c else []),
+                                          *(spoke.get(answer[0], []) if answer and answer[0] else [])]:  # fmt: skip
+                if k == key:
+                    by.setdefault(pid or name, [pk.person(pid, name), speech[0] if speech else None])
         rows.append([v["id"], None if c and date == c["date"] else date, v["title"], pk.status(v["status"]),
-                     pk.ressort(ressorts.get(v["id"])), doc, asker, answer])  # fmt: skip
+                     pk.ressort(ressorts.get(v["id"])), doc, asker, answer, list(by.values())])  # fmt: skip
     slug = "schriftliche-fragen" if kind == "Schriftliche Frage" else "muendliche-fragen"
-    return pk.payload(slug, ["vorgang", "date", "title", "status", "ressort", "doc", "asker", "answer"], rows)
+    return pk.payload(slug, ["vorgang", "date", "title", "status", "ressort", "doc", "asker", "answer", "answered_by"],
+                      rows)  # fmt: skip
 
 
 def research_turns(conn: sqlite3.Connection, pk: Packer, which: str) -> dict:
@@ -626,7 +671,10 @@ def research_section(counts: dict[str, int]) -> str:
         "PDF, der Karte der Fragenden und bei mündlichen Fragen dem Protokoll. <b>Nur Titel:</b> Der Datenbestand "
         "enthält von Kleinen Anfragen und Schriftlichen Fragen nur den Titel, nicht den Wortlaut der Frage; der "
         "steht in der verlinkten Drucksache. Die Fragenden einer Schriftlichen oder Mündlichen Frage nennt DIP je "
-        "Sammeldrucksache, nicht je Frage; genannt ist hier nur, wer allein in seiner Sammeldrucksache steht.</p>"
+        "Sammeldrucksache, nicht je Frage; genannt ist hier nur, wer allein in seiner Sammeldrucksache steht. "
+        "Wer geantwortet hat, ergibt sich aus dem Ressort der Frage: genannt sind, wer für dieses Ressort in der "
+        "Sammeldrucksache oder in der Fragestunde geantwortet hat, meist eine Person, manchmal die beiden "
+        "Parlamentarischen Staatssekretäre eines Ministeriums.</p>"
         f'<div id="fragen"><div class="qtabs" role="tablist">{tabs}</div>'
         '<div class="filters"><input type="search" id="fq" placeholder="Wörter im Titel …" autocomplete="off" '
         'aria-label="Wörter im Titel"><input type="search" id="fm" placeholder="Abgeordnete …" autocomplete="off" '

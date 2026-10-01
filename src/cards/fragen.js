@@ -57,16 +57,18 @@
         };
       }
       if (k === 'schriftliche-fragen' || k === 'muendliche-fragen') {
-        const [vorgang, own, title, status, ressort, doc, asker, answer] = r;
+        const [vorgang, own, title, status, ressort, doc, asker, answer, by = []] = r;
         const date = own || (doc != null ? d.docs[doc][2] : '');
         const p = asker != null ? d.persons[asker] : null;
         return {
-          date: date || '', title, fractions: p && p[2] ? [p[2]] : [], names: p ? [p[1]] : [], ressort: d.ressorts[ressort] ?? null,
+          // the member filter finds a question by its asker and by who answered it (questions.py: by ministry)
+          date: date || '', title, fractions: p && p[2] ? [p[2]] : [], names: [...(p ? [p[1]] : []), ...by.map(([i]) => d.persons[i]?.[1] || '')], ressort: d.ressorts[ressort] ?? null,
           status: d.statuses[status] || 'ohne Stand',
           html: () => {
-            const who = p ? person(d, asker) : doc != null ? '<span class="faint">Fragesteller:in: DIP nennt die Fragenden nur je Sammeldrucksache</span>' : '';
+            const who = p ? `Gefragt von ${person(d, asker)}` : '';
+            const answered = by.length ? `Antwort${by.length > 1 ? ' von einer der Genannten' : ''}: ${by.map(([i, sp]) => person(d, i) + (sp ? ` (${a(speechHref(sp), 'Antwort im Protokoll')})` : '')).join(', ')}` : '';
             const plenum = answer ? [answer[0] ? a(sittingHref(answer[0], answer[1]), `Antwort in der Fragestunde, Plenarprotokoll ${esc(answer[4])}${answer[2] ? `, S. ${esc(answer[2])}` : ''}`) : `Plenarprotokoll ${esc(answer[4])}${answer[2] ? `, S. ${esc(answer[2])}` : ''}`, answer[3] ? a(answer[3], 'Protokoll (PDF)') : ''].filter(Boolean).join(' · ') : '';
-            return [[who, d.ressorts[ressort] ? esc(d.ressorts[ressort]) : ''].filter(Boolean).join(' · '), plenum,
+            return [[who, d.ressorts[ressort] ? esc(d.ressorts[ressort]) : '', answered].filter(Boolean).join(' · '), plenum,
               [a(DIP_VORGANG(vorgang), 'Frage im DIP'), doc != null ? docLinks(d, doc, 'Sammeldrucksache') : ''].filter(Boolean).join(' · ')];
           },
         };

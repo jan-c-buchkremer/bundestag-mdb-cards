@@ -634,7 +634,9 @@ JSON gzip-compressed, a fraction of that. To check on the real build.
 - *The asker per question*: DIP names the askers of Schriftliche and Mündliche Fragen per Sammeldrucksache
   (`drucksache_author`, activity "Frage"); the Aktivität records carry a `vorgangsbezug` to the single question, which
   the foundation drops. Needed: `drucksache_author.vorgang_id` (or a table `question_asker`). Until then a question
-  names its asker only when its Sammeldrucksache names exactly one, and the page says so.
+  names its asker only when its Sammeldrucksache names exactly one, and the page says so. Meanwhile each row names who answered: the
+  answerers of the question's ministry in its Sammeldrucksache (DIP's "Antwort" activity names the ministry) or in
+  the Fragestunde (the speaker role names it), linked to their cards and to the speech with the answer (D30).
 
 ### 12.6 Vorgänge whose debate is missing from the protocols
 

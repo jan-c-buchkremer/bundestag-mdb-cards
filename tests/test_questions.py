@@ -99,7 +99,8 @@ def add_research(c):
     Kleine Anfrage never reaches the plenum); an Antrag by Anna Adler whose Vorgang has no page either; a Schriftliche
     Frage whose Sammeldrucksache names one asker (Clara Cohn), with its ministry; a Mündliche Frage answered in the
     Fragestunde of sitting 88 (Plenarprotokoll step), whose Sammeldrucksache names two askers; the Fragestunde turns
-    (test_fragestunde)."""
+    (test_fragestunde). Who answered: in the Schriftliche Frage's Sammeldrucksache Bernd Berg for the Verkehr
+    ministry (the question's) and Eva Ebert for the Finanzen; in the Fragestunde the Justiz minister."""
     from test_fragestunde import add_fragestunde
 
     add_fragestunde(c)
@@ -132,7 +133,9 @@ def add_research(c):
          ("rn1/a", "rn1", "a", "1", "Anna Adler, MdB, SPD", "Antrag", *DIP),
          ("rs1/c", "rs1", "c", "3", "Clara Cohn, MdB, Die Linke", "Frage", *DIP),
          ("rm1/a", "rm1", "a", "1", "Anna Adler, MdB, SPD", "Frage", *DIP),
-         ("rm1/b", "rm1", "b", "2", "Bernd Berg, MdB, CDU/CSU", "Frage", *DIP)],
+         ("rm1/b", "rm1", "b", "2", "Bernd Berg, MdB, CDU/CSU", "Frage", *DIP),
+         ("rs1/b", "rs1", "b", "2", "Bernd Berg, Parl. Staatssekr., Bundesministerium für Verkehr", "Antwort", *DIP),
+         ("rs1/e", "rs1", "e", None, "Eva Ebert, Parl. Staatssekr., Bundesministerium der Finanzen", "Antwort", *DIP)],
     )  # fmt: skip
     bmdv = '[{"titel": "Bundesministerium für Verkehr", "federfuehrend": true}]'
     c.executemany(
@@ -141,8 +144,11 @@ def add_research(c):
           bmdv),
          ("rp2", "rvk", "2026-06-20", "Antwort", "Drucksache", "21/700", "Antwort", None, None, bmdv),
          ("rp3", "rvm", "2026-07-08", "Mündliche Frage", "Plenarprotokoll", "21/88", None,
-          "https://dserver.bundestag.de/btp/21/21088.pdf", "40-41", '[{"titel": "Bundesministerium der Justiz"}]')],
+          "https://dserver.bundestag.de/btp/21/21088.pdf", "40-41",
+          '[{"titel": "Bundesministerium der Justiz und für Verbraucherschutz", "federfuehrend": true}]')],
     )  # fmt: skip
+    c.execute("UPDATE speech SET speaker_role = 'Bundesministerin der Justiz und für Verbraucherschutz' "
+              "WHERE id = '21/88/3/f2'")  # fmt: skip
 
 
 def test_research_lists_each_kind_with_its_sources(conn):
@@ -165,15 +171,17 @@ def test_research_lists_each_kind_with_its_sources(conn):
     assert row[2] == "Ausbau der Ladesäulen an Autobahnen" and sf["ressorts"][row[4]] == "Bundesministerium für Verkehr"
     assert sf["persons"][row[6]] == ["3", "Clara Cohn", "Die Linke", 1]  # the only asker of its Sammeldrucksache
     assert sf["docs"][row[5]][:3] == ["21/630", "rs1", "2026-07-03"]
+    assert [sf["persons"][i][:2] + [speech] for i, speech in row[8]] == [["2", "Dr. Bernd Berg", None]]  # not Ebert
 
     mf = lists["muendliche-fragen"]
     (row,) = mf["rows"]
     assert row[6] is None  # two askers in the Sammeldrucksache: not attributed to either
     assert row[7] == ["21/88", 3, "40-41", "https://dserver.bundestag.de/btp/21/21088.pdf", "21/88"]
+    assert [mf["persons"][i][0] for i, _ in row[8]] == ["9"] and row[8][0][1] == "21/88/3/f2"  # her answer's turn
 
     fs = lists["fragestunde"]
     assert [r[0] for r in fs["rows"]] == ["21/88/3/f1", "21/88/3/f2"]
-    assert fs["rows"][1][3] == "Bundesministerin" and fs["rows"][0][3] is None  # an answer, a question
+    assert fs["rows"][1][3].startswith("Bundesministerin") and fs["rows"][0][3] is None  # an answer, a question
     assert fs["persons"][fs["rows"][0][2]][:2] == ["1", "Anna Adler"]
 
     rb = lists["regierungsbefragung"]
@@ -238,3 +246,17 @@ def test_research_json_size_on_the_full_data_shape():
     print(kb)
     assert all(served < 450 for _, served in kb.values()), kb  # GitHub Pages serves JSON gzip-compressed
     assert kb["schriftliche-fragen"][0] < 1400 and kb["kleine-anfragen"][0] < 900, kb
+
+
+def test_ministry_key_matches_ressort_activity_and_speaker_role():
+    keys = {questions.ministry_key(x) for x in (
+        "Bundesministerium des Innern", "Daniela Ludwig, Parl. Staatssekr., Bundesministerium des Innern",
+        "Parl. Staatssekretärin beim Bundesminister des Innern", "Bundesministerin des Innern")}  # fmt: skip
+    assert keys == {"des innern"}
+    assert questions.ministry_key("Bundesministerium der Finanzen") != questions.ministry_key(
+        "Parl. Staatssekretär beim Bundesminister für Verkehr"
+    )
+    assert questions.ministry_key("Auswärtiges Amt") == questions.ministry_key(
+        "Staatsministerin beim Bundesminister des Auswärtigen"
+    )
+    assert questions.ministry_key(None) is None

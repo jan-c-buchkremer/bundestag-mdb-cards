@@ -8,7 +8,7 @@ facts.py; a facet that does not apply to the group says why. Long facets show th
 
 Built from the Stammdaten's `membership` table (kind committee/other for the Gremien, kind fraction for the
 Fraktionen), joined with what the cards already know (fraction, gender, first term) and, for the Fraktionen, with
-the Karrieren page's own numbers (careers.py) so both pages agree. Federal ministries are offices a minister or
+the Rollen section's own numbers (careers.py) so both agree. Federal ministries are offices a minister or
 Staatssekretär holds, not Gremien the Bundestag itself forms, and are left out here; every card already shows them
 under "Regierungsämter". No ranking of members, every number links to its source (docs/plan.md)."""
 

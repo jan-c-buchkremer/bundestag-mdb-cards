@@ -10,7 +10,14 @@ under several agenda items or sub-items, and a decision is a point here only whe
 the links come from data.sittings (the Vorgänge of each item and sub-item) and data.decisions (the Vorgänge of each
 decision), not from assuming TOP = Vorgang or vote = Vorgang. With the foundation's `vorgang_position` the steps are
 DIP's Vorgangsablauf (Bundesrat included); without it they are made from the Drucksachen and debates in the store.
-Links go only to pages that were written."""
+Links go only to pages that were written.
+
+A Beratung that DIP records in a Plenarprotokoll of the Bundestag, but under which no agenda item in the store names
+one of the Vorgang's Drucksachen, is shown as such (docs/plan.md 12.6, D31): the step with the protocol and its
+pages, linked to the protocol PDF, DIP's decisions for it marked "laut DIP" and kept apart from the votes parsed
+from the protocol, and a plain note that the protocol text of this debate is not in the data. The usual cause is a
+protocol the Bundestag still served in its preliminary version, which lacks the late-evening debates; fetching the
+final one is a foundation requirement. `missing_debates` lists these steps by sitting for daten.html."""
 
 from __future__ import annotations
 
@@ -30,6 +37,7 @@ _UMLAUT = str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "Ä": "Ae", "Ö": "
 _SLUG = re.compile(r"[^a-z0-9]+")
 DIP_VORGANG = "https://dip.bundestag.de/vorgang/{}"
 DIP_DOC = "https://dip.bundestag.de/drucksache/x/{}"
+PROTOCOL_PDF = "https://dserver.bundestag.de/btp/{wp}/{wp}{n:03d}.pdf"  # 21/31 -> …/btp/21/21031.pdf
 # the phases of the timeline, in the order of the procedure; steps of one day are sorted by them
 PHASES = ("Eingebracht", "Beratung", "Ausschuss", "Abstimmung", "Bundesrat", "Verkündung")
 
@@ -128,6 +136,13 @@ STYLE = """<style>
   color: var(--faint); margin-right: 6px; }
 .bills ol.tl .ch { font-size: 12px; color: var(--muted); }
 .bills ol.tl .dec { margin-top: 6px; }
+.bills ol.tl > li.missing::before { background: var(--card); border: 2px dashed var(--warn); left: -8px; }
+.bills ol.tl .dip { margin: 6px 0 0; font-size: 13px; }
+.bills ol.tl .dip .k { font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase;
+  color: var(--faint); }
+.bills ol.tl .dip ul { margin: 2px 0 0; padding-left: 18px; }
+.bills ol.tl .gap { margin: 6px 0 0; padding: 6px 10px; background: var(--warn-soft); color: var(--warn);
+  border-radius: 8px; font-size: 13px; }
 .bills .deb { margin: 0 0 14px; }
 .bills .deb h3 { font-size: 14px; font-weight: 500; margin: 0 0 6px; }
 .bills dl.def dt { font-weight: 600; margin-top: 10px; }
@@ -266,12 +281,14 @@ def timeline(b: dict) -> list[dict]:
     linked to the Bundesgesetzblatt PDF) and Inkrafttreten when the store has them (`vorgang.verkuendung`/
     `inkrafttreten`, independent of `vorgang_position`).
     Each step is {date, phase, chamber, what, doc (label, url) or None, sitting (id, position, sub label) or None,
-    note, decision or None}."""
+    note, decision or None, missing or None}; `missing` marks a Beratung without its protocol text in the store:
+    {sitting, pages, pdf, decisions (DIP's)}."""
     steps = []
 
-    def step(date: str, ph: str, what: str, chamber: str = "", doc=None, sitting=None, note: str = "", dec=None):
+    def step(date: str, ph: str, what: str, chamber: str = "", doc=None, sitting=None, note: str = "", dec=None,
+             missing=None):  # fmt: skip
         steps.append({"date": date[:10], "phase": ph, "chamber": chamber, "what": what, "doc": doc,
-                      "sitting": sitting, "note": note, "decision": dec})  # fmt: skip
+                      "sitting": sitting, "note": note, "decision": dec, "missing": missing})  # fmt: skip
 
     if b["positions"] is not None:
         top = {}  # sitting -> the first agenda item (or sub-item) there that carries one of the Vorgang's Vorlagen
@@ -284,15 +301,18 @@ def timeline(b: dict) -> list[dict]:
                 prefix = "BR-" if p["chamber"] == "BR" else ""
                 pages = f", S. {p['pages']}" if p["pages"] else ""
                 doc = (f"{prefix}{label} {p['number']}{pages}", p["url"])
-            sitting = None
+            sitting = missing = None
             if p["kind"] == "Plenarprotokoll" and p["chamber"] == "BT" and p["number"]:
                 sitting = (p["number"], *top.get(p["number"], (None, None)))
-            tenor = "; ".join(
+                if p["number"] not in top and p["pages"] and "Beratung" in p["position"]:  # not a Mitteilung etc.
+                    missing = {"sitting": p["number"], "pages": p["pages"], "pdf": protocol_pdf(p["number"], p["url"]),
+                               "decisions": [x for x in p["decisions"] if isinstance(x, dict)]}  # fmt: skip
+            tenor = "" if missing else "; ".join(
                 str(x["beschlusstenor"]) + (f" ({x['dokumentnummer']})" if x.get("dokumentnummer") else "")
                 for x in p["decisions"] if isinstance(x, dict) and x.get("beschlusstenor")
             )  # fmt: skip
             step(p["date"], phase(p["position"], p["chamber"], p["kind"]), p["position"], p["chamber"] or "", doc,
-                 sitting, tenor)  # fmt: skip
+                 sitting, tenor, missing=missing)  # fmt: skip
     else:
         for d in b["docs"]:
             step(d["date"], phase(d["type"], "BR" if d["publisher"] == "BR" else None), d["type"], d["publisher"],
@@ -314,6 +334,55 @@ def timeline(b: dict) -> list[dict]:
         if i.get("datum"):
             step(i["datum"], "Verkündung", "Inkrafttreten", note=i.get("erlaeuterung") or "")
     return sorted(steps, key=lambda s: (s["date"], PHASES.index(s["phase"])))
+
+
+def protocol_pdf(number: str, url: str | None = None) -> str:
+    """The PDF of a Plenarprotokoll "21/31": DIP's link (which may point at the page) or the Bundestag's address."""
+    if url:
+        return url
+    wp, n = number.split("/")
+    return PROTOCOL_PDF.format(wp=wp, n=int(n))
+
+
+def missing_debates(procs: list[dict]) -> dict[str, list[dict]]:
+    """{sitting "21/31": [{vorgang, title, pages, what}]}: the Beratungen DIP records whose protocol text is not in
+    the store (see the module docstring), oldest sitting first."""
+    out: dict[str, list[dict]] = {}
+    for b in procs:
+        for st in b["timeline"]:
+            m = st.get("missing")
+            if m:
+                out.setdefault(m["sitting"], []).append({"vorgang": b["id"], "title": b["title"], "pages": m["pages"],
+                                                         "what": st["what"], "pdf": m["pdf"]})  # fmt: skip
+    return dict(sorted(out.items(), key=lambda kv: int(kv[0].split("/")[-1])))
+
+
+def dip_decision(x: dict) -> str:
+    """One beschlussfassung of DIP, as text: its tenor, the Drucksache and the page."""
+    parts = [e(x.get("beschlusstenor") or "Beschluss")]
+    if x.get("dokumentnummer"):
+        parts.append(f"Drucksache {e(x['dokumentnummer'])}")
+    if x.get("seite"):
+        parts.append(f"S. {e(x['seite'])}")
+    if x.get("abstimmungsart"):
+        parts.append(e(x["abstimmungsart"]))
+    return " · ".join(parts)
+
+
+def missing_step(s: dict) -> str:
+    """A Beratung without its protocol text in the store: the protocol and its pages (PDF), DIP's decisions apart
+    from the votes parsed from the protocol, and the note."""
+    m = s["missing"]
+    decs = "".join(f"<li>{dip_decision(x)}</li>" for x in m["decisions"])
+    return (
+        f' <a href="{e(m["pdf"])}">Plenarprotokoll {e(m["sitting"])}, S. {e(m["pages"])} (PDF)</a>'
+        + (f'<div class="dip"><span class="k">Beschlüsse laut DIP</span><ul>{decs}</ul></div>' if decs else "")
+        + '<p class="gap">Der Protokolltext dieser Beratung ist nicht im Datenbestand: kein Tagesordnungspunkt nennt '
+        "eine Drucksache dieses Vorgangs, deshalb fehlen hier die Reden und die aus dem Protokoll gelesenen "
+        "Abstimmungen. Sie stehen im Plenarprotokoll (PDF)"
+        + ("; die Beschlüsse oben sind die Angaben des DIP, nicht aus dem Protokoll gelesen." if decs else ".")
+        + "</p>"
+    )
 
 
 # ---------------------------------------------------------------- pages
@@ -348,7 +417,7 @@ def _how(b: dict) -> str:
             "Mitglieds.")  # fmt: skip
 
 
-def procedure_page(b: dict, have: set[str], members: dict[str, list[list]]) -> str:
+def procedure_page(b: dict, have: set[str], members: dict[str, list[list]], relation: dict[str, int]) -> str:
     """One Vorgang; `have` holds the site paths ("sitzungen/21-88.html") that exist, so every link resolves."""
 
     def sitting_href(sid: str, position: int | None, sub: str | None = None) -> str | None:
@@ -375,6 +444,11 @@ def procedure_page(b: dict, have: set[str], members: dict[str, list[list]]) -> s
             steps.append(f'<li class="BT p-Abstimmung"><span class="d">{short_date(s["date"])}</span>'
                          f'<span class="ph">{e(s["phase"])}</span>{e(s["what"])}{body}</li>')  # fmt: skip
             continue
+        if s["missing"]:
+            steps.append(f'<li class="BT p-{e(s["phase"])} missing"><span class="d">{short_date(s["date"])}</span>'
+                         f'<span class="ph">{e(s["phase"])}</span>{e(s["what"])} <span class="ch">Bundestag</span>'
+                         f"{missing_step(s)}</li>")  # fmt: skip
+            continue
         steps.append(
             f'<li class="{e(s["chamber"])} p-{e(s["phase"])}"><span class="d">{short_date(s["date"])}</span>'
             f'<span class="ph">{e(s["phase"])}</span>'
@@ -384,7 +458,8 @@ def procedure_page(b: dict, have: set[str], members: dict[str, list[list]]) -> s
             + (f" · {e(s['note'])}" if s["note"] else "")
             + "</li>"
         )
-    parts.append(facet("abstimmungen", "Ablauf, Abstimmungen und Beschlüsse", f'<ol class="tl">{"".join(steps)}</ol>',
+    parts.append(facet("abstimmungen", "Ablauf, Abstimmungen und Beschlüsse",
+                       f'<p class="explain">{facts.relation_note(relation)}</p><ol class="tl">{"".join(steps)}</ol>',
                        len(b["decisions"]), _how(b)))  # fmt: skip
     debates = []
     for k, a in enumerate(b["debates"]):
@@ -399,7 +474,14 @@ def procedure_page(b: dict, have: set[str], members: dict[str, list[list]]) -> s
                                            empty="Keine Reden im Datenbestand.")
                        + "</div>")  # fmt: skip
     n_speeches = sum(len(a["speeches"]) for a in b["debates"])
-    parts.append(facet("reden", "Reden", "".join(debates) or '<p class="explain">Noch nicht im Plenum beraten.</p>',
+    missing = any(s["missing"] for s in b["timeline"])
+    none = (
+        "Laut DIP im Plenum beraten, aber der Protokolltext dieser Beratungen ist nicht im Datenbestand; sie "
+        "stehen im Ablauf oben mit dem Plenarprotokoll."
+        if missing
+        else "Noch nicht im Plenum beraten."
+    )
+    parts.append(facet("reden", "Reden", "".join(debates) or f'<p class="explain">{none}</p>',
                        n_speeches, "Tagesordnungspunkte und Unterpunkte, die eine Drucksache dieses Vorgangs "
                        "aufrufen, mit ihren Reden." if debates else ""))  # fmt: skip
     parts.append(facet("drucksachen", "Drucksachen", facts.drucksache_list(b["docs"], "../", "drs", compact=False,
@@ -482,8 +564,9 @@ def write(conn: sqlite3.Connection, out: Path, sittings: list[dict], decisions: 
     }
     d = out / "vorgaenge"
     d.mkdir(parents=True, exist_ok=True)
+    relation = facts.relation_counts(decisions)
     for b in procs:
-        (d / f"{b['id']}.html").write_text(procedure_page(b, have, members), encoding="utf-8")
+        (d / f"{b['id']}.html").write_text(procedure_page(b, have, members, relation), encoding="utf-8")
         if b["type"] == GESETZ:
             redirects.write(out, f"gesetze/{b['id']}.html", urls.vorgang(b["id"]), b["title"])
     (d / "index.html").write_text(index_page(procs), encoding="utf-8")

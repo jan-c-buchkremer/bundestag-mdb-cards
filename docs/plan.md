@@ -391,9 +391,9 @@ rebuilt as a stub, or it would keep serving stale content.
 | `reden/<id>.html`, `#<part id>` | unchanged | – | page |
 | `woche/<week>.html`, `woche/feed.xml` | unchanged; feed entry ids stay `…/woche/<week>.html` | – | page |
 | `fraktionen/…`, `gremien/…` | unchanged | – | page |
-| `wahlkreise/suche.html` | unchanged | – | entry point |
+| `wahlkreise/suche.html` | `orte/index.html#suche` (moved 2026-10-01, 12.6) | query `?q=` kept | stub |
 | `suche.html?q=…` | unchanged: `q` fills the entity search and the Reden section | – | page |
-| `index.html#ansicht=…&q=…&state=…&wk=<nr>…` | unchanged; `wk` selects the Wahlkreis on the map and offers `orte/wahlkreis-<nr>.html` | – | page |
+| `index.html#ansicht=…&q=…&state=…&wk=<nr>…` | `ansicht=wahlkreise` goes to the place pages, other states stay (12.6) | view state | page script |
 | `kompass.html`, `abstimmungen/geschlossenheit.html` | unchanged; links to votes go to the canonical target directly | – | page |
 
 `tests/test_e2e.py` builds the fixture store and checks that every row of this table resolves in the output, stubs
@@ -412,9 +412,8 @@ included, with `scripts/check_links.py --anchors` over the whole site.
   `to_date`, as the Karrieren page.
 - **A Wahlkreis without a direct member says why**: no Zweitstimmendeckung (with the strongest party's first-vote
   share), or the direct member left and the seat passed to the Land list.
-- The index map, the index's Wahlkreise list and the Gemeinde lookup are entry points: they link the place pages and
-  no longer render their own member lists. The index's member filter matches names, offices and committees; a Land
-  or Wahlkreis typed there offers a link to its place page.
+- The map, the list of Wahlkreise and the place search live on the place hub `orte/index.html` (12.2); the
+  Abgeordnete page filters by a place with the same membership and links the place page.
 - Mentions of places in speeches: an empty facet slot (11.8).
 
 ### 11.5 Time
@@ -456,6 +455,61 @@ own Wahlkreis or Land contains exactly one candidate. Everything else stays unre
 table `place_mention(speech_id, paragraph, ags, surface, method, confidence, …)`; the cards site fills the empty
 *Erwähnungen* facet on place pages from it, with each mention linking the paragraph on the speech page.
 
+*Extended 2026-10-01 (the owner's design): an ambiguity registry and a small local decider.* Implemented later in the
+foundation, against the real speeches; nothing here is built. The project uses local models only, no external API.
+
+1. **Candidates** as above: gazetteer names (Gemeinden and Kreise from `constituency_municipality` with AGS, Kreis
+   and Land; the 16 Länder; Wahlkreis names), matched as capitalised tokens and n-grams.
+2. **Unambiguous names resolve by the gazetteer alone**: a name with exactly one AGS that is not in the registry
+   becomes a mention with `method = 'gazetteer'`, `confidence = 1.0`, no model involved.
+3. **Registry of ambiguous names**, a reviewed file kept like today's denylist (`data/place_registry.tsv` in the
+   foundation, one name per line with a short reason): names with several AGS ("Neustadt" 30+, "Halle", "Mühlheim"),
+   names that are ordinary words or surnames ("Essen", "Weil", "Bühl", "Hof", "Lohr", "Kirchheim" as a name), and
+   names shared with a Land or a region ("Hessen" the Land vs. the Gemeinde). A hit on the registry never resolves by
+   rule; it goes to the decider.
+4. **Decider**: a very small local model gets about two sentences around the hit (the sentence with the name and the
+   one before it; the speaker's name, fraction and Wahlkreis/Land as metadata) and the candidate list. It answers in a
+   fixed JSON shape: is this a place at all, and if so which candidate (by AGS), with a confidence.
+   - *Candidate models* that run on 12 CPU cores without a GPU, quantised (GGUF, llama.cpp or Ollama): Qwen2.5 1.5B
+     and 3B Instruct, Llama 3.2 3B Instruct, Phi-3.5-mini (3.8B), Gemma 2 2B; as a non-generative baseline a German
+     NER model (e.g. a GermEval-trained BERT via spaCy/flair) for "is this a place" plus the rules of the base design
+     for "which one". Expected cost: a 1.5–3B model at Q4 answers a two-sentence prompt in roughly 0.3–1.5 s on 12
+     cores; with a few tens of thousands of registry hits across WP 21 that is a one-off run of hours, then only new
+     protocols each day. Pick the smallest model that meets the accuracy bar below.
+   - *Prompt shape* (German context, JSON out, temperature 0, grammar-constrained output where the runtime offers it):
+
+     ```
+     System: Du ordnest Ortsnamen in Bundestagsreden zu. Antworte nur mit JSON.
+     User: Redner: <Name> (<Fraktion>), Wahlkreis <Nr> <Name>, <Land>.
+     Text: "<Satz davor> <Satz mit dem Namen>"
+     Wort: "<Halle>"
+     Kandidaten: [{"ags": "15002000", "name": "Halle (Saale), Stadt", "kreis": "Halle (Saale)", "land": "ST"},
+                  {"ags": "05754012", "name": "Halle (Westf.), Stadt", "kreis": "Gütersloh", "land": "NW"}]
+     Frage: Ist das Wort hier ein Ort? Wenn ja, welcher Kandidat?
+     Antwortformat: {"ort": true|false, "ags": "<ags>"|null, "sicherheit": 0.0-1.0}
+     ```
+5. **Confident answers become mentions** with provenance: `method = 'model'`, the model name and version, the prompt
+   version, the confidence. **Uncertain answers are not hidden and not guessed**: below the threshold the row keeps
+   `ags = NULL`, `status = 'uncertain'` and its `candidates`; the place page shows it in the Erwähnungen facet of every
+   candidate place as "unsicher", with a dropdown of the candidates (each linking its place page) and the paragraph.
+   "Not a place" answers are kept with `status = 'rejected'` for the evaluation, never shown.
+6. **Measured before anything is published**: a hand-labelled sample of registry hits, stratified by name (every
+   registry name, at least 20 hits each where they exist, plus 300 random hits), each labelled by hand with
+   place/not a place and the AGS, double-labelled on a subset to know the agreement. The decider runs on the sample;
+   report precision and recall of "is a place", accuracy of the AGS, and the calibration of the confidence
+   (accuracy per confidence bucket). The publication threshold is the lowest confidence at which the sample's
+   precision is at least 0.95; below it a hit is "unsicher". The sample, its labels and the report live in the
+   foundation and are rerun when the model or the prompt changes.
+7. **Table shape** (foundation):
+   `place_mention(id, speech_id, paragraph, start, end, surface, ags NULL, status ('resolved' | 'uncertain' |
+   'rejected'), method ('gazetteer' | 'qualifier' | 'locative' | 'model'), model NULL, prompt_version NULL,
+   confidence REAL, candidates TEXT (JSON [{ags, name, kreis, land, p}]), source_url, source_document_id,
+   retrieved_at)`, indexed by `ags` and `speech_id`.
+8. **On the cards site**: the place pages already have the empty *Erwähnungen* facet (`places.py`, explained as
+   "noch nicht erfasst"). With the table it lists, per place (a Wahlkreis aggregates its Gemeinden' AGS, a Land its
+   own), the resolved mentions (newest first, D23) linking the paragraph on the speech page, then the uncertain ones
+   marked "unsicher" with their candidates; `data.has_table('place_mention')` keeps older stores working.
+
 **Cross-period search ("what did member X say about Y").** Needs earlier Wahlperioden in the foundation
 (protocols from WP 1 are on bundestag.de), person ids across periods (the Stammdaten have them), and topics that
 span periods, which the landscape's per-period model does not give. Design: the search resolves X to a person
@@ -476,3 +530,159 @@ answer is a short list of Wahlkreise, each linking its place page, never a singl
   titles such as "Fraktion der SPD" by name, `data.originator_group`).
 - Foundation: the Land of a Nachrücker's list (the Bundeswahlleiterin's file has no row for them; the Stammdaten
   `mandate.state` is used, and is missing for Nachrücker not yet in the Stammdaten).
+
+## 12. Navigation, entity-owned views, the calendar, Fragen, missing protocols (2026-10-01)
+
+The entity model of section 11 had the right pages but the wrong ways in: the top bar had 11 items, Orte was a plain
+list, and the map of the Wahlkreise sat on the Abgeordnete page, so a place was shown by a second view of members
+instead of by its own page. This round makes the navigation follow the entities.
+
+### 12.1 The top bar
+
+`[Suche] · Orte · Gremien · **Abgeordnete** · Vorgänge · Sitzungen · Fragen · Debattenkultur · Daten` (D26).
+
+- **Suche** is a search field at the left end, not a link. Enter, or a suggestion, goes to `suche.html?q=…`.
+  Suggestions come from `suche-kurz.json` (the entity index without the Gemeinden, labels cut to 110 characters),
+  fetched on the first keystroke, grouped by type and ranked by `search.js`'s `resolve()`, so the bar and the search
+  page agree (`nav.js`).
+- **Abgeordnete** is the landing page and the home item: alone in the centre column of a three-column grid, so it
+  stays centred whatever the sides hold; emphasised as a bordered pill.
+- **Debattenkultur** stays, second to last, set quieter (lighter weight and colour): a statistics page, not a
+  research tool. **Daten** is the last item, at the right end.
+- **Themenlandschaft** leaves the bar. Its links stay where they are in context (week, sitting, speech pages, the
+  plenum's speaker toggle) and it is in the footer of every page.
+- Below 1080 px the bar is one row that scrolls sideways (as before, D "nav-fix"); the search icon and Abgeordnete
+  come first and are pinned (`position: sticky`), so both are reachable without scrolling. The icon opens the field
+  over the bar.
+- **Abstimmungen** is no longer a top item: it is a sub-tab of Sitzungen (`Sitzungswochen | Abstimmungen`), with
+  Geschlossenheit and `kompass.html` under it; `abstimmungen/index.html` keeps its URL (D27).
+
+### 12.2 An entity's page owns its views (the general pattern)
+
+**Rule (D25):** every view *of* an entity lives on that entity's page. Another page may *filter by* an entity, but
+then it uses the same membership function the entity's page uses (computed once, in Python, and shipped in the
+payload; never recomputed in JavaScript) and links to the entity's page.
+
+Places are the first case:
+
+- **`orte/index.html` is the place hub**: the map of the 299 Wahlkreise (`wkmap.js`, moved from the index, with its
+  legend; the colours computed in `places.seat_fraction`), the Länder with their Wahlkreise, and a place search
+  matching Land, Wahlkreis name or number, and Gemeinde (the former Gemeinde lookup), over one place index,
+  `orte/orte.json` (`places.place_index`, searched by `places.js` `search`). Every result, map click and list row
+  leads to the canonical place page. A mouse click on the map opens the Wahlkreis; on a touch screen the first tap
+  selects it and shows the link, a second tap opens it. `#wk=<nr>` and `#land=<code>` select or zoom on the map (the
+  place pages' "Auf der Karte"), `?q=` fills the search.
+- **Membership** is `places.people(rep, key)`: for a Land the direct members of its Wahlkreise, then its list members;
+  for a Wahlkreis its direct members (the one who left included), then the list members of its Land. The place pages
+  list exactly this; `places.membership` gives the ids; `places.compact` ships them in the index payload without
+  repeating a Land's list on each Wahlkreis (a reference `@<Land>:liste` that `places.js` `expand` resolves).
+- **The Abgeordnete page filters by a place** (Land or Wahlkreis, picked from the same place index): plenum and list
+  show exactly the place page's members (former members appear in the list, as on the place page, and are counted
+  apart in the plenum, having no seat). With a place picked the page shows "Zur Seite von <Ort>". A Land or Wahlkreis
+  typed into the name filter offers the place filter instead of matching text. Each place page has "Im Plenum
+  zeigen" (`index.html#ort=<key>`). The Kompass's Wahlkreis lookup uses the same membership.
+- The Wahlkreise view and the Land menu leave the Abgeordnete page; old states redirect (12.6).
+
+Not yet moved to the pattern, for a later round: the index's committee filter and fraction chips filter by the cards'
+current memberships, the same `membership` rows the Gremium and Fraktion pages read, but through no shared
+function, and they do not link the Gremium's page when one is picked. The next step is a `bodies.members(key)` used
+by both, shipped like `places.compact`, and a "Zur Seite von <Gremium>" link.
+
+### 12.3 The Abgeordnete page
+
+Opens on the plenum; the list is a secondary toggle ("Als Liste"). Below the plenum the **Rollen** section
+(`#rollen`, `careers.py`, D28): Präsidium (members of the Gremium "Präsidium"), Fraktionsvorsitz (current fraction role
+"Vorsitzende/r"), the chairs of the Ausschüsse and Gremien, the members in the government today, how long the members
+have served (per fraction), Nachrücker and Ausgeschiedene, fraction switches. Every role links the entity that owns it
+(Gremium, Fraktion, Bundesregierung). Dropped from the old Karrieren page: the full list of government offices with
+dates (the Bundesregierung page owns it, with sources). `karrieren/index.html` is a stub to `#rollen`.
+
+### 12.4 Sitzungen as a calendar, Abstimmungen inside
+
+`sitzungen/index.html` (the Wahlperiode) is a calendar (D29) in the landscape's visual language (D10): per year a strip
+of twelve months with the ISO weeks, sitting weeks linked; then a card per sitting week (landscape-style grid) with its
+sittings. Toggles, per week (CSS `:has`, no script needed) or for all weeks, reveal each sitting's **Abstimmungen**
+(`facts.decision`: result badge, roll call or show of hands, linking the canonical target) and the **Vorgänge that
+moved forward** that day (`weekly.moves`: debated under an agenda item, decided, or a DIP step in the Bundestag),
+each linked to its page. Clicking goes to `woche/<week>.html` and `sitzungen/<wp>-<n>.html` as before. A week card
+keeps `id="<YYYY-Www>"`, so a deeper link from the landscape (`sitzungen/index.html#2026-W28`) can land on it later.
+
+Vorgänge stay a top-level entity (they span weeks). A vote is shown under its sitting and on the timeline of the
+Vorgang it belongs to, both by `facts.vote`/`facts.decision`; there is no third renderer. The week page gets a
+*Vorgänge* facet beside *Abstimmungen und Beschlüsse*. The Abstimmungen tab and every Vorgang page explain the
+relation in one paragraph with counts from the store (`facts.relation_note`): a Vorgang often has several votes; a
+vote of exactly one Vorgang is a point on its timeline (D15); the rest keep their own page.
+
+### 12.5 Fragen as a research tool
+
+`regierung/index.html` keeps its statistics on top and adds the list of every single question below (`#liste`, D30):
+Kleine Anfragen, Schriftliche Fragen, Mündliche Fragen, Fragestunde turns, Regierungsbefragung turns. One JSON per
+kind (`regierung/<kind>.json`, `questions.research`), loaded only when its tab is opened, with per-file tables of
+persons, ministries, statuses and Drucksachen that rows refer to by index. Filters: words in the title, Fraktion,
+member, ministry (or the answering role), month, status, and for Kleine Anfragen the answer time. Rows link the
+Drucksache in DIP and as PDF, the Vorgang in DIP, the asker's card, the answer, and for oral questions the Fragestunde
+item and the protocol, for turns the speech page.
+
+Size on the live data's shape (2,740 Kleine Anfragen with ~15 signers, 9,038 Schriftliche Fragen, 3,047 Befragung
+turns; `tests/test_questions.py`): Schriftliche Fragen about 1.3 MB as written, the largest file; GitHub Pages serves
+JSON gzip-compressed, a fraction of that. To check on the real build.
+
+**Foundation requirements found here:**
+- *Full text of Kleine Anfragen and Schriftliche Fragen*: the store has titles only; the question text is in the
+  Drucksache PDF (and DIP's `drucksache-text`). Needed: the text per question, for Schriftliche Fragen split out of
+  the Sammeldrucksache.
+- *The asker per question*: DIP names the askers of Schriftliche and Mündliche Fragen per Sammeldrucksache
+  (`drucksache_author`, activity "Frage"); the Aktivität records carry a `vorgangsbezug` to the single question, which
+  the foundation drops. Needed: `drucksache_author.vorgang_id` (or a table `question_asker`). Until then a question
+  names its asker only when its Sammeldrucksache names exactly one, and the page says so. Meanwhile each row names who answered: the
+  answerers of the question's ministry in its Sammeldrucksache (DIP's "Antwort" activity names the ministry) or in
+  the Fragestunde (the speaker role names it), linked to their cards and to the speech with the answer (D30).
+- *The Ressort of a Frage*: on the live store (2026-10-01) the DIP steps of Schriftliche and Mündliche Fragen carry no
+  `ressort` (Kleine Anfragen do: 2,635 of 2,747), so the answerer match above finds nothing yet. Needed:
+  `vorgang_position.ressort` for the Fragen, or the ministry from the Sammeldrucksache.
+
+### 12.6 Vorgänge whose debate is missing from the protocols
+
+Diagnosed on the server: the Bundestag still served the preliminary XML for 17 of 97 protocols ("Der gesamte und
+damit endgültige Stenografische Bericht … wird am … veröffentlicht"); 8 of them (21/14, 21/31, 21/37, 21/59, 21/80,
+21/83, 21/89, 21/96) lack their last 33–82 pages, about 441 pages, the late-evening debates. Example: the
+SGB VI-Anpassungsgesetz (`vorgaenge/325338.html`), 1st Beratung 21/31 pp. 3392–3396, 2nd/3rd 21/37 pp. 4220–4228 with
+four decisions.
+
+In this repo (D31): a BT step of `vorgang_position` in a Plenarprotokoll with pages, in whose sitting no agenda item
+names one of the Vorgang's Drucksachen, shows the step with the protocol and pages linked to the protocol PDF (DIP's
+link, else `https://dserver.bundestag.de/btp/<wp>/<wp><nnn>.pdf`), DIP's decisions for it (`beschlusstenor`,
+Drucksache, page) marked "Beschlüsse laut DIP" and kept apart from the votes parsed from the protocol, and the note
+that the protocol text of this debate is not in the data. `daten.html` lists these steps by sitting under "Bekannte
+Lücken", derived from the store (`procedures.missing_debates`), not a constant. The rule can also catch a debate whose
+agenda item names a different Drucksache; the note says what is known (no agenda item names one) rather than the
+cause. Only steps whose position is a Beratung count (not a Mitteilung, a change of committee or a
+Geschäftsordnungsantrag). On the live store (2026-10-01) that gives 262 Beratungen in 44 sittings, more than the 8
+truncated protocols: e.g. sitting 21/40 has no agenda item for the 2nd/3rd Beratung of the e-Akte and
+Tierarzneimittel bills that DIP places there. To check in the foundation whether those protocols are preliminary
+too, or whether the parser drops items.
+
+**Foundation requirement:** detect the preliminary marker in a protocol; re-fetch it until the final version is
+served; flag incomplete sittings in the store (e.g. `sitting.preliminary`, `sitting.final_fetched_at`); and fall back to
+DIP's `plenarprotokoll-text` or the PDF for the missing pages until the final XML is out.
+
+### 12.7 Redirect table, extended
+
+Rows added to 11.3 by this round; every one is followed by `tests/test_e2e.py` (stubs through their fragment rules,
+view states through `places.js` `legacyTarget` in Node):
+
+| Old URL | New URL | Fragments | How |
+|---|---|---|---|
+| `karrieren/index.html` | `index.html#rollen` | any → `#rollen` (the page had no anchors) | stub |
+| `wahlkreise/suche.html` | `orte/index.html#suche` | `?q=` kept, fills the place search | stub |
+| `index.html#ansicht=wahlkreise` | `orte/index.html` | – | the index's script (`location.replace`) |
+| `index.html#ansicht=wahlkreise&…wk=<nr>` | `orte/wahlkreis-<nr>.html` | – | the index's script |
+| `index.html#ansicht=wahlkreise&state=<Land>` | `orte/<land slug>.html` | – | the index's script |
+| `index.html#…state=<Land>` (other views) | `index.html#ort=<Land>` (the place filter) | – | the index's script |
+| `index.html#ansicht=personen` | unchanged: the list toggle | – | page |
+| `abstimmungen/index.html`, `abstimmungen/geschlossenheit.html`, `kompass.html` | unchanged, now under Sitzungen | – | page |
+| `sitzungen/index.html#<YYYY-Www>` | unchanged: the week's card in the calendar | ids unchanged | page |
+
+URLs the Themenlandschaft links to are unchanged: `<person id>.html`, `fotos/<person id>.jpg`,
+`sitzungen/<wp>-<n>.html#top-<pos>` and `#top-<pos>-<label>`, `abstimmungen/<page id>.html` (stub or page).
+

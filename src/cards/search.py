@@ -24,6 +24,7 @@ from cards.ui import FOOTER, ORDER, TOKEN, shell
 
 # the entity types, in the order the results show them (search.js reads them from suche.json)
 TYPES = ("Person", "Gruppe", "Ort", "Vorgang", "Thema", "Sitzungswoche")
+GEMEINDE = "Gemeinde"  # the sub line of a Gemeinde entry; the light index leaves them out
 
 BODY = f"""<h1>Suche</h1>
 <p class="lead">Findet zuerst, was der Bundestag ist: Abgeordnete, Fraktionen und Gremien, Länder, Wahlkreise und
@@ -88,7 +89,7 @@ def entities(cards: list[dict], bodies: list[dict], government: bool, procs: lis
         for nr in g["w"]:
             if nr in wk_names:
                 part = " (Teil)" if len(g["w"]) > 1 else ""
-                add("Ort", f"{g['n']}{part}", f"Gemeinde im Wahlkreis {nr}: {wk_names[nr]}", urls.wahlkreis(nr),
+                add("Ort", f"{g['n']}{part}", f"{GEMEINDE} im Wahlkreis {nr}: {wk_names[nr]}", urls.wahlkreis(nr),
                     g["d"])  # fmt: skip
     for p in procs:
         add("Vorgang", p["title"], f"{p['type']} · {p['status']}", urls.vorgang(p["id"]), " ".join(p["initiators"]))
@@ -105,18 +106,30 @@ def entities(cards: list[dict], bodies: list[dict], government: bool, procs: lis
 
 
 def search_page() -> str:
-    return shell(root="", kind="p-search", active="search", title="Suche – Bundestag, 21. Wahlperiode",
+    return shell(root="", kind="p-search", active=None, title="Suche – Bundestag, 21. Wahlperiode",
                  desc="Volltextsuche in den Reden, Abstimmungen, Sitzungen und Abgeordneten des 21. Bundestages.",
                  body=BODY, data={"kind": "search"},
                  head=HEAD)  # fmt: skip
 
 
+LABEL = 110  # characters of a label in the light index; a Vorgang's title can be several hundred
+
+
+def light(index: dict) -> dict:
+    """The index for the top bar's suggestions (nav.js), loaded on the first keystroke on any page: the same entities
+    without the Gemeinden (some 11,000 of them, found on the search page), labels cut to LABEL characters."""
+    items = [[t, label if len(label) <= LABEL else label[: LABEL - 1] + "…", sub, href, keys]
+             for t, label, sub, href, keys in index["items"] if not sub.startswith(GEMEINDE)]  # fmt: skip
+    return {"types": index["types"], "items": items}
+
+
 def write_index(out: Path, index: dict | None = None) -> None:
-    """Write suche.html and suche.json, then index the speech pages into out/pagefind/ (replacing an older index)."""
+    """Write suche.html, suche.json and suche-kurz.json (light), then index the speech pages into out/pagefind/
+    (replacing an older index)."""
     (out / "suche.html").write_text(search_page(), encoding="utf-8")
     if index is not None:
-        text = json.dumps(index, ensure_ascii=False, separators=(",", ":"))
-        (out / "suche.json").write_text(text, encoding="utf-8")
+        for name, payload in (("suche.json", index), ("suche-kurz.json", light(index))):
+            (out / name).write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     shutil.rmtree(out / "pagefind", ignore_errors=True)
     # the protocol's comments and the chair's words on speech pages are shown, not searched
     skip = ".speech .rc, .speech .rch"

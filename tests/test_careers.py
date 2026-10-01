@@ -43,8 +43,9 @@ def test_changes(conn):
     moved = [(x["member"]["name"], x["from"], x["to"], x["date"]) for x in ch["moved"]]
     assert moved == [("Zora Zora", "CDU/CSU", "fraktionslos", "2026-05-05"),
                      ("Xaver Xaver", "SPD", "fraktionslos", "2026-06-01")]  # fmt: skip
-    html = careers.page(ms, ch, careers.offices(conn, ms))
-    assert "nach dem Ausscheiden von" in html and 'href="../8.html"' in html and "Nordrhein-Westfalen" in html
+    cards, _ = data.cards(conn)
+    html = careers.section(careers.roles(cards, [], [], ms, ch), False)
+    assert "nach dem Ausscheiden von" in html and 'href="8.html"' in html and "Nordrhein-Westfalen" in html
 
 
 def test_first_speech(conn):
@@ -67,7 +68,32 @@ def test_first_speech(conn):
     assert careers.first_speech(conn, by["2"])["maiden"]
 
 
-def test_write(conn, tmp_path):
-    assert careers.write(conn, tmp_path) == {"karrieren": 1}
+def test_roles_section(conn):
+    """Rollen on the Abgeordnete page: the Präsidium, the fraction chairs, the committee chairs and the members in
+    the government, each role linked to its entity's page, and the tenure table."""
+    from cards import bodies
+
+    conn.execute("UPDATE membership SET role = 'Vorsitzende' WHERE id = '1/21/1'")  # Adler chairs the SPD
+    conn.execute("UPDATE membership SET role = 'Vorsitzende' WHERE id = '1/21/2'")  # … and the Gesundheitsausschuss
+    cards, _ = data.cards(conn)
+    html = careers.build_section(conn, cards, bodies.load_bodies(conn, cards), data.government(conn))
+    assert 'id="rollen"' in html and "Wie lange schon im Bundestag" in html
+    pres = html.split("<h3>Präsidium</h3>", 1)[1].split("<h3>", 1)[0]
+    assert (
+        'href="3.html">Clara Cohn</a>' in pres
+        and "Vizepräsidentin" in pres
+        and 'href="gremien/praesidium.html"' in pres
+    )
+    fch = html.split("<h3>Fraktionsvorsitz</h3>", 1)[1].split("<h3>", 1)[0]
+    assert 'href="fraktionen/spd.html">SPD</a>' in fch and 'href="1.html">Anna Adler</a>' in fch
+    chairs = html.split("<h3>Vorsitz der Ausschüsse und Gremien</h3>", 1)[1].split("<h3>", 1)[0]
+    assert 'href="gremien/gesundheit.html">Gesundheit</a>' in chairs
+    gov = html.split("<h3>In der Bundesregierung</h3>", 1)[1].split("<h3>", 1)[0]
+    assert 'href="2.html">Dr. Bernd Berg</a>' in gov and 'href="gremien/bundesregierung.html"' in gov
+    assert "Hubig" not in gov  # in the government, but not a member of the Bundestag
+
+
+def test_write_leaves_a_stub(tmp_path):
+    assert careers.write(tmp_path) == {"karrieren": 1}
     html = (tmp_path / "karrieren" / "index.html").read_text()
-    assert "Wahlperioden im Bundestag" in html and 'href="../1.html"' in html
+    assert 'http-equiv="refresh"' in html and 'href="../index.html#rollen"' in html

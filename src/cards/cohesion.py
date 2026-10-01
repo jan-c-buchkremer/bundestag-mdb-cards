@@ -12,7 +12,22 @@ from pathlib import Path
 
 from cards import urls
 from cards.data import NO_FRACTION, VOTE_CHOICES, majority
-from cards.ui import FOOTER, SHORT, TOKEN, VOTE, dot, e, frac_link, fraction_order, long_date, n, shell, short_date
+from cards.ui import (
+    FOOTER,
+    SHORT,
+    SITTING_TABS,
+    TOKEN,
+    VOTE,
+    dot,
+    e,
+    frac_link,
+    fraction_order,
+    long_date,
+    n,
+    shell,
+    short_date,
+    subtabs,
+)
 
 PAGE = "geschlossenheit"
 # the timeline's geometry, in SVG units (the SVG scales to the width of the page)
@@ -209,7 +224,7 @@ def page(decisions: list[dict], members: dict[str, list[list]]) -> str:
         )
     options = "".join(f'<option value="{e(f)}">{e(f)}</option>' for f in series)
     first = long_date(votes[0]["date"]) if votes else ""
-    body = f"""<div class="coh">
+    body = f"""{subtabs("../", SITTING_TABS, "votes")}<div class="coh">
 <p class="crumbs"><a href="index.html">Abstimmungen</a></p>
 <h1>Geschlossenheit der Fraktionen</h1>
 <p class="lead">Wie einheitlich haben die Fraktionen in den {n(len(votes))} namentlichen Abstimmungen seit {e(first)} abgestimmt, und wer hat anders gestimmt als die eigene Fraktion? Hier stehen nur namentliche Abstimmungen: Nur bei ihnen ist die Stimme jedes Mitglieds bekannt.</p>
@@ -233,7 +248,7 @@ def page(decisions: list[dict], members: dict[str, list[list]]) -> str:
 <footer>{FOOTER}</footer>{FILTER}"""  # noqa: E501
     desc = (f"Wie geschlossen die Fraktionen des 21. Deutschen Bundestages in {len(votes)} namentlichen Abstimmungen "
             "gestimmt haben, und jede Abweichung von der Fraktionslinie, mit Quelle.")  # fmt: skip
-    return shell(root="../", kind="p-cohesion", active="votes", title="Geschlossenheit der Fraktionen", desc=desc,
+    return shell(root="../", kind="p-cohesion", active="sittings", title="Geschlossenheit der Fraktionen", desc=desc,
                  head=STYLE, body=body, data={"kind": "cohesion"})  # fmt: skip
 
 

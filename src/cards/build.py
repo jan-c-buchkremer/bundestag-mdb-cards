@@ -14,7 +14,18 @@ from cards.ui import VOTE, e, long_date, n
 
 HERE = Path(__file__).parent
 # wahlkreise.json: the map, fetched on demand
-ASSETS = ("cards.css", "card.js", "pages.js", "parliament.js", "wahlkreise.json", "search.js")
+ASSETS = (
+    "cards.css",
+    "card.js",
+    "pages.js",
+    "parliament.js",
+    "wahlkreise.json",
+    "search.js",
+    "nav.js",
+    "places.js",
+    "wkmap.js",
+    "fragen.js",
+)
 
 
 def _json(payload: object) -> str:
@@ -198,27 +209,31 @@ def render_card(c: dict, meta: dict, decisions: dict[str, dict] | None = None) -
 def render_index(
     cards: list[dict],
     meta: dict,
-    constituencies: list[dict],
     government: list[dict] | None = None,
     last_sitting: dict | None = None,
-    gemeinde_search: bool = False,
     places: dict | None = None,
+    roles: str = "",
 ) -> str:
+    """The Abgeordnete page: the plenum (or the list), the filters with the place filter (`places`, places.py
+    index_payload) and the Rollen section (`roles`, careers.py), written into the page as HTML."""
     government = government or []
     by_id = {g["id"]: g for g in government}
     rows = [index_row(c, by_id) for c in cards]
     ids = {c["id"] for c in cards}
+    places = places or {"lands": {}, "wahlkreise": {}, "members": {}}
     payload = {
-        "cards": rows, "meta": meta, "constituencies": constituencies,
+        "cards": rows, "meta": meta,
         "government": [{**g, "card": g["id"] in ids} for g in government],
         "last_sitting": last_sitting,
-        "gemeinde_search": gemeinde_search,
-        "places": places or {"lands": {}, "wahlkreise": []},
+        "places": places,
     }  # fmt: skip
+    slugs = {code: x["slug"] for code, x in places["lands"].items()}
     return (
         (HERE / "index.html")
         .read_text(encoding="utf-8")
         .replace("__HEADER__", ui.site_header("", "cards"))
+        .replace("__SLUGS__", _json(slugs))
+        .replace("__ROLES__", roles)
         .replace("__DATA__", _json(payload))
     )
 
@@ -227,15 +242,14 @@ def write_site(
     cards: list[dict],
     meta: dict,
     out: Path,
-    constituencies: list[dict] | None = None,
     government: list[dict] | None = None,
     last_sitting: dict | None = None,
     decisions: list[dict] | None = None,
     members: dict[str, list[list]] | None = None,
     sittings: list[dict] | None = None,
     clusters: dict[str, dict] | None = None,
-    gemeinde_search: bool = False,
     places: dict | None = None,
+    roles: str = "",
 ) -> dict[str, int]:
     """Write the site; returns the number of vote and sitting pages (empty without the foundation's decisions)."""
     meta = {**meta, "built": dt.date.today().isoformat()}
@@ -244,7 +258,7 @@ def write_site(
     for c in cards:
         (out / f"{c['id']}.html").write_text(render_card(c, meta, by_id), encoding="utf-8")
         (out / f"{c['id']}.json").write_text(json.dumps(c, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    index = render_index(cards, meta, constituencies or [], government, last_sitting, gemeinde_search, places)
+    index = render_index(cards, meta, government, last_sitting, places, roles)
     (out / "index.html").write_text(index, encoding="utf-8")
     for name in ASSETS:
         shutil.copyfile(HERE / name, out / name)
@@ -252,6 +266,6 @@ def write_site(
         quiz = compass.questions(decisions or [], members or {})
         written = pages.write_pages(out, decisions or [], members or {}, sittings, meta, clusters, bool(quiz))
         written["abstimmungen"] += cohesion.write_page(out, decisions or [], members or {})
-        written.update(compass.write(out, quiz, cards))
+        written.update(compass.write(out, quiz, cards, places))
         return written
     return {}

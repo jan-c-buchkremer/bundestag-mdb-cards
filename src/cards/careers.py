@@ -1,7 +1,10 @@
-"""Karrieren: `karrieren/index.html`, from the Stammdaten's mandate history (every Wahlperiode since 1949) and the
-WP 21 fraction memberships: how many Wahlperioden the current members have served, per fraction; who left the
-Bundestag and who moved up; fraction changes; government offices held by members. Counts per fraction and lists
-by date, no member ranking (docs/plan.md). Also the first speech in WP 21 for each card (`annotate`)."""
+"""Rollen: the section `#rollen` of the Abgeordnete page (index.html, below the plenum), so the reader learns who sits
+there and who holds which role (docs/plan.md 12.3, D28): the Präsidium, the fraction chairs, the committee chairs,
+the members in the government, and from the Stammdaten's mandate history (every Wahlperiode since 1949) and the
+WP 21 fraction memberships how long the current members have served, who left and who moved up, and who switched
+fractions. Each role links the entity that owns it (the Gremium, the Fraktion, the Bundesregierung, D25). Counts
+per fraction and lists by date, no member ranking (docs/plan.md). The former `karrieren/index.html` is a stub to
+the section. Also the first speech in WP 21 for each card (`annotate`)."""
 
 from __future__ import annotations
 
@@ -10,13 +13,14 @@ import sqlite3
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from cards import urls
+from cards import redirects, urls
 from cards.data import NO_FRACTION, PARTY_TO_FRACTION, WP, display_name, feminine, government_roles
-from cards.ui import FOOTER, SHORT, dot, e, fraction_order, n, shell, short_date
+from cards.ui import SHORT, TOKEN, dot, e, fraction_order, n, short_date
 
 BUCKETS = ("1", "2", "3", "4", "5 und mehr")
-KINDS = {"kanzler": "Bundeskanzler", "minister": "Bundesminister", "staatsminister": "Staatsminister",
-         "parl_sts": "Parlamentarische Staatssekretäre", "beamteter_sts": "Beamtete Staatssekretäre"}  # fmt: skip
+CHAIR = re.compile(r"^(Vorsitzende[r]?|Delegationsleiter)$")  # a Gremium's chair (bodies.py groups by it too)
+FRACTION_CHAIR = re.compile(r"^(Vorsitzende[r]?|Erster? Vorsitzende[r]?)$")
+PRESIDIUM = "Präsidium"
 STATES = {
     "BW": "Baden-Württemberg",
     "BY": "Bayern",
@@ -170,11 +174,11 @@ def annotate(conn: sqlite3.Connection, cards: list[dict]) -> None:
         c["first_speech"] = first_speech(conn, c) if c["kind"] == "member" else None
 
 
-# ---------------------------------------------------------------- page
+# ---------------------------------------------------------------- the Rollen section
 
 
-def _card(m: dict) -> str:
-    return f'<a href="../{e(m["id"])}.html">{e(m["name"])}</a>'
+def _card(m: dict, root: str = "") -> str:
+    return f'<a href="{root}{e(m["id"])}.html">{e(m["name"])}</a>'
 
 
 def _frac(f: str) -> str:
@@ -185,19 +189,13 @@ def _state(m: dict) -> str:
     return e(STATES.get(m["state"], m["state"]))
 
 
-def _when(o: dict) -> str:
-    if o["evidence"]:  # protocol rows date the sittings that print the office, not the term
-        return f"in Plenarprotokollen vom {short_date(o['from'])} bis {short_date(o['to'] or o['from'])}"
-    return f"seit {short_date(o['from'])}" if not o["to"] else f"{short_date(o['from'])}–{short_date(o['to'])}"
-
-
 def _pct(x: float) -> str:
     return f"{100 * x:.0f} %"
 
 
 def _tenure_section(rows: list[dict]) -> str:
     if not rows:
-        return '<h2>Wahlperioden im Bundestag</h2><p class="explain">Keine Mandate im Datenbestand.</p>'
+        return '<h3>Wie lange schon im Bundestag</h3><p class="explain">Keine Mandate im Datenbestand.</p>'
     body = "".join(
         f'<tr><td class="l">{_frac(r["fraction"])}</td>'
         + "".join(f"<td>{n(r['counts'][b]) if r['counts'][b] else ''}</td>" for b in BUCKETS)
@@ -213,10 +211,10 @@ def _tenure_section(rows: list[dict]) -> str:
         + f"<td>{n(all_n)}</td><td>{_pct(total['1'] / all_n)}</td></tr>"
     )  # fmt: skip
     return (
-        "<h2>Wahlperioden im Bundestag</h2>"
-        '<p class="explain">Wie viele Wahlperioden die heutigen Mitglieder im Bundestag waren, die 21. mitgezählt, '
-        "nach Fraktion. Grundlage sind alle Mandate seit 1949 in den Stammdaten; Pausen zählen nicht mit. "
-        "„Erstmals“ heißt: nur in der 21. Wahlperiode.</p>"
+        "<h3>Wie lange schon im Bundestag</h3>"
+        '<p class="explain">Wahlperioden der heutigen Mitglieder, die 21. mitgezählt, nach Fraktion; Pausen zählen '
+        "nicht mit. „Erstmals“ heißt: nur in der 21. Wahlperiode. Grundlage: alle Mandate seit 1949 in den "
+        "Stammdaten.</p>"
         '<div class="rows"><table class="plenum"><thead><tr><th class="l">Fraktion</th>'
         + "".join(f"<th>{b}</th>" for b in BUCKETS)
         + f"<th>Mitglieder</th><th>erstmals</th></tr></thead><tbody>{body}</tbody><tfoot>{foot}</tfoot></table></div>"
@@ -224,90 +222,122 @@ def _tenure_section(rows: list[dict]) -> str:
 
 
 def _changes_section(ch: dict) -> str:
-    left = "".join(
-        f"<li>{short_date(m['to'])}: {_card(m)} ({_frac(m['fraction'])}, {_state(m)})</li>" for m in ch["left"]
-    )
-    joined = "".join(
-        f"<li>{short_date(m['from'])}: {_card(m)} ({_frac(m['fraction'])}, {_state(m)})"
-        + (f", nach dem Ausscheiden von {_card(m['after'])}" if m.get("after") else "")
-        + "</li>"
-        for m in ch["joined"]
-    )
-    moved = "".join(
-        f"<li>{short_date(x['date']) if x['date'] else 'ohne Datum'}: {_card(x['member'])}, "
-        f"{_frac(x['from'])} → {_frac(x['to'])}</li>"
-        for x in ch["moved"]
-    )
     none = '<p class="explain">Keine in den Stammdaten.</p>'
+
+    def lst(items: list[str]) -> str:
+        return f"<ul>{''.join(items)}</ul>" if items else none
+
+    joined = [f"<li>{short_date(m['from'])}: {_card(m)} ({_frac(m['fraction'])}, {_state(m)})"
+              + (f", nach dem Ausscheiden von {_card(m['after'])}" if m.get("after") else "") + "</li>"
+              for m in ch["joined"]]  # fmt: skip
+    left = [f"<li>{short_date(m['to'])}: {_card(m)} ({_frac(m['fraction'])}, {_state(m)})</li>" for m in ch["left"]]
+    moved = [f"<li>{short_date(x['date']) if x['date'] else 'ohne Datum'}: {_card(x['member'])}, "
+             f"{_frac(x['from'])} → {_frac(x['to'])}</li>" for x in ch["moved"]]  # fmt: skip
     return (
-        "<h2>Ausgeschieden und nachgerückt</h2>"
-        '<p class="explain">Mandate der 21. Wahlperiode, die vor ihrem Ende aufhören, und Mandate, die nach der '
-        "konstituierenden Sitzung beginnen (Nachrücker über die Landesliste). Die Zuordnung „nach dem Ausscheiden "
-        "von“ steht nur, wenn genau ein Mitglied derselben Fraktion und desselben Landes vorher ausschied.</p>"
-        f"<h3>Ausgeschieden</h3>{f'<ul>{left}</ul>' if left else none}"
-        f"<h3>Nachgerückt</h3>{f'<ul>{joined}</ul>' if joined else none}"
-        "<h2>Fraktionswechsel</h2>"
-        '<p class="explain">Mitglieder, die in der 21. Wahlperiode die Fraktion gewechselt oder verlassen haben, laut '
-        "Stammdaten.</p>"
-        f"{f'<ul>{moved}</ul>' if moved else none}"
+        "<h3>Nachgerückt und ausgeschieden</h3>"
+        '<p class="explain">Mandate, die nach der konstituierenden Sitzung beginnen (Nachrücker über die '
+        "Landesliste), und Mandate, die vor dem Ende der Wahlperiode aufhören. „Nach dem Ausscheiden von“ steht nur, "
+        "wenn genau ein Mitglied derselben Fraktion und desselben Landes vorher ausschied.</p>"
+        f"<h4>Nachgerückt</h4>{lst(joined)}<h4>Ausgeschieden</h4>{lst(left)}"
+        "<h3>Fraktionswechsel</h3>"
+        '<p class="explain">Wer in der 21. Wahlperiode die Fraktion gewechselt oder verlassen hat, laut Stammdaten.</p>'
+        f"{lst(moved)}"
     )
 
 
-def _offices_section(held: list[dict]) -> str:
-    if not held:
-        return '<h2>Regierungsämter</h2><p class="explain">Keine Regierungsämter von Mitgliedern im Datenbestand.</p>'
-    by: dict[str, list[dict]] = defaultdict(list)
-    for o in held:
-        by[o["kind"]].append(o)
-    parts = []
-    for kind, label in KINDS.items():
-        if not by[kind]:
-            continue
-        items = "".join(
-            f"<li>{_card(o['member'])} ({_frac(o['member']['fraction'])}): {e(o['office'])}, "
-            f"{_when(o)} "
-            f'<a class="faint" href="{e(o["sources"][0]["url"])}">Quelle</a></li>'
-            for o in by[kind]
-        )
-        parts.append(f"<h3>{e(label)} ({n(len(by[kind]))})</h3><ul>{items}</ul>")
-    return (
-        "<h2>Regierungsämter</h2>"
-        '<p class="explain">Ämter in der Bundesregierung, die Mitglieder des 21. Bundestages innehaben oder in dieser '
-        "Wahlperiode innehatten, nach Beginn. Quellen: Wikidata, Stammdaten, Plenarprotokolle.</p>" + "".join(parts)
+def roles(cards: list[dict], bodies: list[dict], government: list[dict], ms: list[dict], ch: dict,
+          stamm: dict | None = None) -> dict:  # fmt: skip
+    """Who holds which role now, as data: the Präsidium (the Gremium of that name), the fraction chairs (a current
+    fraction role "Vorsitzende/r"), the chairs of every other Gremium, the members in the government (current
+    offices, data.government), and the tenure and changes from the Stammdaten."""
+    by_id = {c["id"]: c for c in cards if c["kind"] == "member"}
+    presidium, chairs = [], []
+    for b in bodies:
+        for m in b["members"]:
+            if m["to"] is not None or m["person"] not in by_id:
+                continue
+            if b["name"] == PRESIDIUM:
+                presidium.append({"body": b, "card": by_id[m["person"]], "role": m["role"]})
+            elif CHAIR.match(m["role"] or ""):
+                chairs.append({"body": b, "card": by_id[m["person"]], "role": m["role"]})
+    presidium.sort(key=lambda x: ("Vize" in (x["role"] or ""), x["card"]["last_name"]))
+    chairs.sort(key=lambda x: x["body"]["short"])
+    fraction_chairs = sorted(
+        ({"fraction": c["fraction"], "card": c, "role": r["role"]}
+         for c in by_id.values() for r in c["fraction_roles"] if r["to"] is None and FRACTION_CHAIR.match(r["role"])),
+        key=lambda x: (fraction_order(x["fraction"] or NO_FRACTION), x["card"]["last_name"]),
+    )  # fmt: skip
+    in_government = [g for g in government if g["id"] in by_id]
+    return {"presidium": presidium, "fraction_chairs": fraction_chairs, "chairs": chairs,
+            "government": in_government, "tenure": tenure(ms), "changes": ch, "stamm": stamm}  # fmt: skip
+
+
+def section(r: dict, government_page: bool) -> str:
+    """The Rollen section of the Abgeordnete page (root ""), anchored as #rollen; every name links the card, every
+    role the page of the entity it belongs to."""
+
+    def who(c: dict) -> str:
+        f = c["fraction"] or NO_FRACTION
+        return f'{_card(c)} {dot(f)}<span class="faint">{e(SHORT.get(f, f))}</span>'
+
+    none = '<p class="explain">Keine in den Stammdaten.</p>'
+    pres = "".join(f"<li>{e(x['role'] or 'Mitglied')}: {who(x['card'])}</li>" for x in r["presidium"])
+    slug = r["presidium"][0]["body"]["slug"] if r["presidium"] else None
+    pres_link = f'<p><a href="gremien/{e(slug)}.html">Zum Präsidium →</a></p>' if slug else ""
+    fch = "".join(
+        f'<li><a href="fraktionen/{TOKEN.get(x["fraction"], "frl")}.html">{e(SHORT.get(x["fraction"], x["fraction"]))}'
+        f"</a>: {who(x['card'])}</li>"
+        for x in r["fraction_chairs"] if x["fraction"] in TOKEN
+    )  # fmt: skip
+    chairs = "".join(f'<li><a href="gremien/{e(x["body"]["slug"])}.html">{e(x["body"]["short"])}</a>: {who(x["card"])}'
+                     "</li>" for x in r["chairs"])  # fmt: skip
+    gov = "".join(f"<li>{e(g['office'])}: {who(g['card'])}</li>" for g in r["government"] if g.get("card"))
+    gov_more = (
+        " Alle Ämter mit Daten und Quellen stehen auf der Seite der "
+        '<a href="gremien/bundesregierung.html">Bundesregierung</a>.'
+        if government_page
+        else ""
     )
-
-
-def page(ms: list[dict], ch: dict, held: list[dict]) -> str:
-    stamm = ms[0] if ms else None
+    stamm = r.get("stamm")
     src = f' Quelle: <a href="{e(stamm["url"])}">{e(stamm["doc"])}</a>.' if stamm else ""
-    body = (
-        '<section class="card"><h1>Karrieren</h1><div class="lines">Wie lange die Mitglieder des 21. Bundestages '
-        "schon im Parlament sind, wer ausgeschieden und nachgerückt ist, wer die Fraktion gewechselt hat und wer ein "
-        f"Regierungsamt hat. Jeder Name führt zur Karte.{src} "
-        '<a href="../daten.html">Über die Daten</a></div></section>'
-        f'<div class="qs">{_tenure_section(tenure(ms))}{_changes_section(ch)}{_offices_section(held)}</div>'
-        f"<footer>{FOOTER}</footer>"
+    return (
+        '<section class="facet roles" id="rollen"><h2>Rollen</h2>'
+        '<p class="explain">Wer im Bundestag welche Rolle hat: Präsidium, Fraktionsvorsitz, Vorsitz der Ausschüsse '
+        "und Gremien, Ämter in der Bundesregierung, und wie lange die Mitglieder schon dabei sind. Jede Rolle führt "
+        f"zur Seite ihres Gremiums, ihrer Fraktion oder der Bundesregierung, jeder Name zur Karte.{src}</p>"
+        f"<h3>Präsidium</h3>{f'<ul>{pres}</ul>' if pres else none}{pres_link}"
+        f"<h3>Fraktionsvorsitz</h3>{f'<ul>{fch}</ul>' if fch else none}"
+        f"<h3>Vorsitz der Ausschüsse und Gremien</h3>{f'<ul>{chairs}</ul>' if chairs else none}"
+        f"<h3>In der Bundesregierung</h3>"
+        f'<p class="explain">Mitglieder des Bundestages mit einem Regierungsamt heute.{gov_more}</p>'
+        f"{f'<ul>{gov}</ul>' if gov else none}"
+        f"{_tenure_section(r['tenure'])}{_changes_section(r['changes'])}</section>"
     )
-    return shell(root="../", kind="p-careers", active="careers", title="Karrieren",
-                 desc="Wahlperioden, Nachrücker, Fraktionswechsel und Regierungsämter der Mitglieder des "
-                      "21. Deutschen Bundestages.",
-                 body=body, data={"kind": "careers"}, head=STYLE)  # fmt: skip
 
 
 STYLE = """<style>
-.qs table.plenum td.l, .qs table.plenum th.l { text-align: left; }
-.qs table.plenum tfoot td { font-weight: 600; }
-.qs .rows { overflow-x: auto; }
-.qs ul { padding-left: 20px; }
-.qs li { margin: 4px 0; }
+.roles ul { padding-left: 20px; margin: 6px 0 4px; }
+.roles li { margin: 3px 0; }
+.roles li .dot { margin: 0 4px 0 6px; width: 7px; height: 7px; }
+.roles h3 { font-size: 15px; margin: 22px 0 6px; }
+.roles h4 { font-size: 13px; font-weight: 600; color: var(--muted); margin: 12px 0 4px; }
+.roles table.plenum td.l, .roles table.plenum th.l { text-align: left; }
+.roles table.plenum tfoot td { font-weight: 600; }
+.roles .rows { overflow-x: auto; }
 </style>"""
 
 
-def write(conn: sqlite3.Connection, out: Path) -> dict[str, int]:
-    """Write karrieren/index.html; returns {"karrieren": 1}."""
+def build_section(conn: sqlite3.Connection, cards: list[dict], bodies: list[dict], government: list[dict]) -> str:
+    """The Rollen section for the Abgeordnete page, with its style."""
+    by_id = {c["id"]: c for c in cards}
+    gov = [{**g, "card": by_id.get(g["id"])} for g in government]
     ms = members(conn)
-    d = out / "karrieren"
-    d.mkdir(parents=True, exist_ok=True)
-    html = page(ms, changes(ms, constituted(conn)), offices(conn, ms))
-    (d / "index.html").write_text(html, encoding="utf-8")
+    stamm = {"url": ms[0]["url"], "doc": ms[0]["doc"]} if ms else None
+    r = roles(cards, bodies, gov, ms, changes(ms, constituted(conn)), stamm)
+    return STYLE + section(r, bool(government))
+
+
+def write(out: Path) -> dict[str, int]:
+    """karrieren/index.html is the Rollen section of the Abgeordnete page now: a stub to index.html#rollen."""
+    redirects.write(out, "karrieren/index.html", "index.html#rollen", "Rollen", redirects.any_fragment("rollen"))
     return {"karrieren": 1}

@@ -9,7 +9,7 @@ import shutil
 import sqlite3
 from pathlib import Path
 
-from cards import data
+from cards import data, urls
 from cards.questions import fragestunden
 from cards.ui import FOOTER, e, long_date, n, shell, short_date
 
@@ -73,7 +73,26 @@ def size(b: int) -> str:
     return ""
 
 
-def page(meta: dict, stale: list[dict], fragestunden: tuple[int, int], files: list[dict], built: str) -> str:
+def missing_gap(missing: dict[str, list[dict]]) -> str:
+    """The Beratungen DIP records whose protocol text is not in the store (procedures.missing_debates), by sitting."""
+    rows = "".join(
+        f"<li>Sitzung {e(sid)}: " + "; ".join(
+            f'<a href="{e(urls.vorgang(x["vorgang"]))}">{e(x["title"][:90])}</a> ({e(x["what"])}, '
+            f'<a href="{e(x["pdf"])}">S. {e(x["pages"])}</a>)' for x in xs) + "</li>"
+        for sid, xs in missing.items()
+    )  # fmt: skip
+    k = sum(len(xs) for xs in missing.values())
+    return (
+        f"<li>Beratungen ohne Protokolltext: {n(k)} Beratungen in {n(len(missing))} Sitzungen, die das DIP im "
+        "Plenarprotokoll verzeichnet, unter denen aber kein Tagesordnungspunkt im Datenbestand eine Drucksache des "
+        "Vorgangs nennt. Ein bekannter Grund: Der Bundestag gab manche Protokolle beim Einlesen noch in der "
+        "vorläufigen Fassung aus, der die Debatten am späten Abend fehlen; das endgültige PDF enthält sie. Die "
+        f"Seiten der Vorgänge zeigen diese Schritte mit den Beschlüssen laut DIP.<ul>{rows}</ul></li>"
+    )
+
+
+def page(meta: dict, stale: list[dict], fragestunden: tuple[int, int], files: list[dict], built: str,
+         missing: dict[str, list[dict]] | None = None) -> str:  # fmt: skip
     rows = "".join(
         f'<tr><td class="l">{e(what)}</td><td class="l"><a href="{e(url)}">{e(who)}</a></td><td class="l">{e(terms)}'
         f'</td><td class="l">{e(credit)}</td></tr>'
@@ -100,6 +119,13 @@ def page(meta: dict, stale: list[dict], fragestunden: tuple[int, int], files: li
             f"<li>Regierungsämter, die nur die Plenarprotokolle belegen und seit mehr als {STALE_AFTER_DAYS} Tagen "
             f"vor der letzten Sitzung nicht mehr genannt wurden; sie gelten weiter als aktuell:<ul>{items}</ul></li>"
         )
+    if missing:
+        gaps.append(missing_gap(missing))
+    gaps.append(
+        "<li>Kleine Anfragen und Schriftliche Fragen: nur der Titel, nicht der Wortlaut der Frage; und die "
+        "Fragenden einer Schriftlichen oder Mündlichen Frage nennt DIP je Sammeldrucksache, nicht je "
+        'Frage (<a href="regierung/index.html#liste">Fragen</a>).</li>'
+    )
     gaps.append("<li>Die Sitzordnung im Plenum ist ein Schema der Fraktionen, nicht der echte Sitzplan.</li>")
     if files:
         downloads = (
@@ -125,16 +151,19 @@ def page(meta: dict, stale: list[dict], fragestunden: tuple[int, int], files: li
 Kein Einsatz in verzerrendem oder herabsetzendem Zusammenhang (DIP-Nutzungsbedingungen Nr. 5).</p>
 <h2>Bekannte Lücken</h2><ul>{"".join(gaps)}</ul>
 <h2>Wie gezählt wird</h2><ul>
-<li><a href="index.html">Abgeordnete</a>: eine Karte je Mitglied, jede Angabe mit Quelle.</li>
+<li><a href="index.html">Abgeordnete</a>: eine Karte je Mitglied, jede Angabe mit Quelle; das Plenum, gefiltert nach
+Fraktion, Ort oder Ausschuss, und die <a href="index.html#rollen">Rollen</a>.</li>
 <li><a href="abstimmungen/index.html">Abstimmungen</a>: namentliche Abstimmungen und Beschlüsse per Handzeichen, diese
 regelbasiert aus dem Text der Sitzungsleitung gelesen.</li>
-<li><a href="sitzungen/index.html">Sitzungen</a>: Tagesordnung und Reden je Plenarprotokoll.</li>
+<li><a href="sitzungen/index.html">Sitzungen</a>: die Sitzungswochen als Kalender, Tagesordnung und Reden je
+Plenarprotokoll.</li>
 <li><a href="vorgaenge/index.html">Vorgänge</a>: Gesetzgebung und alle im Plenum beratenen Vorlagen mit
 ihrem Ablauf.</li>
-<li><a href="orte/index.html">Orte</a>: Länder und Wahlkreise und wer sie vertritt.</li>
+<li><a href="orte/index.html">Orte</a>: Länder und Wahlkreise und wer sie vertritt, mit Karte und Suche nach Land,
+Wahlkreis oder Gemeinde.</li>
 <li><a href="gremien/index.html">Gremien</a>: Fraktionen, Ausschüsse und die Bundesregierung.</li>
 <li><a href="regierung/index.html">Fragen an die Regierung</a>: Kleine Anfragen, Fragen und Regierungsbefragung nach
-Fraktionen.</li>
+Fraktionen, und jede einzelne Frage zum Durchsuchen.</li>
 <li>Entscheidungen und Regeln im Einzelnen:
 <a href="https://github.com/jan-c-buchkremer/bundestag-mdb-cards/blob/main/docs/decisions.md">docs/decisions.md</a>.</li>
 </ul>
@@ -153,10 +182,13 @@ STYLE = """<style>
 </style>"""
 
 
-def write(conn: sqlite3.Connection, out: Path, meta: dict) -> dict[str, int]:
-    """Write daten.html (and copy the export into daten/); returns the number of downloadable files."""
+def write(
+    conn: sqlite3.Connection, out: Path, meta: dict, missing: dict[str, list[dict]] | None = None
+) -> dict[str, int]:
+    """Write daten.html (and copy the export into daten/); returns the number of downloadable files. `missing`:
+    procedures.missing_debates, for the known gaps."""
     files = copy_export(out)
     built = dt.datetime.now().astimezone().strftime("%d.%m.%Y, %H:%M Uhr")
-    html = page(meta, stale_roles(conn), fragestunden(conn), files, built)
+    html = page(meta, stale_roles(conn), fragestunden(conn), files, built, missing)
     (out / "daten.html").write_text(html, encoding="utf-8")
     return {"daten": len(files)}

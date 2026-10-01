@@ -434,6 +434,26 @@ def decision_list(ds: list[dict], root: str = "../", key: str = "dec", *, limit:
     return fact_list(rows, key, empty, limit, note)
 
 
+def relation_counts(decisions: list[dict]) -> dict[str, int]:
+    """How decisions and Vorgänge relate in the store: decisions in all, those of exactly one Vorgang (a point on its
+    timeline, D15), and the Vorgänge with two or more decisions."""
+    per: Counter = Counter(v for d in decisions if len(d.get("vorgaenge") or []) == 1 for v in d["vorgaenge"])
+    return {"decisions": len(decisions), "on_one": sum(per.values()), "several": sum(1 for k in per.values() if k > 1)}
+
+
+def relation_note(c: dict[str, int], root: str = "../") -> str:
+    """One short paragraph on votes and Vorgänge, for the Abstimmungen tab and every Vorgang page (plan 12.4)."""
+    return (
+        f'Ein <a href="{root}vorgaenge/index.html">Vorgang</a> hat oft mehrere Abstimmungen: über '
+        "Änderungs- und Entschließungsanträge, die zweite Beratung in Teilen, zuletzt die Schlussabstimmung "
+        f"({n(c['several'])} {'Vorgang hat' if c['several'] == 1 else 'Vorgänge haben'} zwei oder mehr). "
+        "Eine Abstimmung, die zu genau einem Vorgang gehört, ist "
+        f"ein Punkt in seinem Ablauf ({n(c['on_one'])} von {n(c['decisions'])}); die übrigen gehören zu keinem oder zu "
+        "mehreren Vorgängen und haben eine eigene Seite, die jeden betroffenen Vorgang nennt. Jede Abstimmung steht "
+        "außerdem bei der Sitzung, in der sie stattfand."
+    )
+
+
 # ---------------------------------------------------------------- Drucksachen
 
 

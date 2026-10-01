@@ -74,7 +74,7 @@ def test_shares(conn):
     assert s["seats"] == {"SPD": 3}  # the house as the latest vote list shows it (in the fixture, SPD only)
     # among the members' own words: Adler (SPD) has an earlier Wahlperiode, Berg and Cohn do not
     assert s["dims"]["term"]["schon früher im Bundestag"] == 3 + 4
-    assert s["base"]["term"] == {"schon früher im Bundestag": 1, "erste Wahlperiode": 5}
+    assert s["base"]["term"] == {"schon früher im Bundestag": 1, "erste Wahlperiode": 6}  # Lose included
     assert s["dims"]["gender"]["Männer"] == 2 * long + 2
     assert s["themes"] == {"Wohnen": {"CDU/CSU": long}}
 

@@ -33,23 +33,12 @@ def test_municipalities_groups_split_gemeinde(conn):
     assert rows["Hamburg"]["d"] == "Hamburg" and rows["Hamburg"]["s"] == "HH"
 
 
-def test_write_skips_page_without_table(tmp_path, conn):
-    conn.execute("DROP TABLE constituency_municipality")
-    written = wahlkreissuche.write(conn, tmp_path, [])
-    assert written == {}
-    assert not (tmp_path / "wahlkreise").exists()
+def test_gemeinden_in_the_place_index(conn):
+    """The Gemeinde lookup is the Orte page's place search now: its Gemeinden are in orte/orte.json."""
+    from cards import data, places
 
-
-def test_write_page_with_table(tmp_path, conn):
     add_municipalities(conn)
-    wks = [{"number": 14, "name": "Rostock – Landkreis Rostock II", "state": "MV"}]
-    written = wahlkreissuche.write(conn, tmp_path, wks)
-    assert written == {"wahlkreise": 1}
-    html = (tmp_path / "wahlkreise" / "suche.html").read_text(encoding="utf-8")
-    assert "Rostock, Hanse- und Universitätsstadt" in html
-    # an entry point: it links the place pages and renders no member list of its own (D17)
-    assert (
-        "../orte/wahlkreis-" in html
-        and '"MV":{"name":"Mecklenburg-Vorpommern","slug":"mecklenburg-vorpommern"}' in html
-    )
-    assert '"direct"' not in html and "list_by_state" not in html
+    cards, _ = data.cards(conn)
+    rep = places.representation(cards, data.constituencies(conn), None)
+    index = places.place_index(rep, wahlkreissuche.municipalities(conn))
+    assert ["Hamburg", "Hamburg", "HH", [18, 19]] in index["gemeinden"]

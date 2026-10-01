@@ -193,3 +193,30 @@ def test_search_index_groups_every_entity_type(site):
     assert {index["types"][t] for t, *_ in index["items"]} == set(index["types"])
     gemeinde = [x for x in index["items"] if x[1] == "Oranienburg, Stadt"]
     assert gemeinde and gemeinde[0][3] == "orte/wahlkreis-58.html"
+
+
+def test_calendar_shows_a_weeks_votes_and_vorgaenge(site):
+    """sitzungen/index.html: week W28's card holds sitting 88 with its votes (facts.decision, result badge, roll call
+    or show of hands) and the Vorgänge that moved forward, each behind the week's toggles."""
+    cal = (site / "sitzungen" / "index.html").read_text()
+    assert 'href="#2026-W28"' in cal and 'href="#2026-W37"' in cal  # the year strip links the sitting weeks
+    card = cal.split('<section class="wk" id="2026-W28">', 1)[1].split("</section>", 1)[0]
+    assert 'href="21-88.html">88. Sitzung</a>' in card and 'href="../woche/2026-W28.html"' in card
+    votes = card.split('<div class="votes">', 1)[1].split('<div class="procs">', 1)[0]
+    assert 'id="abst-' not in votes and 'class="badge angenommen"' in votes
+    assert "namentlich" in votes and "Handzeichen" in votes
+    assert 'href="../vorgaenge/g1.html#abst-21-88-2"' in votes  # a vote of one Vorgang links its timeline point
+    procs = card.split('<div class="procs">', 1)[1]
+    assert 'href="../vorgaenge/g1.html">' in procs and "abgestimmt" in procs and "beraten (TOP 2)" in procs
+    assert 'class="t-votes"' in card and 'class="t-procs"' in card
+    assert 'aria-current="page">Sitzungswochen</a>' in cal  # the sub-tabs, Abstimmungen beside it
+    votes_page = (site / "abstimmungen" / "index.html").read_text()
+    assert 'aria-current="page">Abstimmungen</a>' in votes_page and "ist ein Punkt in seinem Ablauf" in votes_page
+
+
+def test_week_page_has_vorgaenge_and_votes_as_facets(site):
+    week = (site / "woche" / "2026-W28.html").read_text()
+    facet = week.split('id="vorgaenge"', 1)[1].split('<section class="facet"', 1)[0]
+    assert 'href="../vorgaenge/g1.html"' in facet and 'href="../vorgaenge/g5.html"' in facet
+    assert 'id="abstimmungen"' in week
+    assert "ist ein Punkt in seinem Ablauf" in (site / "vorgaenge" / "g1.html").read_text()  # D15, in one paragraph

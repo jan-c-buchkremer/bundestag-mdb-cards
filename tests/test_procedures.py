@@ -1,4 +1,4 @@
-from cards import data, procedures
+from cards import data, facts, procedures
 
 DIP = ("https://search.dip.bundestag.de/api/v1/vorgang/1", "DIP Vorgang 1", "2026-09-27")
 
@@ -105,7 +105,8 @@ def test_timeline_from_positions(conn):
     assert t[1]["sitting"] == ("21/88", 2, None) and t[1]["note"] == "Annahme (21/500)"
     assert t[1]["doc"] == ("Plenarprotokoll 21/88, S. 13-18", "https://x/88.pdf")
     assert b["latest"] == "2026-07-20"
-    html = procedures.procedure_page(b, {"sitzungen/21-88.html"}, data.roll_call_members(conn))
+    relation = facts.relation_counts(data.decisions(conn))
+    html = procedures.procedure_page(b, {"sitzungen/21-88.html"}, data.roll_call_members(conn), relation)
     assert 'href="../sitzungen/21-88.html#top-2"' in html and "auch die im Bundesrat" in html
     assert 'id="abst-21-88-h1"' in html and 'id="abst-21-88-2"' in html  # the votes are points on the timeline
     assert 'class="chart vchart"' in html  # with the seating chart of the roll call

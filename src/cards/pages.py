@@ -85,7 +85,8 @@ def votes_index(decisions: list[dict], meta: dict, compass: bool = False) -> str
                    f'<div class="rows">{rows}</div></section>')  # fmt: skip
     first_date = min((d["date"] for d in decisions), default=meta["sittings"]["from"])
     body = f"""{subtabs("../", SITTING_TABS, "votes")}<h1>Abstimmungen</h1>
-<p class="lead">{n(len(decisions))} Beschlüsse seit {e(long_date(first_date))}: {n(kinds["namentlich"])} namentliche Abstimmungen mit der Stimme jedes Mitglieds, {n(kinds["handzeichen"])} Abstimmungen per Handzeichen, bei denen das Protokoll nur festhält, wie die Fraktionen gestimmt haben. {n(results["angenommen"])} angenommen, {n(results["abgelehnt"])} abgelehnt. Überweisungen an Ausschüsse, Wahlen und Fragen der Tagesordnung sind keine Beschlüsse in der Sache und fehlen hier. Ein Beschluss, der zu genau einem <a href="../vorgaenge/index.html">Vorgang</a> gehört, steht im Ablauf dieses Vorgangs. Wie geschlossen die Fraktionen in den namentlichen Abstimmungen gestimmt haben und wer wann abgewichen ist, zeigt die Seite <a href="geschlossenheit.html">Geschlossenheit der Fraktionen</a>.{compass_link(compass)}</p>
+<p class="lead">{n(len(decisions))} Beschlüsse seit {e(long_date(first_date))}: {n(kinds["namentlich"])} namentliche Abstimmungen mit der Stimme jedes Mitglieds, {n(kinds["handzeichen"])} Abstimmungen per Handzeichen, bei denen das Protokoll nur festhält, wie die Fraktionen gestimmt haben. {n(results["angenommen"])} angenommen, {n(results["abgelehnt"])} abgelehnt. Überweisungen an Ausschüsse, Wahlen und Fragen der Tagesordnung sind keine Beschlüsse in der Sache und fehlen hier. Wie geschlossen die Fraktionen in den namentlichen Abstimmungen gestimmt haben und wer wann abgewichen ist, zeigt die Seite <a href="geschlossenheit.html">Geschlossenheit der Fraktionen</a>.{compass_link(compass)}</p>
+<p class="explain">{facts.relation_note(facts.relation_counts(decisions))}</p>
 <div class="filters">
   <input type="search" id="q" placeholder="Titel, Drucksache oder Tagesordnungspunkt …" autocomplete="off">
   <select id="kind"><option value="">namentlich und per Handzeichen</option><option value="namentlich">nur namentlich</option><option value="handzeichen">nur per Handzeichen</option></select>
@@ -217,37 +218,6 @@ def topics_block(i: dict, clusters: dict[str, dict]) -> str:
             f'<div class="chips">{links}{rest}</div></div>')  # fmt: skip
 
 
-def sittings_index(sittings: list[dict]) -> str:
-    """The Wahlperiode, the top of the time hierarchy (D18): its sitting weeks, newest first, each with its
-    sittings."""
-    weeks: dict[str, list[dict]] = defaultdict(list)
-    for s in reversed(sittings):
-        weeks[s["week"]].append(s)
-    out = []
-    for week, ss in weeks.items():
-        rows = "".join(
-            f'<a class="row s" href="{e(s["page"])}.html"><span class="d">{e(short_date(s["date"]))}</span>'
-            f'<span class="t"><span class="ti">{s["number"]}. Sitzung</span><span class="sub">'
-            f"{len(s['items'])} Tagesordnungspunkte · {sum(len(i['speeches']) for i in s['items'])} Reden · "
-            f"{sum(len(i['decisions']) for i in s['items'])} Beschlüsse</span></span></a>"
-            for s in sorted(ss, key=lambda s: s["number"])
-        )
-        out.append(f'<section class="grp" id="{e(week)}"><h3>'
-                   f'<a href="../{e(urls.week(week))}">{e(week_label(week))}</a>'
-                   f' · <a href="{LANDSCAPE}{e(week)}.html">Themenlandschaft ↗</a></h3><div class="rows">{rows}'
-                   "</div></section>")  # fmt: skip
-    body = (
-        f'<h1>21. Wahlperiode</h1><p class="lead">{len(sittings)} Sitzungen in {len(weeks)} Sitzungswochen seit '
-        f"{e(long_date(sittings[0]['date'])) if sittings else ''}, die neueste zuerst. Jede Woche mit ihren "
-        "Sitzungen, jede Sitzung mit ihrer Tagesordnung, den Reden, den Beschlüssen und dem Plenarprotokoll. "
-        '<a href="../woche/feed.xml">Die Woche im Bundestag als Feed (Atom)</a></p>'
-        f"{''.join(out)}<footer>{FOOTER}</footer>"
-    )
-    return shell(root="../", kind="p-sittings", active="sittings", title="Sitzungen des Bundestages",
-                 desc="Alle Sitzungswochen und Sitzungen des 21. Deutschen Bundestages mit Tagesordnung, Reden und "
-                      "Beschlüssen.", body=body, data={"kind": "sittings"})  # fmt: skip
-
-
 def write_pages(out: Path, decisions: list[dict], members: dict[str, list[list]], sittings: list[dict], meta: dict,
                 clusters: dict[str, dict] | None = None, compass: bool = False) -> dict[str, int]:  # fmt: skip
     """Write abstimmungen/ (the pages of decisions without exactly one Vorgang; the others get their stub with the
@@ -261,5 +231,7 @@ def write_pages(out: Path, decisions: list[dict], members: dict[str, list[list]]
     (votes_dir / "index.html").write_text(votes_index(decisions, meta, compass), encoding="utf-8")
     for s in sittings:
         (sit_dir / f"{s['page']}.html").write_text(sitting_page(s, clusters), encoding="utf-8")
-    (sit_dir / "index.html").write_text(sittings_index(sittings), encoding="utf-8")
+    from cards import weekly  # the calendar; weekly.write rewrites it with the Vorgang pages linked
+
+    (sit_dir / "index.html").write_text(weekly.period_page(sittings, decisions, {}, set()), encoding="utf-8")
     return {"abstimmungen": len(own) + 1, "sitzungen": len(sittings) + 1}

@@ -348,7 +348,7 @@ def _how(b: dict) -> str:
             "Mitglieds.")  # fmt: skip
 
 
-def procedure_page(b: dict, have: set[str], members: dict[str, list[list]]) -> str:
+def procedure_page(b: dict, have: set[str], members: dict[str, list[list]], relation: dict[str, int]) -> str:
     """One Vorgang; `have` holds the site paths ("sitzungen/21-88.html") that exist, so every link resolves."""
 
     def sitting_href(sid: str, position: int | None, sub: str | None = None) -> str | None:
@@ -384,7 +384,8 @@ def procedure_page(b: dict, have: set[str], members: dict[str, list[list]]) -> s
             + (f" · {e(s['note'])}" if s["note"] else "")
             + "</li>"
         )
-    parts.append(facet("abstimmungen", "Ablauf, Abstimmungen und Beschlüsse", f'<ol class="tl">{"".join(steps)}</ol>',
+    parts.append(facet("abstimmungen", "Ablauf, Abstimmungen und Beschlüsse",
+                       f'<p class="explain">{facts.relation_note(relation)}</p><ol class="tl">{"".join(steps)}</ol>',
                        len(b["decisions"]), _how(b)))  # fmt: skip
     debates = []
     for k, a in enumerate(b["debates"]):
@@ -482,8 +483,9 @@ def write(conn: sqlite3.Connection, out: Path, sittings: list[dict], decisions: 
     }
     d = out / "vorgaenge"
     d.mkdir(parents=True, exist_ok=True)
+    relation = facts.relation_counts(decisions)
     for b in procs:
-        (d / f"{b['id']}.html").write_text(procedure_page(b, have, members), encoding="utf-8")
+        (d / f"{b['id']}.html").write_text(procedure_page(b, have, members, relation), encoding="utf-8")
         if b["type"] == GESETZ:
             redirects.write(out, f"gesetze/{b['id']}.html", urls.vorgang(b["id"]), b["title"])
     (d / "index.html").write_text(index_page(procs), encoding="utf-8")

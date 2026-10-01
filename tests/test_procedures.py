@@ -1,3 +1,5 @@
+import json
+
 from cards import data, facts, procedures
 
 DIP = ("https://search.dip.bundestag.de/api/v1/vorgang/1", "DIP Vorgang 1", "2026-09-27")
@@ -137,3 +139,59 @@ def test_write_without_vorgang_table(conn, tmp_path):
     decided = data.decisions(conn)
     assert procedures.write(conn, tmp_path, data.sittings(conn, decided), decided, {}) == []
     assert (tmp_path / "vorgaenge" / "index.html").exists()  # the nav links it, so it is written even empty
+
+
+def add_missing_debate(c):
+    """An SGB-VI-like Gesetzgebung: DIP records its 1st Beratung in Plenarprotokoll 21/31 (not in the store) and its
+    2nd/3rd Beratung in 21/88 with four decisions, but no agenda item names its Drucksache 21/310: the store has the
+    preliminary protocol without the late-evening debates."""
+    src = ("u", "d", "t")
+    c.execute("INSERT INTO drucksache VALUES ('d310','21/310',21,'Gesetzentwurf','SGB VI-Anpassungsgesetz',"
+              "'2025-11-03',NULL,'BT','[\"Bundesregierung\"]',0,?,?,?)", src)  # fmt: skip
+    c.execute("INSERT INTO vorgang (id, wahlperiode, type, title, status, subjects, initiators, source_url, "
+              "source_document_id, retrieved_at) VALUES ('325338',21,'Gesetzgebung','SGB VI-Anpassungsgesetz',"
+              "'Verabschiedet','[]','[\"Bundesregierung\"]',?,?,?)", src)  # fmt: skip
+    c.execute("INSERT INTO vorgang_drucksache VALUES ('325338','d310')")
+    decisions = json.dumps([
+        {"beschlusstenor": "Ablehnung", "dokumentnummer": "21/411", "seite": "4227B", "abstimmungsart": "Handzeichen"},
+        {"beschlusstenor": "Annahme in Ausschussfassung", "dokumentnummer": "21/310", "seite": "4228A"},
+        {"beschlusstenor": "Annahme in Ausschussfassung", "dokumentnummer": "21/310", "seite": "4228C",
+         "abstimmungsart": "Handzeichen"},
+        {"beschlusstenor": "Ablehnung", "dokumentnummer": "21/412", "seite": "4228D"},
+    ], ensure_ascii=False)  # fmt: skip
+    c.executemany(
+        "INSERT INTO vorgang_position VALUES (?,'325338',?,?,'BT',?,?,?,?,?,'[]',NULL,?,'u','d','t')",
+        [("s1", "2025-11-03", "Gesetzentwurf", "Drucksache", "21/310", "Gesetzentwurf", None, None, None),
+         ("s2", "2025-11-13", "1. Beratung", "Plenarprotokoll", "21/31", None, None, "3392-3396", None),
+         ("s3", "2026-07-08", "2. Beratung", "Plenarprotokoll", "21/88", None,
+          "https://dserver.bundestag.de/btp/21/21088.pdf#P.4220", "4220-4228", decisions)],
+    )  # fmt: skip
+
+
+def test_beratung_without_protocol_text(conn):
+    """A DIP Beratung whose sitting has no agenda item naming the Vorgang's Drucksachen: the step with its protocol
+    PDF and pages, DIP's decisions marked apart, and the note (docs/plan.md 12.6)."""
+    add_missing_debate(conn)
+    b = load(conn)["325338"]
+    first, second = (s for s in b["timeline"] if s["phase"] == "Beratung")
+    assert first["missing"]["pdf"] == "https://dserver.bundestag.de/btp/21/21031.pdf"  # built from the number
+    assert first["missing"]["pages"] == "3392-3396"
+    assert second["missing"]["pdf"].endswith("21088.pdf#P.4220") and len(second["missing"]["decisions"]) == 4
+    assert procedures.missing_debates([b]) == {
+        "21/31": [{"vorgang": "325338", "title": "SGB VI-Anpassungsgesetz", "pages": "3392-3396",
+                   "what": "1. Beratung", "pdf": "https://dserver.bundestag.de/btp/21/21031.pdf"}],
+        "21/88": [{"vorgang": "325338", "title": "SGB VI-Anpassungsgesetz", "pages": "4220-4228",
+                   "what": "2. Beratung", "pdf": "https://dserver.bundestag.de/btp/21/21088.pdf#P.4220"}],
+    }  # fmt: skip
+    html = procedures.procedure_page(b, {"sitzungen/21-88.html"}, {}, facts.relation_counts([]))
+    li = html.split('class="BT p-Beratung missing"', 2)
+    assert len(li) == 3  # both Beratungen
+    first_li = li[1].split("</p></li>", 1)[0]
+    assert 'href="https://dserver.bundestag.de/btp/21/21031.pdf">Plenarprotokoll 21/31, S. 3392-3396 (PDF)' in first_li
+    assert "Der Protokolltext dieser Beratung ist nicht im Datenbestand" in first_li
+    second_li = li[2].split("</p></li>", 1)[0]
+    assert (
+        "Beschlüsse laut DIP" in second_li and "Annahme in Ausschussfassung · Drucksache 21/310 · S. 4228A" in second_li
+    )
+    assert 'href="../sitzungen/21-88.html' not in second_li  # no agenda item to link
+    assert 'class="dec' not in second_li  # DIP's decisions are not drawn as votes parsed from the protocol

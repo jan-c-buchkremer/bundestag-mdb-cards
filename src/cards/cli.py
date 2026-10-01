@@ -85,6 +85,9 @@ def main(argv: list[str] | None = None) -> None:
                                       themes)  # fmt: skip
     print(f"wrote {n_speeches} speech pages in reden/" + (f", {len(similar)} with similar speeches" if similar else ""))
     procs = procedures.write(conn, args.out, sittings, decided, rcm)
+    missing = procedures.missing_debates(procs)
+    print(f"{sum(len(x) for x in missing.values())} Beratungen in {len(missing)} sittings without protocol text")
+    written |= sources.write(conn, args.out, meta, missing)
     print(f"wrote {len(procs)} pages in vorgaenge/, stubs in gesetze/ and abstimmungen/ for what moved there")
     print(f"wrote {weekly.write(conn, args.out, sittings, decided).get('woche', 0)} pages in woche/")
     written_themes = topics.write(args.out, themes, data.speech_facts(cards), sittings)

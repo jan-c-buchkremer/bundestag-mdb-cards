@@ -30,6 +30,7 @@ def enrich(c: sqlite3.Connection) -> None:
     test_procedures.add_bills(c)
     test_subtops.add_block(c)
     test_questions.add_research(c)
+    test_procedures.add_missing_debate(c)
     c.execute("UPDATE agenda_item SET drucksache_numbers = '[\"21/500\", \"21/100\"]' WHERE id = '21/88/2'")
     c.execute("INSERT INTO drucksache VALUES ('d6498','21/6498',21,'Gesetzentwurf','Seelotsgesetz','2026-06-02',NULL,"
               "'BT','[\"Bundesregierung\"]',0,?,?,?)", SRC)  # fmt: skip
@@ -242,3 +243,12 @@ def test_fragen_lists_link_their_sources(site):
     assert f'id="top-{position}"' in (site / urls.sitting(sitting).split("#")[0]).read_text()
     adler = (site / "1.html").read_text()
     assert "21/620" in adler and "vorgaenge/rvn.html" not in adler  # an Antrag whose Vorgang has no page: no link
+
+
+def test_vorgang_with_a_beratung_missing_from_the_protocols(site):
+    page = (site / "vorgaenge" / "325338.html").read_text()
+    assert page.count("Der Protokolltext dieser Beratung ist nicht im Datenbestand") == 2
+    assert 'href="https://dserver.bundestag.de/btp/21/21031.pdf"' in page and "Beschlüsse laut DIP" in page
+    daten = (site / "daten.html").read_text()
+    gap = daten.split("Beratungen ohne Protokolltext", 1)[1].split("</ul></li>", 1)[0]
+    assert "Sitzung 21/31" in gap and 'href="vorgaenge/325338.html"' in gap and "S. 3392-3396" in gap

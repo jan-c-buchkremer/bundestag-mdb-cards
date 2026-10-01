@@ -635,7 +635,7 @@ def research_section(counts: dict[str, int]) -> str:
         '<select id="ft" aria-label="Antwortzeit" hidden><option value="">jede Antwortzeit</option>'
         f"<option>bis {DEADLINE} Tage</option><option>15 bis 28 Tage</option><option>mehr als 28 Tage</option>"
         '<option>offen</option></select></div><div class="count" id="fcount"></div><div class="rows" id="flist"></div>'
-        '<button type="button" class="more" id="fmore" hidden>Weitere zeigen</button></div></section>'
+        '<button type="button" class="more" id="fmore" style="display:none">Weitere zeigen</button></div></section>'
     )
 
 

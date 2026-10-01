@@ -446,7 +446,8 @@ def relation_note(c: dict[str, int], root: str = "../") -> str:
     return (
         f'Ein <a href="{root}vorgaenge/index.html">Vorgang</a> hat oft mehrere Abstimmungen: über '
         "Änderungs- und Entschließungsanträge, die zweite Beratung in Teilen, zuletzt die Schlussabstimmung "
-        f"({n(c['several'])} Vorgänge haben zwei oder mehr). Eine Abstimmung, die zu genau einem Vorgang gehört, ist "
+        f"({n(c['several'])} {'Vorgang hat' if c['several'] == 1 else 'Vorgänge haben'} zwei oder mehr). "
+        "Eine Abstimmung, die zu genau einem Vorgang gehört, ist "
         f"ein Punkt in seinem Ablauf ({n(c['on_one'])} von {n(c['decisions'])}); die übrigen gehören zu keinem oder zu "
         "mehreren Vorgängen und haben eine eigene Seite, die jeden betroffenen Vorgang nennt. Jede Abstimmung steht "
         "außerdem bei der Sitzung, in der sie stattfand."

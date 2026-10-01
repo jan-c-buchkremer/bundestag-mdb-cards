@@ -24,6 +24,7 @@ ASSETS = (
     "nav.js",
     "places.js",
     "wkmap.js",
+    "fragen.js",
 )
 
 

@@ -70,7 +70,7 @@ def main(argv: list[str] | None = None) -> None:
         decided, rcm, sittings, clusters,
         places=places.index_payload(cards, wks), roles=careers.build_section(conn, cards, groups, gov),
     )  # fmt: skip
-    written |= questions.write(conn, args.out) | sources.write(conn, args.out, meta)
+    written |= questions.write(conn, args.out, {c["id"] for c in cards}) | sources.write(conn, args.out, meta)
     written |= debate.write(conn, args.out)
     written |= careers.write(args.out)
     if gemeinden is None:

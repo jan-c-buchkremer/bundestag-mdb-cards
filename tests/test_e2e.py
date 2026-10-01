@@ -11,10 +11,11 @@ from pathlib import Path
 
 import pytest
 import test_procedures
+import test_questions
 import test_subtops
 from conftest import LONG, speech, store
 
-from cards import cli
+from cards import cli, urls
 
 HERE = Path(__file__).parent
 SRC = ("u", "d", "t")
@@ -23,10 +24,12 @@ SRC = ("u", "d", "t")
 def enrich(c: sqlite3.Connection) -> None:
     """Bill g1 (Gesetzentwurf 21/500) with its DIP steps up to the Bundesrat and the Verkündung, a show-of-hands
     decision and a roll call; TOP 2 carries Vorlagen of three Vorgänge (21/500 and the Anträge' 21/100); block item
-    TOP 5 with sub-items, 5a's Drucksache a Vorgang of its own and a speech under it; a second sitting week; and
-    Gemeinden for the Wahlkreis lookup."""
+    TOP 5 with sub-items, 5a's Drucksache a Vorgang of its own and a speech under it; a second sitting week;
+    Gemeinden for the place search; and the questions of every kind (test_questions.add_research), among them a
+    Kleine Anfrage and an Antrag whose Vorgänge have no page."""
     test_procedures.add_bills(c)
     test_subtops.add_block(c)
+    test_questions.add_research(c)
     c.execute("UPDATE agenda_item SET drucksache_numbers = '[\"21/500\", \"21/100\"]' WHERE id = '21/88/2'")
     c.execute("INSERT INTO drucksache VALUES ('d6498','21/6498',21,'Gesetzentwurf','Seelotsgesetz','2026-06-02',NULL,"
               "'BT','[\"Bundesregierung\"]',0,?,?,?)", SRC)  # fmt: skip
@@ -220,3 +223,22 @@ def test_week_page_has_vorgaenge_and_votes_as_facets(site):
     assert 'href="../vorgaenge/g1.html"' in facet and 'href="../vorgaenge/g5.html"' in facet
     assert 'id="abstimmungen"' in week
     assert "ist ein Punkt in seinem Ablauf" in (site / "vorgaenge" / "g1.html").read_text()  # D15, in one paragraph
+
+
+def test_fragen_lists_link_their_sources(site):
+    """regierung/<kind>.json for every kind; the pages a row links (cards, speech pages, sittings) exist."""
+    from cards import questions
+
+    for slug, _, _ in questions.KINDS:
+        d = json.loads((site / "regierung" / f"{slug}.json").read_text())
+        assert d["rows"], slug
+        for pid, _, _, card in d["persons"]:
+            assert not card or (site / f"{pid}.html").is_file(), (slug, pid)
+    turns = json.loads((site / "regierung" / "fragestunde.json").read_text())["rows"]
+    for speech_id, *_ in turns:
+        assert (site / urls.speech(speech_id).split("#")[0]).is_file(), speech_id
+    (mf,) = json.loads((site / "regierung" / "muendliche-fragen.json").read_text())["rows"]
+    sitting, position = mf[7][:2]
+    assert f'id="top-{position}"' in (site / urls.sitting(sitting).split("#")[0]).read_text()
+    adler = (site / "1.html").read_text()
+    assert "21/620" in adler and "vorgaenge/rvn.html" not in adler  # an Antrag whose Vorgang has no page: no link

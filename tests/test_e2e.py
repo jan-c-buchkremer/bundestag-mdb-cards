@@ -4,6 +4,7 @@ docs/plan.md (section 11.3) through the stubs, fragments included."""
 
 import json
 import re
+import shutil
 import sqlite3
 import subprocess
 import sys
@@ -147,6 +148,12 @@ REDIRECTS = [
     ("suche.html", "suche.html", ""),
     ("index.html", "index.html", ""),
     ("abstimmungen/geschlossenheit.html", "abstimmungen/geschlossenheit.html", ""),
+    # this session's moves (docs/plan.md 12.6)
+    ("karrieren/index.html", "index.html", "rollen"),  # Karrieren is the Rollen section of the Abgeordnete page
+    ("karrieren/index.html#x", "index.html", "rollen"),  # the old page had no anchors: any fragment → #rollen
+    ("abstimmungen/index.html", "abstimmungen/index.html", ""),  # a sub-tab of Sitzungen now, same URL
+    ("orte/index.html#suche", "orte/index.html", "suche"),
+    ("orte/index.html#karte", "orte/index.html", "karte"),
 ]
 
 
@@ -158,9 +165,43 @@ def test_old_urls_resolve(site, old, page, frag):
         assert f'id="{frag}"' in landed.read_text(encoding="utf-8")
 
 
+def test_old_index_view_states_reach_the_place_pages(site):
+    """index.html#ansicht=wahlkreise… is view state the index's script turns into the place page (places.js
+    legacyTarget, run here in Node), and the page it names exists; other hashes stay on the index."""
+    if not shutil.which("node"):
+        pytest.skip("node is not installed")
+    page = (site / "index.html").read_text()
+    assert '<script src="places.js"></script>' in page and "Places.legacyTarget(location.hash" in page
+    slugs = json.loads(re.search(r"Places\.legacyTarget\(location\.hash, (\{.*?\})\)", page).group(1))
+    hashes = ["#ansicht=wahlkreise", "#ansicht=wahlkreise&wk=14", "#ansicht=wahlkreise&q=x&state=BY&wk=58",
+              "#ansicht=wahlkreise&state=BB", "#ansicht=personen&state=BY", "#ort=BY", ""]  # fmt: skip
+    script = (
+        f"const P = require({json.dumps(str(site / 'places.js'))});"
+        f"console.log(JSON.stringify({json.dumps(hashes)}.map(h => P.legacyTarget(h, {json.dumps(slugs)}))));"
+    )
+    got = json.loads(subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True).stdout)
+    assert got == ["orte/index.html", "orte/wahlkreis-14.html", "orte/wahlkreis-58.html", "orte/brandenburg.html",
+                   None, None, None]  # fmt: skip
+    assert all((site / t).is_file() for t in got if t)
+    assert 'id="rollen"' in page and 'id="ortq"' in page and 'data-v="wahlkreise"' not in page
+
+
 def test_files_that_must_keep_existing(site):
-    for path in ("1.json", "woche/feed.xml", "suche.json", "pagefind/pagefind.js"):
-        assert (site / path).is_file(), path
+    for path in (
+        "1.json",
+        "woche/feed.xml",
+        "suche.json",
+        "suche-kurz.json",
+        "orte/orte.json",
+        "nav.js",
+        "places.js",
+        "wkmap.js",
+        "fragen.js",
+        "wahlkreise.json",
+        "fotos",
+        "pagefind/pagefind.js",
+    ):
+        assert (site / path).exists(), path
     feed = (site / "woche" / "feed.xml").read_text()
     assert "<id>https://jan-c-buchkremer.github.io/bundestag-mdb-cards/woche/2026-W28.html</id>" in feed
 

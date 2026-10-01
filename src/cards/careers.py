@@ -339,5 +339,5 @@ def build_section(conn: sqlite3.Connection, cards: list[dict], bodies: list[dict
 
 def write(out: Path) -> dict[str, int]:
     """karrieren/index.html is the Rollen section of the Abgeordnete page now: a stub to index.html#rollen."""
-    redirects.write(out, "karrieren/index.html", "index.html#rollen", "Rollen")
+    redirects.write(out, "karrieren/index.html", "index.html#rollen", "Rollen", redirects.any_fragment("rollen"))
     return {"karrieren": 1}

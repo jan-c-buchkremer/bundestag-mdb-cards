@@ -101,7 +101,11 @@ def test_career(conn):
 
 def test_dip_complete_needs_every_sitting_month(conn):
     assert data.dip_complete(conn) is True  # one sitting month (2026-07), DIP has it
-    conn.execute("INSERT INTO sitting VALUES ('21/90', 21, 90, '2026-09-10', NULL, NULL, 'x', 'x', 'x', 'x', 'x')")
+    conn.execute(
+        "INSERT INTO sitting (id, wahlperiode, number, date, start_time, end_time, xml_url, pdf_url, source_url, "
+        "source_document_id, retrieved_at) "
+        "VALUES ('21/90', 21, 90, '2026-09-10', NULL, NULL, 'x', 'x', 'x', 'x', 'x')"
+    )
     assert data.dip_complete(conn) is False
 
 

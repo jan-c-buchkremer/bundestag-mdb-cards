@@ -78,7 +78,9 @@ def store() -> sqlite3.Connection:
             membership("10", 1, "fraction", "BÜNDNIS 90/DIE GRÜNEN"),
         ],
     )
-    c.execute("INSERT INTO sitting VALUES ('21/88',21,88,'2026-07-08',NULL,NULL,'https://x/21088.xml',"
+    c.execute("INSERT INTO sitting (id, wahlperiode, number, date, start_time, end_time, xml_url, pdf_url, source_url, "
+              "source_document_id, retrieved_at) "
+              "VALUES ('21/88',21,88,'2026-07-08',NULL,NULL,'https://x/21088.xml',"
               "'https://x/21088.pdf','https://x/21088.xml','BT-PlPr. 21/88','2026-09-27')")  # fmt: skip
     c.executemany(
         "INSERT INTO agenda_item VALUES (?,'21/88',?,?,?,'[]','https://x/21088.xml',?,'2026-09-27',0)",

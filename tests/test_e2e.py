@@ -64,7 +64,9 @@ def enrich(c: sqlite3.Connection) -> None:
             ),
         ),
     )
-    c.execute("INSERT INTO sitting VALUES ('21/89',21,89,'2026-09-10',NULL,NULL,'https://x/21089.xml',"
+    c.execute("INSERT INTO sitting (id, wahlperiode, number, date, start_time, end_time, xml_url, pdf_url, source_url, "
+              "source_document_id, retrieved_at) "
+              "VALUES ('21/89',21,89,'2026-09-10',NULL,NULL,'https://x/21089.xml',"
               "'https://x/21089.pdf','https://x/21089.xml','BT-PlPr. 21/89','2026-09-27')")  # fmt: skip
     c.execute("INSERT INTO agenda_item VALUES ('21/89/1','21/89',1,'Tagesordnungspunkt 1','Haushalt 2027','[]',"
               "'u','BT-PlPr. 21/89','t',0)")  # fmt: skip

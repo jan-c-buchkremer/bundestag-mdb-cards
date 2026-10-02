@@ -7,12 +7,15 @@ from __future__ import annotations
 import datetime as dt
 import html
 import json
+import os
 from pathlib import Path
 
 from cards.data import NO_FRACTION
 
 HERE = Path(__file__).parent
-LANDSCAPE = "https://jan-c-buchkremer.github.io/bundestag-topic-landscape/"
+# Where the Themenlandschaft is published; links into it are absolute, since the cards may be published elsewhere
+LANDSCAPE = os.environ.get("LANDSCAPE_URL", "https://jan-c-buchkremer.github.io/bundestag-topic-landscape/")
+LANDSCAPE = LANDSCAPE.rstrip("/") + "/"
 MONTHS = ("Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November",
           "Dezember")  # fmt: skip
 WEEKDAYS = ("Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag")

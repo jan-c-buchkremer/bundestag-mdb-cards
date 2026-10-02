@@ -44,6 +44,9 @@ uv run pytest && uv run ruff check .
 
 Without `BDF_DB` the store is looked for at `../bundestag-data-foundation/data/bundestag.sqlite`.
 
+`CARDS_URL` is where this site is published (the Atom feed needs absolute links) and `LANDSCAPE_URL` where the
+Themenlandschaft is; both default to their GitHub Pages addresses.
+
 `LANDSCAPE_CLUSTERS` points to the Themenlandschaft's `speech_clusters.json` (`{"<speech id>": {"week", "cluster_id",
 "label"}}`, written by the landscape build); with it each agenda item on the sitting pages gets a "Worum ging es" block
 with its speeches' topic clusters. Without it the block is left out. `LANDSCAPE_THEMES` points to its

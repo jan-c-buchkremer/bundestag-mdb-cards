@@ -234,6 +234,8 @@ def render_index(
         .replace("__HEADER__", ui.site_header("", "cards"))
         .replace("__SLUGS__", _json(slugs))
         .replace("__ROLES__", roles)
+        .replace("__LANDSCAPE_HREF__", html.escape(ui.LANDSCAPE))
+        .replace("__LANDSCAPE__", _json(ui.LANDSCAPE))
         .replace("__DATA__", _json(payload))
     )
 

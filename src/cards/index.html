@@ -91,7 +91,7 @@ __HEADER__
   <div class="count" id="count"></div>
   <div id="list"></div>
   __ROLES__
-  <footer>Daten: Deutscher Bundestag (Stammdaten, Plenarprotokolle, namentliche Abstimmungen), abgeordnetenwatch.de (CC0 1.0), Wikidata (CC0 1.0, Regierungsmitglieder), Die Bundeswahlleiterin (Ergebnisse, dl-de/by-2-0), gesammelt mit <a href="https://github.com/jan-c-buchkremer/bundestag-data-foundation">bundestag-data-foundation</a>. Code: <a href="https://github.com/jan-c-buchkremer/bundestag-mdb-cards">bundestag-mdb-cards</a> (MIT). Die Liste ist alphabetisch; es gibt bewusst keine Rangliste. Worüber debattiert wird, zeigt die <a href="https://jan-c-buchkremer.github.io/bundestag-topic-landscape/">Themenlandschaft ↗</a>.</footer>
+  <footer>Daten: Deutscher Bundestag (Stammdaten, Plenarprotokolle, namentliche Abstimmungen), abgeordnetenwatch.de (CC0 1.0), Wikidata (CC0 1.0, Regierungsmitglieder), Die Bundeswahlleiterin (Ergebnisse, dl-de/by-2-0), gesammelt mit <a href="https://github.com/jan-c-buchkremer/bundestag-data-foundation">bundestag-data-foundation</a>. Code: <a href="https://github.com/jan-c-buchkremer/bundestag-mdb-cards">bundestag-mdb-cards</a> (MIT). Die Liste ist alphabetisch; es gibt bewusst keine Rangliste. Worüber debattiert wird, zeigt die <a href="__LANDSCAPE_HREF__">Themenlandschaft ↗</a>.</footer>
 </main>
 <script>
 'use strict';
@@ -112,7 +112,7 @@ const NAMED = {
 };
 const GOVERNMENT = DATA.government || [];
 const LAST = DATA.last_sitting;
-const LANDSCAPE = 'https://jan-c-buchkremer.github.io/bundestag-topic-landscape/';
+const LANDSCAPE = __LANDSCAPE__;
 const FRACTIONS = ['CDU/CSU', 'AfD', 'SPD', 'BÜNDNIS 90/DIE GRÜNEN', 'Die Linke', 'fraktionslos'];
 const FRACTION_COLORS = { 'CDU/CSU': '--cdu', 'SPD': '--spd', 'AfD': '--afd', 'BÜNDNIS 90/DIE GRÜNEN': '--gru', 'Die Linke': '--lin', 'fraktionslos': '--frl' };
 const STATES = Object.fromEntries(Object.entries(PLACES.lands).map(([code, l]) => [code, l.name]));

@@ -40,3 +40,18 @@ def test_index_without_round2_tables(conn_without_round2, tmp_path):
     cards, meta = data.cards(conn_without_round2)
     build.write_site(cards, meta, tmp_path, data.government(conn_without_round2), None)
     assert '"government":[]' in (tmp_path / "index.html").read_text()
+
+
+def test_legal_pages_and_no_font_cdn(conn, tmp_path):
+    cards, meta = data.cards(conn)
+    build.write_site(cards, meta, tmp_path)
+    impressum = (tmp_path / "impressum.html").read_text()
+    assert "jan.c.buchkremer@gmail.com" in impressum and 'href="datenschutz.html"' in impressum
+    assert "Cloudflare" in (tmp_path / "datenschutz.html").read_text()
+    assert (tmp_path / "fonts" / "inter-latin.woff2").read_bytes() == (
+        build.HERE / "fonts" / "inter-latin.woff2"
+    ).read_bytes()
+    for page in ("index.html", f"{cards[0]['id']}.html", "impressum.html"):
+        html = (tmp_path / page).read_text()
+        assert "fonts.googleapis" not in html
+    assert 'href="impressum.html">Impressum</a>' in (tmp_path / "index.html").read_text()

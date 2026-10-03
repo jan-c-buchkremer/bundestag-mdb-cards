@@ -20,7 +20,6 @@ page and on the Vorgang timeline; there is no third renderer."""
 from __future__ import annotations
 
 import datetime as dt
-import os
 import sqlite3
 from collections import Counter, defaultdict
 from pathlib import Path
@@ -29,6 +28,7 @@ from xml.etree import ElementTree as ET
 from cards import debate, facts, redirects, urls
 from cards.data import has_table, page_id
 from cards.ui import (
+    CARDS,
     FOOTER,
     LANDSCAPE,
     MONTHS,
@@ -46,7 +46,7 @@ from cards.ui import (
 )
 
 # where this site is published: the feed needs absolute links
-BASE = os.environ.get("CARDS_URL", "https://jan-c-buchkremer.github.io/bundestag-mdb-cards/").rstrip("/") + "/"
+BASE = CARDS
 ATOM = "http://www.w3.org/2005/Atom"
 FEED_WEEKS = 20
 NUMBERS = {1: "einem", 2: "zwei", 3: "drei", 4: "vier", 5: "fünf"}

@@ -16,6 +16,10 @@ HERE = Path(__file__).parent
 # Where the Themenlandschaft is published; links into it are absolute, since the cards may be published elsewhere
 LANDSCAPE = os.environ.get("LANDSCAPE_URL", "https://jan-c-buchkremer.github.io/bundestag-topic-landscape/")
 LANDSCAPE = LANDSCAPE.rstrip("/") + "/"
+# Where the cards themselves are published: the footer's Impressum and Datenschutz links are absolute, so the same
+# constant works on every page whatever its depth
+CARDS = os.environ.get("CARDS_URL", "https://jan-c-buchkremer.github.io/bundestag-mdb-cards/").rstrip("/") + "/"
+LEGAL = f'<a href="{CARDS}impressum.html">Impressum</a> · <a href="{CARDS}datenschutz.html">Datenschutz</a>'
 MONTHS = ("Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November",
           "Dezember")  # fmt: skip
 WEEKDAYS = ("Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag")
@@ -52,7 +56,7 @@ FOOTER = (
     'gesammelt mit <a href="https://github.com/jan-c-buchkremer/bundestag-data-foundation">bundestag-data-foundation'
     "</a>. Beschlüsse per Handzeichen sind regelbasiert aus dem Text der Sitzungsleitung gelesen. Code: "
     '<a href="https://github.com/jan-c-buchkremer/bundestag-mdb-cards">bundestag-mdb-cards</a> (MIT). Worüber '
-    f'debattiert wird, zeigt die <a href="{LANDSCAPE}">Themenlandschaft ↗</a>.'
+    f'debattiert wird, zeigt die <a href="{LANDSCAPE}">Themenlandschaft ↗</a>. {LEGAL}'
 )
 
 

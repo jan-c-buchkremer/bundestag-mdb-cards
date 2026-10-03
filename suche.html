@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Suche – Bundestag, 21. Wahlperiode</title>
+<meta name="description" content="Volltextsuche in den Reden, Abstimmungen, Sitzungen und Abgeordneten des 21. Bundestages.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="cards.css">
+<link rel="stylesheet" href="reden.css">
+</head>
+<body class="p-search">
+<header><nav class="site" aria-label="Bereiche"><div class="nav-l"><form class="nav-q" role="search" action="suche.html" data-root=""><button type="button" class="nav-qi" aria-label="Suche öffnen" aria-expanded="false"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><circle cx="7" cy="7" r="5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M11 11l3.5 3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button><input type="search" name="q" placeholder="Suche" autocomplete="off" aria-label="Suche: Person, Ort, Vorgang …"><div class="nav-sug" hidden></div></form><a href="orte/index.html" data-nav="places">Orte</a><a href="gremien/index.html" data-nav="bodies">Gremien</a></div><div class="nav-c"><a href="index.html" data-nav="cards" class="home">Abgeordnete</a></div><div class="nav-r"><a href="vorgaenge/index.html" data-nav="bills">Vorgänge</a><a href="sitzungen/index.html" data-nav="sittings">Sitzungen</a><a href="regierung/index.html" data-nav="questions">Fragen</a><a href="debatte/index.html" data-nav="debate" class="quiet">Debattenkultur</a><a href="daten.html" data-nav="data">Daten</a></div></nav><script src="nav.js" defer></script></header>
+<main>
+<h1>Suche</h1>
+<p class="lead">Findet zuerst, was der Bundestag ist: Abgeordnete, Fraktionen und Gremien, Länder, Wahlkreise und
+Gemeinden, Vorgänge, Themen und Sitzungswochen, jeweils mit ihrer Seite. Darunter die Volltextsuche in allen Reden
+der 21. Wahlperiode; die Filter grenzen sie nach Art, Fraktion, Person, Monat und Thema ein.</p>
+<div class="search" id="search">
+  <div class="s-bar">
+    <input type="search" id="sq" placeholder="Name, Ort, Vorgang, Thema oder Wort aus einer Rede …"
+      autocomplete="off" aria-label="Suche">
+    <button type="button" id="sf-toggle" class="sf-toggle" aria-expanded="false" aria-controls="sf-panel">Filter
+    </button>
+  </div>
+  <div class="s-entities" id="s-entities" aria-live="polite"></div>
+  <h2 class="s-h">Reden</h2>
+  <div class="s-count" id="s-count" aria-live="polite"></div>
+  <div class="s-layout">
+    <aside class="s-filters" id="sf-panel" aria-label="Filter"></aside>
+    <div class="rows" id="s-results"></div>
+  </div>
+  <button type="button" class="more" id="s-more" hidden>Weitere Treffer</button>
+</div>
+<noscript><p>Die Suche braucht JavaScript.</p></noscript>
+<footer>Daten: Deutscher Bundestag (Plenarprotokolle, namentliche Abstimmungen), Deutscher Bundestag/Bundesrat – DIP, gesammelt mit <a href="https://github.com/jan-c-buchkremer/bundestag-data-foundation">bundestag-data-foundation</a>. Beschlüsse per Handzeichen sind regelbasiert aus dem Text der Sitzungsleitung gelesen. Code: <a href="https://github.com/jan-c-buchkremer/bundestag-mdb-cards">bundestag-mdb-cards</a> (MIT). Worüber debattiert wird, zeigt die <a href="https://jan-c-buchkremer.github.io/bundestag-topic-landscape/">Themenlandschaft ↗</a>.</footer>
+<script type="module" src="search.js"></script>
+</main>
+<script>
+const PAGE = {"kind":"search"};
+</script>
+<script src="pages.js"></script>
+</body>
+</html>

@@ -441,4 +441,4 @@ window.addEventListener('hashchange', () => {
 
 renderCard();
 renderTabs();
-document.getElementById('foot').innerHTML = `Daten: Deutscher Bundestag${member && META.election.length ? ', Die Bundeswahlleiterin' : ''}${C.aw_id ? ', abgeordnetenwatch.de (CC0 1.0)' : ''}${C.government.length ? ', Wikidata (CC0 1.0)' : ''}. Code: <a href="${REPO}">bundestag-mdb-cards</a> (MIT). Keine Rangliste, keine Bewertung: Zahlen stehen immer mit ihrem Zusammenhang.`;
+document.getElementById('foot').innerHTML = `Daten: Deutscher Bundestag${member && META.election.length ? ', Die Bundeswahlleiterin' : ''}${C.aw_id ? ', abgeordnetenwatch.de (CC0 1.0)' : ''}${C.government.length ? ', Wikidata (CC0 1.0)' : ''}. Code: <a href="${REPO}">bundestag-mdb-cards</a> (MIT). Keine Rangliste, keine Bewertung: Zahlen stehen immer mit ihrem Zusammenhang. <a href="impressum.html">Impressum</a> · <a href="datenschutz.html">Datenschutz</a>`;

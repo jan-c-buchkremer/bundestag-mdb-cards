@@ -8,7 +8,7 @@ import json
 import shutil
 from pathlib import Path
 
-from cards import cohesion, compass, facts, pages, ui
+from cards import cohesion, compass, facts, legal, pages, ui
 from cards.data import DIP_DOC, VOTE_CHOICES, index_row, page_id
 from cards.ui import VOTE, e, long_date, n
 
@@ -264,6 +264,8 @@ def write_site(
     (out / "index.html").write_text(index, encoding="utf-8")
     for name in ASSETS:
         shutil.copyfile(HERE / name, out / name)
+    shutil.copytree(HERE / "fonts", out / "fonts", dirs_exist_ok=True)
+    legal.write(out)
     if sittings:
         quiz = compass.questions(decisions or [], members or {})
         written = pages.write_pages(out, decisions or [], members or {}, sittings, meta, clusters, bool(quiz))

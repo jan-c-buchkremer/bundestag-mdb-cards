@@ -19,9 +19,9 @@ DEFAULTS = {
     "BDF_DB": LIVE / "foundation" / "bundestag.sqlite",
     "BDF_RAW": LIVE / "foundation" / "raw",
     "FOUNDATION_EXPORT": LIVE / "foundation" / "export",
-    "LANDSCAPE_CLUSTERS": LIVE / "landscape" / "out" / "speech_clusters.json",
-    "LANDSCAPE_NEIGHBOURS": LIVE / "landscape" / "out" / "speech_neighbours.json",
-    "LANDSCAPE_THEMES": LIVE / "landscape" / "out" / "speech_themes.json",
+    "LANDSCAPE_CLUSTERS": LIVE / "radar" / "out" / "speech_clusters.json",
+    "LANDSCAPE_NEIGHBOURS": LIVE / "radar" / "out" / "speech_neighbours.json",
+    "LANDSCAPE_THEMES": LIVE / "radar" / "out" / "speech_themes.json",
 }
 # the live site's addresses, so links into the Themenlandschaft go where the public site has it
 URLS = {"RESEARCH_URL": "https://plenar-radar.de/", "LANDSCAPE_URL": "https://plenar-radar.de/themenlandschaft/"}

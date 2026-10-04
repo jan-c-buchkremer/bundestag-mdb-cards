@@ -15,7 +15,7 @@ import sqlite3
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from research import controls
+from research import controls, urls
 from research.data import (
     MIN_CHARS,
     NO_FRACTION,
@@ -26,7 +26,6 @@ from research.data import (
     kind_filter,
     page_id,
 )
-from research.speeches import rede_id
 from research.ui import FOOTER, MONTHS, ORDER, SHORT, TOKEN, dot, e, frac_link, n, shell, short_date
 from research.urls import slug as controls_slug
 
@@ -564,7 +563,7 @@ def section_order(ms: list[dict], qs: list[dict], ints: dict[str, dict[str, list
         f'data-w="{iso_week(m["date"])}"><span class="d">{sitting_link(m["sitting"], m["date"])}</span> '
         f"<b>{e(m['kind'])}</b> · {dot(m['fraction']) if m['fraction'] in TOKEN else ''}{e(label(m['fraction']))}"
         f'<div class="q">„{e(m["text"][:280])}{"…" if len(m["text"]) > 280 else ""}“ '
-        f'<a href="../reden/{e(page_id(rede_id(m["speech"])))}.html#{e(m["speech"])}">in der Rede →</a></div></li>'
+        f'<a href="../{e(urls.speech(m["speech"]))}">in der Rede →</a></div></li>'
         for m in reversed(ms)
     )
     unclear = sum(1 for m in ms if m["fraction"] == UNCLEAR)

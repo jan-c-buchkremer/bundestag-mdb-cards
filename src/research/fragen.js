@@ -65,7 +65,7 @@
     const [number, id, , pdf] = d.docs[i];
     return `${label} ${a(id ? DIP_DOC(id) : null, esc(number), 'Drucksache im DIP')} (${a(pdf || pdfOf(number), 'PDF')})`;
   };
-  const speechHref = id => `../reden/${String(id).replace(/-\d+$/, '').replaceAll('/', '-')}.html`;
+  const speechHref = href => `../${href}`;  // questions.py writes urls.speech, the one rule for a speech's page
   const sittingHref = (sid, pos) => `../sitzungen/${sid.replaceAll('/', '-')}.html${pos != null ? `#top-${pos}` : ''}`;
 
   // one view per row: what the filters look at (controls.js) and what the list shows

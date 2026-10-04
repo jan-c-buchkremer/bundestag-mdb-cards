@@ -187,7 +187,7 @@ def befragungen(conn: sqlite3.Connection) -> list[dict]:
     and follow-up is its own turn in the protocol; a turn with a fraction and no role counts as one question."""
     items = conn.execute(
         """SELECT a.id, a.sitting_id, a.position, s.date FROM agenda_item a JOIN sitting s ON s.id = a.sitting_id
-           WHERE s.wahlperiode = ? AND a.title LIKE 'Befragung der Bundesregierung%' ORDER BY s.date, a.position""",
+           WHERE s.wahlperiode = ? AND a.kind = 'befragung' ORDER BY s.date, a.position""",
         (WP,),
     ).fetchall()
     out = []
@@ -213,7 +213,7 @@ def fragestunden(conn: sqlite3.Connection) -> tuple[int, int]:
     """Agenda items "Fragestunde" in the Wahlperiode, and how many speeches the store has for them."""
     r = conn.execute(
         """SELECT count(DISTINCT a.id), count(sp.id) FROM agenda_item a JOIN sitting s ON s.id = a.sitting_id
-           LEFT JOIN speech sp ON sp.agenda_item_id = a.id WHERE s.wahlperiode = ? AND a.title LIKE 'Fragestunde%'""",
+           LEFT JOIN speech sp ON sp.agenda_item_id = a.id WHERE s.wahlperiode = ? AND a.kind = 'fragestunde'""",
         (WP,),
     ).fetchone()
     return r[0], r[1]
@@ -440,11 +440,11 @@ def research_written(conn: sqlite3.Connection, pk: Packer, ressorts: dict[str, s
     spoke: dict[str, list[tuple]] = defaultdict(list)  # sitting -> the government's turns in its Fragestunde
     for r in conn.execute(
         """SELECT s.id, s.sitting_id, s.person_id, s.speaker_name, s.speaker_role FROM speech s
-            JOIN agenda_item a ON a.id = s.agenda_item_id WHERE a.title LIKE 'Fragestunde%'
+            JOIN agenda_item a ON a.id = s.agenda_item_id WHERE a.kind = 'fragestunde'
             AND s.speaker_role IS NOT NULL ORDER BY s.position"""
     ):
         spoke[r["sitting_id"]].append((r["person_id"], r["speaker_name"].split(",")[0], ministry_key(r["speaker_role"]),
-                                       r["id"]))  # fmt: skip
+                                       urls.speech(r["id"])))  # fmt: skip
     plenum: dict[str, sqlite3.Row] = {}
     first: dict[str, str] = {}
     if has_table(conn, "vorgang_position"):
@@ -453,7 +453,7 @@ def research_written(conn: sqlite3.Connection, pk: Packer, ressorts: dict[str, s
             if r["document_kind"] == "Plenarprotokoll" and r["chamber"] == "BT":
                 plenum.setdefault(r["vorgang_id"], r)
     fragestunde = {r["sitting_id"]: r["position"] for r in conn.execute(
-        "SELECT sitting_id, min(position) AS position FROM agenda_item WHERE title LIKE 'Fragestunde%' "
+        "SELECT sitting_id, min(position) AS position FROM agenda_item WHERE kind = 'fragestunde' "
         "GROUP BY sitting_id")}  # fmt: skip
     sittings = {r[0] for r in conn.execute("SELECT id FROM sitting")}
     rows = []
@@ -486,14 +486,14 @@ def research_written(conn: sqlite3.Connection, pk: Packer, ressorts: dict[str, s
 
 def research_turns(conn: sqlite3.Connection, pk: Packer, which: str) -> dict:
     """Turns in the Fragestunde (`speech.kind` 'fragestunde') or the Regierungsbefragung (every turn under an agenda
-    item "Befragung der Bundesregierung"): [speech id, date, person, role (an answer) or null (a question), sitting
-    id, agenda position, agenda title, excerpt]. Each links its speech page (urls.speech)."""
+    item of kind 'befragung'): [speech page (urls.speech), date, person, role (an answer) or null (a question),
+    sitting id, agenda position, agenda title, excerpt]."""
     if which == "fragestunde":
         if not _has_kind(conn):
             return pk.payload("fragestunde", [], [])
         where = "s.kind = 'fragestunde'"
     else:
-        where = f"a.title LIKE 'Befragung der Bundesregierung%' {kind_filter(conn)}"
+        where = f"a.kind = 'befragung' {kind_filter(conn)}"
     rows = []
     for r in conn.execute(
         f"""SELECT s.id, st.date, s.person_id, s.speaker_name, s.speaker_role, s.fraction, s.sitting_id, a.position,
@@ -504,7 +504,7 @@ def research_turns(conn: sqlite3.Connection, pk: Packer, which: str) -> dict:
     ):
         who = pk.person(r["person_id"], r["speaker_name"].split(",")[0].split(" (")[0], r["fraction"])
         title = (r["title"] or "").split("|")[0].strip()
-        rows.append([r["id"], r["date"], who, r["speaker_role"], r["sitting_id"], r["position"], title,
+        rows.append([urls.speech(r["id"]), r["date"], who, r["speaker_role"], r["sitting_id"], r["position"], title,
                      excerpt(r["text"], EXCERPT)])  # fmt: skip
     return pk.payload(which, ["speech", "date", "person", "role", "sitting", "position", "agenda", "excerpt"], rows)
 

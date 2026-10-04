@@ -15,9 +15,7 @@ from research import subtops
 from research.titles import short_title
 
 WP = 21
-BEFRAGUNG = "Befragung der Bundesregierung"  # every question and answer is its own rede there, see docs/decisions.md
 OFFICE = re.compile(r"Bundeskanzler|Bundesminister|Staatssekretär|Staatsminister|Präsident", re.I)
-_KURZINTERVENTION = re.compile(r"Kurzintervention|Zwischenbemerkung")
 _COMMITTEE_PREFIX = re.compile(r"^Ausschuss (für |des |der )?")
 _UMLAUT = str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "Ä": "Ae", "Ö": "Oe", "Ü": "Ue", "ß": "ss"})
 _SLUG_STRIP = re.compile(r"[^a-z0-9]+")
@@ -77,7 +75,7 @@ def _sql_speech(conn: sqlite3.Connection) -> str:
     return f"""
 SELECT s.id, s.position, s.person_id, s.speaker_name, s.speaker_role, s.fraction, s.text, s.source_document_id,
        st.id AS sitting_id, st.date, st.pdf_url, s.speaker_group, a.id AS agenda_item_id, a.top_id,
-       a.title AS agenda_title,
+       a.title AS agenda_title, a.kind AS agenda_kind, s.rede_id, s.interruption, s.interruption_start,
        a.position AS top_position, {kind_col}
 FROM speech s
 JOIN sitting st ON st.id = s.sitting_id
@@ -108,23 +106,16 @@ def after_speaker(conn: sqlite3.Connection) -> set[tuple[str, int]]:
     return out
 
 
-def _paragraph_stats(conn: sqlite3.Connection) -> tuple[Counter, dict[str, str]]:
-    """Applause paragraphs per speech part (after the speaker's own words, see after_speaker), and the chair's words
-    among each part's last six paragraphs."""
+def _applause(conn: sqlite3.Connection) -> Counter:
+    """Applause paragraphs per speech part, after the speaker's own words (see after_speaker)."""
     applause: Counter = Counter()
-    tail: dict[str, list[tuple[int, str, str]]] = defaultdict(list)
     last: dict[str, str] = {}
-    for r in conn.execute("SELECT speech_id, position, kind, text FROM speech_paragraph ORDER BY speech_id, position"):
+    for r in conn.execute("SELECT speech_id, kind, text FROM speech_paragraph ORDER BY speech_id, position"):
         if r["kind"] != "comment":
             last[r["speech_id"]] = r["kind"]
         elif "Beifall" in r["text"] and last.get(r["speech_id"]) == "text":
             applause[r["speech_id"]] += 1
-        t = tail[r["speech_id"]]
-        t.append((r["position"], r["kind"], r["text"]))
-        if len(t) > 6:
-            t.pop(0)
-    chair = {sid: " ".join(text for _, kind, text in t if kind == "chair") for sid, t in tail.items()}
-    return applause, chair
+    return applause
 
 
 def speeches(conn: sqlite3.Connection) -> dict[str, dict[str, list]]:
@@ -132,11 +123,12 @@ def speeches(conn: sqlite3.Connection) -> dict[str, dict[str, list]]:
     (Zwischenfragen and Kurzinterventionen) put to others, and `befragung` turns in the Regierungsbefragung.
 
     A rede split at interruptions (`ID…`, `ID…-2`, …) belongs to the person of its first part; parts by anyone
-    else are that person's Zwischenfrage or Kurzintervention (the chair's words before it decide which)."""
-    applause, chair = _paragraph_stats(conn)
+    else are a Zwischenfrage or Kurzintervention as the foundation classifies them (`speech.interruption`, one per
+    `interruption_start`)."""
+    applause = _applause(conn)
     rede: dict[str, list[sqlite3.Row]] = defaultdict(list)
     for r in conn.execute(_sql_speech(conn), (WP,)):
-        rede[re.sub(r"-\d+$", "", r["id"])].append(r)
+        rede[r["rede_id"]].append(r)
 
     out: dict[str, dict[str, list]] = defaultdict(
         lambda: {"reden": [], "kurz": [], "fragen": [], "befragung": [], "fragestunde": []}
@@ -157,7 +149,7 @@ def speeches(conn: sqlite3.Connection) -> dict[str, dict[str, list]]:
                      "fraction": p["speaker_group"], "on_map": False, "excerpt": excerpt(p["text"])}
                 )  # fmt: skip
             continue
-        if BEFRAGUNG in (first["agenda_title"] or ""):
+        if first["agenda_kind"] == "befragung":  # every question and answer is its own turn there
             for p in parts:
                 out[p["person_id"]]["befragung"].append(
                     {"id": p["id"], **where, "words": len(p["text"].split()), "role": p["speaker_role"],
@@ -167,24 +159,11 @@ def speeches(conn: sqlite3.Connection) -> dict[str, dict[str, list]]:
 
         main = first["person_id"]
         own = [p for p in parts if p["person_id"] == main]
-        interruptions: list[dict] = []
-        since_main = 0  # words the main speaker said since the last interruption started
-        prev = None
-        for p in parts:
-            if p["person_id"] == main:
-                since_main += len(p["text"].split())
-            elif prev is not None and prev["person_id"] == main:
-                last = next((i for i in reversed(interruptions) if i["person"] == p["person_id"]), None)
-                # "Gestatten Sie …? – Bitte." between two parts of one question is not a second interruption
-                if last is None or since_main >= 30:
-                    announced = _KURZINTERVENTION.search(chair.get(prev["id"], ""))
-                    kind = "kurzintervention" if announced else "zwischenfrage"
-                    interruptions.append(
-                        {"id": p["id"], "person": p["person_id"], "name": display_speaker(p),
-                         "fraction": p["speaker_group"], "kind": kind, "excerpt": excerpt(p["text"])}
-                    )  # fmt: skip
-                since_main = 0
-            prev = p
+        interruptions = [
+            {"id": p["id"], "person": p["person_id"], "name": display_speaker(p), "fraction": p["speaker_group"],
+             "kind": p["interruption"], "excerpt": excerpt(p["text"])}
+            for p in parts if p["interruption"] and p["interruption_start"] == p["id"]
+        ]  # fmt: skip
         long = len("\n\n".join(p["text"] for p in own)) >= MIN_CHARS  # re-joined like the landscape's speeches
         out[main]["reden" if long else "kurz"].append(
             {
@@ -1183,8 +1162,8 @@ def _sql_sitting_speech(conn: sqlite3.Connection) -> str:
     kind_col = "s.kind" if has_speech_kind(conn) else "'rede' AS kind"
     sub_col = "s.sub_item_id" if subtops.has_speech_sub_item(conn) else "NULL AS sub_item_id"
     return f"""
-SELECT s.id, s.agenda_item_id, s.person_id, s.speaker_role, s.fraction, s.text, s.speaker_group, p.first_name,
-       p.last_name, p.academic_title, p.name_prefix, {kind_col}, {sub_col}
+SELECT s.id, s.agenda_item_id, s.person_id, s.speaker_role, s.fraction, s.text, s.speaker_group, s.rede_id,
+       p.first_name, p.last_name, p.academic_title, p.name_prefix, {kind_col}, {sub_col}
 FROM speech s JOIN person p ON p.id = s.person_id
 WHERE s.sitting_id = ?
 ORDER BY s.position
@@ -1258,7 +1237,7 @@ def sittings(conn: sqlite3.Connection, decided: list[dict] | None = None) -> lis
                 if s["agenda_item_id"] in items:
                     items[s["agenda_item_id"]]["fragestunde"] += 1
                 continue
-            rede[re.sub(r"-\d+$", "", s["id"])].append(s)
+            rede[s["rede_id"]].append(s)
         for parts in rede.values():
             first = parts[0]
             item = items.get(first["agenda_item_id"])

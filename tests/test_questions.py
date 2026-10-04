@@ -183,15 +183,15 @@ def test_research_lists_each_kind_with_its_sources(conn):
     (row,) = mf["rows"]
     assert row[6] is None  # two askers in the Sammeldrucksache: not attributed to either
     assert row[7] == ["21/88", 3, "40-41", "https://dserver.bundestag.de/btp/21/21088.pdf", "21/88"]
-    assert [mf["persons"][i][0] for i, _ in row[8]] == ["9"] and row[8][0][1] == "21/88/3/f2"  # her answer's turn
+    assert [mf["persons"][i][0] for i, _ in row[8]] == ["9"] and row[8][0][1] == "reden/21-88-3-f2.html"  # her answer
 
     fs = lists["fragestunde"]
-    assert [r[0] for r in fs["rows"]] == ["21/88/3/f1", "21/88/3/f2"]
+    assert [r[0] for r in fs["rows"]] == ["reden/21-88-3-f1.html", "reden/21-88-3-f2.html"]  # urls.speech
     assert fs["rows"][1][3].startswith("Bundesministerin") and fs["rows"][0][3] is None  # an answer, a question
     assert fs["persons"][fs["rows"][0][2]][:2] == ["1", "Anna Adler"]
 
     rb = lists["regierungsbefragung"]
-    assert [r[0] for r in rb["rows"]] == ["ID10", "ID11", "ID12"] and rb["rows"][0][
+    assert [r[0] for r in rb["rows"]] == ["reden/ID10.html", "reden/ID11.html", "reden/ID12.html"] and rb["rows"][0][
         6
     ] == "Befragung der Bundesregierung"
 

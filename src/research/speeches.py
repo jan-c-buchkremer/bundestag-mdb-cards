@@ -17,7 +17,7 @@ from collections import defaultdict
 from pathlib import Path
 
 from research import urls
-from research.data import WP, _fraction, display_speaker, has_speech_kind, page_id, top_label
+from research.data import WP, display_speaker, has_speech_kind, page_id, top_label
 from research.titles import short_title
 from research.ui import FOOTER, LANDSCAPE, TOKEN, e, long_date, n, search_marks, shell, short_date
 
@@ -29,7 +29,7 @@ def _sql(conn: sqlite3.Connection) -> str:
     kind_col = "s.kind" if has_speech_kind(conn) else "'rede' AS kind"
     return f"""
 SELECT s.id, s.position, s.person_id, s.speaker_name, s.speaker_role, s.fraction, s.text, s.source_document_id,
-       st.id AS sitting_id, st.number, st.date, st.pdf_url, p.party, a.position AS top_position, a.top_id,
+       st.id AS sitting_id, st.number, st.date, st.pdf_url, s.speaker_group, a.position AS top_position, a.top_id,
        a.title AS agenda_title, {kind_col}
 FROM speech s
 JOIN sitting st ON st.id = s.sitting_id
@@ -56,7 +56,7 @@ def load(conn: sqlite3.Connection) -> list[dict]:
     for r in conn.execute(_sql(conn), (WP,)):
         rid = rede_id(r["id"])
         part = {
-            "id": r["id"], "person": r["person_id"], "name": display_speaker(r), "fraction": _fraction(r),
+            "id": r["id"], "person": r["person_id"], "name": display_speaker(r), "fraction": r["speaker_group"],
             "role": r["speaker_role"],
             "paragraphs": paragraphs.get(r["id"]) or [("text", t) for t in r["text"].split("\n\n") if t.strip()],
         }  # fmt: skip

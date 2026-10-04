@@ -26,7 +26,6 @@ from research import data, facts, redirects, urls
 from research.data import STATES
 from research.ui import FOOTER, TOKEN, crumbs, dot, e, entity_header, facet, frac_link, n, shell, short_date
 
-PARTY_FRACTION = {"CDU": "CDU/CSU", "CSU": "CDU/CSU", "GRÜNE": "BÜNDNIS 90/DIE GRÜNEN", "Die Linke": "Die Linke"}
 FACET = 20  # newest entries of a long facet (D23)
 VOTES = 10  # newest roll-call votes on a place page
 ZSD = ("Seit der Wahlrechtsreform 2023 bekommt ein Wahlkreissieger nur einen Sitz, wenn die Zweitstimmen seiner "
@@ -120,8 +119,7 @@ def seat_fraction(w: dict) -> str | None:
     direct member's fraction; None without a direct seat (no Zweitstimmendeckung)."""
     o = w.get("official")
     if o:
-        party = o.get("seat_party")
-        return PARTY_FRACTION.get(party, party) if party else None
+        return o.get("seat_fraction")
     return (w["direct"][0]["card"]["fraction"] or data.NO_FRACTION) if w["direct"] else None
 
 

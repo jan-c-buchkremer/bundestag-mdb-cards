@@ -166,6 +166,22 @@ CREATE TABLE IF NOT EXISTS drucksache_author (
     source_url TEXT NOT NULL, source_document_id TEXT NOT NULL, retrieved_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS question_activity (
+    id TEXT PRIMARY KEY,                -- DIP Aktivität id
+    vorgang_id TEXT NOT NULL,           -- the single question (DIP vorgangsbezug), a Vorgang of question_type
+    question_type TEXT NOT NULL,        -- Schriftliche Frage | Mündliche Frage
+    activity_type TEXT NOT NULL,        -- Frage | Zusatzfrage | Antwort
+    dip_person_id TEXT NOT NULL,
+    person_id TEXT REFERENCES person(id),
+    name TEXT NOT NULL,                 -- DIP's title, "Julia Schneider, MdB, BÜNDNIS 90/DIE GRÜNEN"
+    ressort TEXT,                       -- Antwort: the answering ministry as the title names it, else NULL
+    document_kind TEXT NOT NULL,        -- Drucksache (the Sammeldrucksache) | Plenarprotokoll
+    document_number TEXT NOT NULL,      -- "21/4372", "21/9"
+    question_numbers TEXT,              -- Drucksache: DIP's frage_nummer, "93, 94"
+    page TEXT,                          -- Plenarprotokoll: page and quadrant, "683D"
+    source_url TEXT NOT NULL, source_document_id TEXT NOT NULL, retrieved_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS vorgang (
     id TEXT PRIMARY KEY,                -- DIP id
     wahlperiode INTEGER NOT NULL,
@@ -316,6 +332,25 @@ CREATE TABLE IF NOT EXISTS election_candidacy (
     source_url TEXT NOT NULL, source_document_id TEXT NOT NULL, retrieved_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS mandate_successor (
+    id TEXT PRIMARY KEY,                -- "<election>/<Bek.-Nr.>", the list's running number
+    election TEXT NOT NULL,
+    predecessor_person_id TEXT REFERENCES person(id),
+    predecessor_name TEXT NOT NULL,     -- as printed, "Heveling, Ansgar Guido Karl Johannes"
+    predecessor_party TEXT NOT NULL,
+    predecessor_state TEXT NOT NULL,    -- Land code as in mandate.state ("NW")
+    predecessor_seat TEXT NOT NULL,     -- "LL 003" (Landesliste, position) | "WK 044" (Wahlkreis)
+    reason TEXT NOT NULL,               -- Ausscheidungsgrund: Ablehnung, Mandatsverzicht, Tod, …
+    person_id TEXT REFERENCES person(id),
+    name TEXT NOT NULL,                 -- the successor as printed, "Breilmann, Michael"
+    birth_year INTEGER NOT NULL,
+    party TEXT NOT NULL,
+    state TEXT NOT NULL,                -- the Land whose Landesliste the seat comes from
+    seat TEXT NOT NULL,                 -- the successor's candidacy, "LL 018" | "WK 282"
+    from_date TEXT NOT NULL,            -- Beginn der Mitgliedschaft
+    source_url TEXT NOT NULL, source_document_id TEXT NOT NULL, retrieved_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS person_photo (
     person_id TEXT PRIMARY KEY REFERENCES person(id),
     image_url TEXT NOT NULL,            -- the image as downloaded (bundestag.de rendition or Commons thumbnail)
@@ -391,6 +426,8 @@ CREATE INDEX IF NOT EXISTS interjection_person ON interjection(person_id);
 CREATE INDEX IF NOT EXISTS vote_vote ON individual_vote(vote_id);
 CREATE INDEX IF NOT EXISTS author_person ON drucksache_author(person_id);
 CREATE INDEX IF NOT EXISTS author_dip_person ON drucksache_author(dip_person_id);
+CREATE INDEX IF NOT EXISTS question_vorgang ON question_activity(vorgang_id);
+CREATE INDEX IF NOT EXISTS question_person ON question_activity(person_id);
 CREATE INDEX IF NOT EXISTS drucksache_date ON drucksache(date);
 CREATE INDEX IF NOT EXISTS person_dip ON person(dip_person_id);
 CREATE INDEX IF NOT EXISTS vorgang_position_vorgang ON vorgang_position(vorgang_id);

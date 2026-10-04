@@ -5,10 +5,14 @@ from research import data, debate, questions, speeches
 
 def add_fragestunde(conn):
     """One Fragestunde with a question and a long answer."""
-    conn.execute("INSERT INTO agenda_item VALUES ('21/88/3','21/88',3,'Tagesordnungspunkt 3','Fragestunde','[]',"
+    conn.execute("INSERT INTO agenda_item (id, sitting_id, position, top_id, title, drucksache_numbers, "
+                 "source_url, source_document_id, retrieved_at, no_debate "
+                 ") VALUES ('21/88/3','21/88',3,'Tagesordnungspunkt 3','Fragestunde','[]',"
                  "'https://x/21088.xml','BT-PlPr. 21/88','2026-09-27',0)")  # fmt: skip
     conn.executemany(
-        "INSERT INTO speech VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'fragestunde',NULL)",
+        "INSERT INTO speech (id, sitting_id, agenda_item_id, position, person_id, speaker_name, speaker_role, "
+        "fraction, text, source_url, source_document_id, retrieved_at, kind, sub_item_id "
+        ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'fragestunde',NULL)",
         [
             speech("21/88/3/f1", 13, "1", "Anna Adler (SPD)", "Wann kommt das Gesetz?", "21/88/3", fraction="SPD"),
             speech("21/88/3/f2", 14, "9", "Stefanie Hubig, Bundesministerin", LONG, "21/88/3", role="Bundesministerin"),

@@ -2,6 +2,7 @@
 `research build` and checked with scripts/check_links.py --anchors. Also follows every row of the redirect table in
 docs/plan.md (section 11.3) through the stubs, fragments included."""
 
+import collections
 import json
 import re
 import sqlite3
@@ -34,7 +35,16 @@ def enrich(c: sqlite3.Connection) -> None:
     test_procedures.add_missing_debate(c)
     test_subjects.add_subjects(c)
     c.execute("UPDATE agenda_item SET drucksache_numbers = '[\"21/500\", \"21/100\"]' WHERE id = '21/88/2'")
-    c.execute("INSERT INTO drucksache VALUES ('d6498','21/6498',21,'Gesetzentwurf','Seelotsgesetz','2026-06-02',NULL,"
+    # a decision on the Anträge' shared Drucksache: on both Vorgänge, so it keeps its own page
+    c.execute(
+        "INSERT INTO decision (id, sitting_id, agenda_item_id, n, position, kind, subject, drucksache_number, "
+        "result, roll_call_vote_id, text, source_url, source_document_id, retrieved_at) VALUES ('21/88/h9', '21/88', "
+        "'21/88/2', 9, 9, 'handzeichen', 'Antrag', '21/100', 'abgelehnt', NULL, 'Der Antrag ist abgelehnt.', ?, ?, ?)",
+        SRC,
+    )
+    c.execute("INSERT INTO drucksache (id, number, wahlperiode, type, title, date, pdf_url, publisher, "
+              "originators, author_count, source_url, source_document_id, retrieved_at "
+              ") VALUES ('d6498','21/6498',21,'Gesetzentwurf','Seelotsgesetz','2026-06-02',NULL,"
               "'BT','[\"Bundesregierung\"]',0,?,?,?)", SRC)  # fmt: skip
     c.execute("INSERT INTO vorgang (id, wahlperiode, type, title, status, subjects, initiators, source_url, "
               "source_document_id, retrieved_at) VALUES ('g5',21,'Gesetzgebung','Seelotsgesetz','Verabschiedet','[]',"
@@ -69,9 +79,14 @@ def enrich(c: sqlite3.Connection) -> None:
               "source_document_id, retrieved_at) "
               "VALUES ('21/89',21,89,'2026-09-10',NULL,NULL,'https://x/21089.xml',"
               "'https://x/21089.pdf','https://x/21089.xml','BT-PlPr. 21/89','2026-09-27')")  # fmt: skip
-    c.execute("INSERT INTO agenda_item VALUES ('21/89/1','21/89',1,'Tagesordnungspunkt 1','Haushalt 2027','[]',"
+    c.execute("INSERT INTO agenda_item (id, sitting_id, position, top_id, title, drucksache_numbers, "
+              "source_url, source_document_id, retrieved_at, no_debate "
+              ") VALUES ('21/89/1','21/89',1,'Tagesordnungspunkt 1','Haushalt 2027','[]',"
               "'u','BT-PlPr. 21/89','t',0)")  # fmt: skip
-    c.execute("INSERT INTO speech VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'rede',NULL)",
+    c.execute("INSERT INTO speech (id, sitting_id, agenda_item_id, position, person_id, speaker_name, "
+              "speaker_role, fraction, text, source_url, source_document_id, retrieved_at, "
+              "kind, sub_item_id "
+              ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'rede',NULL)",
               (*speech("ID60", 1, "1", "Anna Adler (SPD)", LONG, "21/89/1", fraction="SPD")[:1], "21/89",
                *speech("ID60", 1, "1", "Anna Adler (SPD)", LONG, "21/89/1", fraction="SPD")[2:]))  # fmt: skip
     muni = ("https://x/gemeinden.csv", "Bundeswahlleiterin, Wahlkreiseinteilung", "t")
@@ -314,3 +329,15 @@ def test_vorgang_with_a_beratung_missing_from_the_protocols(site):
     daten = (site / "daten.html").read_text()
     gap = daten.split("Beratungen ohne Protokolltext", 1)[1].split("</ul></li>", 1)[0]
     assert "Sitzung 21/31" in gap and 'href="vorgaenge/325338.html"' in gap and "S. 3392-3396" in gap
+
+
+def test_every_decision_is_rendered_in_full_once(site):
+    """One entity, one URL: a decision's full rendering (with its #abst- anchor) is on exactly one page; a decision
+    on several Vorgänge keeps its own page and is only a short step on each Vorgang's timeline."""
+    where = collections.defaultdict(list)
+    for page in site.rglob("*.html"):
+        for anchor in re.findall(r'id="abst-([^"]+)"', page.read_text(encoding="utf-8")):
+            where[anchor].append(page.relative_to(site).as_posix())
+    assert where and all(len(pages) == 1 for pages in where.values()), {a: p for a, p in where.items() if len(p) > 1}
+    shared = [p for p in site.glob("vorgaenge/*.html") if "betrifft 2 Vorgänge" in p.read_text(encoding="utf-8")]
+    assert shared, "the fixture should have a decision on several Vorgänge"

@@ -6,7 +6,8 @@ Entschließungsantrag, Beschlussempfehlung, …) with a debate or a decision in 
 A Vorgang page is an entity page: a header, then its timeline (tabled → Beratungen → Ausschuss → Abstimmungen →
 Bundesrat → Verkündung) with every decision on it as a point with the full vote (#abst-<page id>, D15), its
 speeches by debate and its Drucksachen. An agenda item can carry Vorlagen of several Vorgänge, a Vorgang is debated
-under several agenda items or sub-items, and a decision is a point here only when it belongs to this Vorgang alone:
+under several agenda items or sub-items, and a decision is a point here only when it belongs to this Vorgang alone
+(a decision on several Vorgänge is a short step on each of them, linking its own page in abstimmungen/):
 the links come from data.sittings (the Vorgänge of each item and sub-item) and data.decisions (the Vorgänge of each
 decision), not from assuming TOP = Vorgang or vote = Vorgang. With the foundation's `vorgang_position` the steps are
 DIP's Vorgangsablauf (Bundesrat included); without it they are made from the Drucksachen and debates in the store.
@@ -230,7 +231,7 @@ def load(conn: sqlite3.Connection, sittings: list[dict], decisions: list[dict], 
         r["id"]: {
             "id": r["id"], "type": r["type"] or "Vorgang", "title": r["title"], "status": r["status"] or "unbekannt",
             "subjects": _json_list(r["subjects"]), "initiators": _json_list(r["initiators"]),
-            "source": r["source_url"], "docs": [], "debates": [], "decisions": [], "positions": None,
+            "source": r["source_url"], "docs": [], "debates": [], "decisions": [], "shared": [], "positions": None,
             "verkuendung": _json_list(r["verkuendung"]) if has_verk else [],
             "inkrafttreten": _json_list(r["inkrafttreten"]) if has_inkraft else [],
         }
@@ -267,9 +268,10 @@ def load(conn: sqlite3.Connection, sittings: list[dict], decisions: list[dict], 
                         procs[v["id"]]["debates"].append({**where, "sub": sub["label"], "title": sub["title"],
                                                           "speeches": sub["speeches"]})  # fmt: skip
     for d in decisions:
-        for v in d.get("vorgaenge") or []:
+        vs = d.get("vorgaenge") or []
+        for v in vs:
             if v in procs:
-                procs[v]["decisions"].append(d)
+                procs[v]["decisions" if len(vs) == 1 else "shared"].append(d)
     if has_table(conn, "vorgang_position"):
         for b in procs.values():
             b["positions"] = []
@@ -281,9 +283,10 @@ def load(conn: sqlite3.Connection, sittings: list[dict], decisions: list[dict], 
                     "url": r["pdf_url"], "pages": r["pages"], "originators": _json_list(r["originators"]),
                     "decisions": _json_list(r["decisions"]),
                 })  # fmt: skip
-    out = [b for b in procs.values() if b["type"] == GESETZ or b["debates"] or b["decisions"]]
+    out = [b for b in procs.values() if b["type"] == GESETZ or b["debates"] or b["decisions"] or b["shared"]]
     for b in out:
-        b["decisions"].sort(key=lambda d: (d["date"], d["order"]))
+        for key in ("decisions", "shared"):
+            b[key].sort(key=lambda d: (d["date"], d["order"]))
         b["timeline"] = timeline(b)
         b["latest"], b["in_force"] = dates(b["timeline"], today)
     out.sort(key=lambda b: (b["latest"], b["id"]), reverse=True)
@@ -323,9 +326,10 @@ def timeline(b: dict) -> list[dict]:
     steps = []
 
     def step(date: str, ph: str, what: str, chamber: str = "", doc=None, sitting=None, note: str = "", dec=None,
-             missing=None):  # fmt: skip
+             missing=None, shared=False):  # fmt: skip
         steps.append({"date": date[:10], "phase": ph, "chamber": chamber, "what": what, "doc": doc,
-                      "sitting": sitting, "note": note, "decision": dec, "missing": missing})  # fmt: skip
+                      "sitting": sitting, "note": note, "decision": dec, "missing": missing,
+                      "shared": shared})  # fmt: skip
 
     if b["positions"] is not None:
         top = {}  # sitting -> the first agenda item (or sub-item) there that carries one of the Vorgang's Vorlagen
@@ -358,9 +362,10 @@ def timeline(b: dict) -> list[dict]:
             label = a["label"] + (f" › {a['sub']}" if a["sub"] else "")
             step(a["date"], "Beratung", f"Beratung im Plenum ({label})", "BT",
                  sitting=(a["sitting"], a["position"], a["sub"]))  # fmt: skip
-    for d in b["decisions"]:
-        what = "Namentliche Abstimmung" if d["kind"] == "namentlich" else "Abstimmung per Handzeichen"
-        step(d["date"], "Abstimmung", what, "BT", dec=d)
+    for key in ("decisions", "shared"):
+        for d in b[key]:
+            what = "Namentliche Abstimmung" if d["kind"] == "namentlich" else "Abstimmung per Handzeichen"
+            step(d["date"], "Abstimmung", what, "BT", dec=d, shared=key == "shared")
     for v in b["verkuendung"]:
         if not v.get("verkuendungsdatum"):
             continue
@@ -478,7 +483,11 @@ def procedure_page(b: dict, have: set[str], members: dict[str, list[list]], rela
     for s in b["timeline"]:
         d = s["decision"]
         if d is not None:
-            body = facts.decision(d, "../", point=True, detail=True, members=members.get(d["id"]), when=False)
+            # a decision on several Vorgänge is rendered in full on its own page only (one entity, one URL)
+            if s["shared"]:
+                body = facts.decision(d, "../", when=False)
+            else:
+                body = facts.decision(d, "../", point=True, detail=True, members=members.get(d["id"]), when=False)
             steps.append(f'<li class="BT p-Abstimmung"><span class="d">{short_date(s["date"])}</span>'
                          f'<span class="ph">{e(s["phase"])}</span>{e(s["what"])}{body}</li>')  # fmt: skip
             continue

@@ -6,7 +6,9 @@ SRC = "'https://x/21088.xml', 'BT-PlPr. 21/88', '2026-09-27'"
 def add_block(conn):
     """TOP 5, a block without debate: 5a a law (two votes), 5b a petition list (one vote); one speech during it."""
     conn.execute(
-        "INSERT INTO agenda_item VALUES ('21/88/5','21/88',5,'Tagesordnungspunkt 5',"
+        "INSERT INTO agenda_item (id, sitting_id, position, top_id, title, drucksache_numbers, source_url, "
+        "source_document_id, retrieved_at, no_debate "
+        ") VALUES ('21/88/5','21/88',5,'Tagesordnungspunkt 5',"
         "'Zweite Beratung des Entwurfs eines Gesetzes zur Änderung des Seelotsgesetzes | Beratung der "
         "Beschlussempfehlung des Petitionsausschusses | Sammelübersicht 304 zu Petitionen','[]',"
         f"{SRC},1)"
@@ -24,15 +26,19 @@ def add_block(conn):
     for i, (sub, kind, result) in enumerate([("5a", "handzeichen", "angenommen"), ("5a", "handzeichen", "angenommen"),
                                              ("5b", "handzeichen", "abgelehnt")], 1):  # fmt: skip
         conn.execute(
-            "INSERT INTO decision VALUES (?, '21/88', '21/88/5', ?, ?, ?, 'Antrag', NULL, ?, NULL, 'Text.', "
+            "INSERT INTO decision (id, sitting_id, agenda_item_id, n, position, kind, subject, "
+            "drucksache_number, result, roll_call_vote_id, text, source_url, "
+            "source_document_id, retrieved_at, sub_item_id, vorgang_id "
+            ") VALUES (?, '21/88', '21/88/5', ?, ?, ?, 'Antrag', NULL, ?, NULL, 'Text.', "
             f"{SRC}, ?, NULL)",
             (f"21/88/h{i + 4}", i, 1, kind, result, f"21/88/5/{sub}"),
         )
     conn.executemany("INSERT INTO decision_fraction VALUES (?,?,?)",
                      [("21/88/h5", "SPD", "yes"), ("21/88/h5", "AfD", "no")])  # fmt: skip
     conn.execute(
-        "INSERT INTO speech (id, sitting_id, agenda_item_id, position, person_id, speaker_name, text, source_url, "
-        "source_document_id, retrieved_at, kind) VALUES ('ID50', '21/88', '21/88/5', 50, '3', 'Clara Cohn', 'Kurz.', "
+        "INSERT INTO speech (id, sitting_id, agenda_item_id, position, person_id, speaker_name, text, "
+        "source_url, source_document_id, retrieved_at, kind "
+        ") VALUES ('ID50', '21/88', '21/88/5', 50, '3', 'Clara Cohn', 'Kurz.', "
         f"{SRC}, 'rede')"
     )
 

@@ -1050,9 +1050,17 @@ def decisions(conn: sqlite3.Connection) -> list[dict]:
     vindex = vorgang_index(conn)
     known = vorgang_titles(conn)
     own_vorgang = _has_column(conn, "decision", "vorgang_id")
+    linked_vorgaenge: dict[str, set[str]] | None = None  # the foundation's decision_vorgang (PR #26)
+    if has_table(conn, "decision_vorgang"):
+        linked_vorgaenge = defaultdict(set)
+        for r in conn.execute("SELECT decision_id, vorgang_id FROM decision_vorgang"):
+            linked_vorgaenge[r[0]].add(r[1])
 
-    def vorgaenge(numbers: list[str], *ids: str | None) -> list[str]:
-        """The Vorgänge a decision concerns: named by the foundation, or owning one of its Drucksachen."""
+    def vorgaenge(numbers: list[str], *ids: str | None, decision: str | None = None) -> list[str]:
+        """The Vorgänge a decision concerns: the foundation's decision_vorgang; in an older store without it, the
+        Vorgänge it names or that own one of its Drucksachen."""
+        if linked_vorgaenge is not None and decision is not None:
+            return sorted(v for v in linked_vorgaenge.get(decision, ()) if v in known)
         out = {i for i in ids if i in known}
         for x in numbers:
             out |= vindex.get(x, set())
@@ -1084,7 +1092,12 @@ def decisions(conn: sqlite3.Connection) -> list[dict]:
             numbers += [n for n in drucksache_numbers(v["drucksache_number"]) if n not in numbers]
         a = agenda(r["agenda_item_id"])
         sub = subs.get(r["sub_item_id"]) if subtops.has_decision_sub_item(conn) else None
-        vs = vorgaenge(numbers, r["vorgang_id"] if own_vorgang else None, v["vorgang_id"] if v is not None else None)
+        vs = vorgaenge(
+            numbers,
+            r["vorgang_id"] if own_vorgang else None,
+            v["vorgang_id"] if v is not None else None,
+            decision=r["id"],
+        )
         d = {
             "id": r["id"], "page": page_id(r["id"]), "kind": r["kind"], "date": r["date"], "sitting": r["sitting_id"],
             "order": r["position"], "agenda": a,

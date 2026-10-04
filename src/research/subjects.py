@@ -95,7 +95,9 @@ def load(conn: sqlite3.Connection, procs: list[dict]) -> dict[str, list[dict]]:
             "initiators": _json_list(r["initiators"]), "subjects": subjects, "page": b is not None,
             "latest": (b["latest"] if b else "") or newest.get(r["id"], ""),
             "in_force": b["in_force"] if b else None,
-            "debates": b["debates"] if b else [], "decisions": b["decisions"] if b else [],
+            "debates": b["debates"] if b else [],
+            # a Sachgebiet lists every decision on its Vorgänge, also one shared with another Vorgang
+            "decisions": b["decisions"] + b["shared"] if b else [],
             "docs": docs.get(r["id"], []),
         }  # fmt: skip
         for s in subjects:

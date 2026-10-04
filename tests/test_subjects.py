@@ -15,7 +15,7 @@ def add_subjects(c):
     """Vorgänge with Sachgebiete that never reach the plenum (a Kleine Anfrage of Die Linke, a bill of a ministry
     and one of a Land, an Antrag on Europe), three EU-Vorlagen and a Petition without a Sachgebiet."""
     c.executemany(
-        "INSERT INTO drucksache VALUES (?,?,21,?,?,?,?,'BT',?,0,?,?,?)",
+        "INSERT INTO drucksache VALUES (?,?,21,?,?,?,?,'BT',?,0,?,?,?,NULL)",
         [
             ("d700", "21/700", "Kleine Anfrage", "Häfen", "2026-05-04", None, '["Fraktion Die Linke"]', *DIP),
             ("d701", "21/701", "Gesetzentwurf", "Zoll", "2026-05-05", None, '["Bundesregierung"]', *DIP),
@@ -122,7 +122,7 @@ def test_a_decision_on_two_vorgaenge_of_a_sachgebiet_is_listed_once(conn):
     conn.execute("UPDATE vorgang SET subjects = '[\"Recht\"]' WHERE id IN ('v1', 'v2')")
     conn.execute(
         "INSERT INTO decision VALUES ('21/88/h2','21/88','21/88/2',2,3,'handzeichen','Antrag','21/100',"
-        "'abgelehnt',NULL,'Der Antrag ist abgelehnt.','u','d','t',NULL,NULL)"
+        "'abgelehnt',NULL,'Der Antrag ist abgelehnt.','u','d','t',NULL,NULL,NULL,NULL)"
     )
     decided = data.decisions(conn)
     procs = procedures.load(conn, data.sittings(conn, decided), decided)

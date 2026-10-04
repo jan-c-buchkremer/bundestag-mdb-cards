@@ -10,7 +10,9 @@ def add_bills(c):
     vote linked by Vorgang; a § 80 Unterrichtung 21/501 shared with g2 must not pull in TOP 4. An Antrag v9 that
     never reaches the plenum gets no page."""
     c.executemany(
-        "INSERT INTO drucksache VALUES (?,?,21,?,?,?,?,'BT','[]',0,?,?,?)",
+        "INSERT INTO drucksache (id, number, wahlperiode, type, title, date, pdf_url, publisher, originators, "
+        "author_count, source_url, source_document_id, retrieved_at "
+        ") VALUES (?,?,21,?,?,?,?,'BT','[]',0,?,?,?)",
         [
             ("d500", "21/500", "Gesetzentwurf", "Mietrecht", "2026-06-01", None, *DIP),
             ("d501", "21/501", "Unterrichtung", "über die gemäß § 80 überwiesenen Vorlagen", "2026-06-10", None, *DIP),
@@ -29,11 +31,16 @@ def add_bills(c):
     c.executemany("INSERT INTO vorgang_drucksache VALUES (?,?)", [("g1", "d500"), ("g1", "d501"), ("g2", "d501")])
     c.execute("UPDATE agenda_item SET drucksache_numbers = '[\"21/500\"]' WHERE id = '21/88/2'")
     c.execute(
-        "INSERT INTO agenda_item VALUES ('21/88/4','21/88',4,'Tagesordnungspunkt 4','Sonstiges','[\"21/501\"]',"
+        "INSERT INTO agenda_item (id, sitting_id, position, top_id, title, drucksache_numbers, source_url, "
+        "source_document_id, retrieved_at, no_debate "
+        ") VALUES ('21/88/4','21/88',4,'Tagesordnungspunkt 4','Sonstiges','[\"21/501\"]',"
         "'u','d','t',0)"
     )
     c.execute(
-        "INSERT INTO decision VALUES ('21/88/h1','21/88','21/88/2',1,2,'handzeichen','Gesetzentwurf','21/500',"
+        "INSERT INTO decision (id, sitting_id, agenda_item_id, n, position, kind, subject, drucksache_number, "
+        "result, roll_call_vote_id, text, source_url, source_document_id, retrieved_at, "
+        "sub_item_id, vorgang_id "
+        ") VALUES ('21/88/h1','21/88','21/88/2',1,2,'handzeichen','Gesetzentwurf','21/500',"
         "'angenommen',NULL,'Der Gesetzentwurf ist angenommen.','u','d','t',NULL,NULL)"
     )
     c.executemany("INSERT INTO decision_fraction VALUES ('21/88/h1',?,?)", [("SPD", "yes"), ("AfD", "no")])
@@ -73,7 +80,10 @@ def test_every_debated_vorgang_is_a_procedure(conn):
     add_bills(conn)
     conn.execute("UPDATE agenda_item SET drucksache_numbers = '[\"21/500\", \"21/100\"]' WHERE id = '21/88/2'")
     conn.execute(
-        "INSERT INTO decision VALUES ('21/88/h2','21/88','21/88/2',2,3,'handzeichen','Antrag','21/100',"
+        "INSERT INTO decision (id, sitting_id, agenda_item_id, n, position, kind, subject, drucksache_number, "
+        "result, roll_call_vote_id, text, source_url, source_document_id, retrieved_at, "
+        "sub_item_id, vorgang_id "
+        ") VALUES ('21/88/h2','21/88','21/88/2',2,3,'handzeichen','Antrag','21/100',"
         "'abgelehnt',NULL,'Der Antrag ist abgelehnt.','u','d','t',NULL,NULL)"
     )
     got = load(conn)
@@ -82,8 +92,10 @@ def test_every_debated_vorgang_is_a_procedure(conn):
     assert [v["id"] for v in item["vorgaenge"]] == ["g1", "v1", "v2"]
     (h2,) = [d for d in data.decisions(conn) if d["id"] == "21/88/h2"]
     assert h2["vorgaenge"] == ["v1", "v2"] and h2["href"] == "abstimmungen/21-88-h2.html"
-    # a point on both timelines, but its own page stays the canonical one
-    assert "21/88/h2" in {d["id"] for d in got["v1"]["decisions"]} | {d["id"] for d in got["v2"]["decisions"]}
+    # a short step on both timelines, in full on neither: its own page is the canonical one
+    for v in ("v1", "v2"):
+        assert "21/88/h2" in {d["id"] for d in got[v]["shared"]}
+        assert "21/88/h2" not in {d["id"] for d in got[v]["decisions"]}
 
 
 def test_timeline_from_positions(conn):
@@ -148,7 +160,9 @@ def add_missing_debate(c):
     2nd/3rd Beratung in 21/88 with four decisions, but no agenda item names its Drucksache 21/310: the store has the
     preliminary protocol without the late-evening debates."""
     src = ("u", "d", "t")
-    c.execute("INSERT INTO drucksache VALUES ('d310','21/310',21,'Gesetzentwurf','SGB VI-Anpassungsgesetz',"
+    c.execute("INSERT INTO drucksache (id, number, wahlperiode, type, title, date, pdf_url, publisher, "
+              "originators, author_count, source_url, source_document_id, retrieved_at "
+              ") VALUES ('d310','21/310',21,'Gesetzentwurf','SGB VI-Anpassungsgesetz',"
               "'2025-11-03',NULL,'BT','[\"Bundesregierung\"]',0,?,?,?)", src)  # fmt: skip
     c.execute("INSERT INTO vorgang (id, wahlperiode, type, title, status, subjects, initiators, source_url, "
               "source_document_id, retrieved_at) VALUES ('325338',21,'Gesetzgebung','SGB VI-Anpassungsgesetz',"

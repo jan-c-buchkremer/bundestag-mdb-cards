@@ -20,6 +20,7 @@ from research import (
     preview,
     procedures,
     questions,
+    redirects,
     search,
     sources,
     speeches,
@@ -114,6 +115,9 @@ def main(argv: list[str] | None = None) -> None:
     print(f"wrote {len(rep['wahlkreise'])} Wahlkreis pages and {len(data.STATES)} Land pages in orte/")
     n_bodies = bodies.write(conn, args.out, cards, gov, decided, rcm)
     print(f"wrote {n_bodies['gremien']} pages in gremien/, {n_bodies['fraktionen']} pages in fraktionen/")
+    n_aliases = redirects.person_aliases(conn, args.out, cards)
+    if n_aliases:
+        print(f"{n_aliases} stubs from retired placeholder person ids to their cards")
     landing.write(
         args.out,
         cards,

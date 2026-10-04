@@ -55,3 +55,20 @@ def test_legal_pages_and_no_font_cdn(conn, tmp_path):
         html = (tmp_path / page).read_text()
         assert "fonts.googleapis" not in html
     assert 'href="impressum.html">Impressum</a>' in (tmp_path / "abgeordnete.html").read_text()
+
+
+def test_retired_placeholder_ids_lead_to_the_card(conn, tmp_path):
+    """foundation person_alias: an id that was a card's address (a QID, "pdf-<name>") gets a stub to the card, and
+    its stale JSON goes; an alias whose person has no card, or whose old id has a card again, gets nothing."""
+    from research import data, redirects
+
+    conn.execute(
+        "INSERT INTO person_alias VALUES ('Q80', '1', 't'), ('pdf-anna-adler', '1', 't'), ('pdf-nobody', 'x', 't'),"
+        " ('9', '1', 't')"
+    )
+    cards, _ = data.cards(conn)
+    (tmp_path / "Q80.json").write_text("{}")
+    assert redirects.person_aliases(conn, tmp_path, cards) == 2
+    assert 'url=1.html"' in (tmp_path / "Q80.html").read_text() and not (tmp_path / "Q80.json").exists()
+    assert (tmp_path / "pdf-anna-adler.html").exists()
+    assert not (tmp_path / "pdf-nobody.html").exists() and not (tmp_path / "9.html").exists()

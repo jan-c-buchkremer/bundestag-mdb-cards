@@ -1,4 +1,4 @@
-from cards import bodies, careers, data
+from research import bodies, careers, data
 
 
 def test_load_bodies(conn):

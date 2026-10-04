@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from cards import debate
+from research import debate
 
 
 @pytest.mark.parametrize(

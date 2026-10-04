@@ -39,7 +39,7 @@ ATTRIBUTION = (
     "© Die Bundeswahlleiterin, Statistisches Bundesamt, Wiesbaden 2024, Wahlkreiskarte für die Wahl zum "
     "21. Deutschen Bundestag. Grundlage der Geoinformationen © GeoBasis-DE / BKG 2024"
 )
-OUT = Path(__file__).resolve().parent.parent / "src" / "cards" / "wahlkreise.json"
+OUT = Path(__file__).resolve().parent.parent / "src" / "research" / "wahlkreise.json"
 MIN_AREA = 0.5  # km²: drop tiny islands and slivers after simplification
 
 

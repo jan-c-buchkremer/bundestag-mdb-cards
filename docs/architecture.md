@@ -111,8 +111,8 @@ Each repo releases on its own (`v0.MINOR.PATCH`, a CHANGELOG entry that starts w
 
 1. This document; README links to it in all three repos.
 2. Rename, without changing behaviour: GitHub repos, ghcr images, project and package names, CLIs
-   (`cards` → `research`, `landscape` → `radar`), variables (`CARDS_URL` → `RESEARCH_URL`, `LANDSCAPE_URL` →
-   `RADAR_URL`); an infra PR for `compose.yml`, `update.sh`, `release.sh`, Gatus; drop the GitHub Pages publishing.
+   (`cards` → `research`, `landscape` → `radar`), `CARDS_URL` → `RESEARCH_URL`. What names a feature keeps its name:
+   the MdB card stays a card, the Themenlandschaft stays `LANDSCAPE_*`. An infra PR for `compose.yml`, `update.sh`, `release.sh`, Gatus; drop the GitHub Pages publishing.
    Rides along with the next release of each repo.
 3. The Radar design rule in Research: `--radar` token, the Radar element, existing landscape links and blocks
    converted to it.

@@ -11,8 +11,8 @@ import unicodedata
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from cards import subtops
-from cards.titles import short_title
+from research import subtops
+from research.titles import short_title
 
 WP = 21
 BEFRAGUNG = "Befragung der Bundesregierung"  # every question and answer is its own rede there, see docs/decisions.md

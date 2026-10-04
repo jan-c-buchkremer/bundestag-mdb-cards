@@ -28,9 +28,9 @@ import statistics
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from cards import urls
-from cards.data import NO_FRACTION, PARTY_TO_FRACTION, WP, drucksache_pdf, excerpt, has_table, kind_filter
-from cards.ui import FOOTER, MONTHS, SHORT, TOKEN, dot, e, fraction_order, n, shell, short_date
+from research import urls
+from research.data import NO_FRACTION, PARTY_TO_FRACTION, WP, drucksache_pdf, excerpt, has_table, kind_filter
+from research.ui import FOOTER, MONTHS, SHORT, TOKEN, dot, e, fraction_order, n, shell, short_date
 
 DEADLINE = 14  # § 104 Abs. 2 GO-BT: the government is asked to answer within 14 days, extendable
 _ASKED = re.compile(r"Drucksache\s+(\d+)\s*/\s*(\d+)")
@@ -319,7 +319,7 @@ def _ressorts(conn: sqlite3.Connection) -> dict[str, str]:
 
 def _people(conn: sqlite3.Connection) -> dict[str, tuple[str, str | None]]:
     """Person id -> (display name, current fraction or party's fraction)."""
-    from cards.data import display_name
+    from research.data import display_name
 
     fr = {r["person_id"]: r["name"] for r in conn.execute(
         "SELECT person_id, name FROM membership WHERE kind = 'fraction' AND wahlperiode = ? ORDER BY from_date",
@@ -462,7 +462,7 @@ def research_turns(conn: sqlite3.Connection, pk: Packer, which: str) -> dict:
 
 
 def _has_kind(conn: sqlite3.Connection) -> bool:
-    from cards.data import has_speech_kind
+    from research.data import has_speech_kind
 
     return has_speech_kind(conn)
 

@@ -1,6 +1,6 @@
 from collections import Counter
 
-from cards import data
+from research import data
 
 
 def by_id(conn):

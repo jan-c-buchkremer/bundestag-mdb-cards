@@ -1,4 +1,4 @@
-/* Speech pages (reden/) and the search page; everything else comes from cards.css */
+/* Speech pages (reden/) and the search page; everything else comes from research.css */
 .sp-head { border-top: 3px solid var(--c); }
 .sp-head h1 { font-size: 21px; margin: 4px 0 8px; line-height: 1.35; }
 .sp-head .lines { color: var(--muted); font-size: 13.5px; }

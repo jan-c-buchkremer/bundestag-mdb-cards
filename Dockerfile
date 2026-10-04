@@ -11,14 +11,14 @@ RUN --mount=type=cache,target=/root/.cache/uv uv sync --locked --no-dev --no-edi
 
 FROM python:3.12-slim-bookworm
 # uid 1000 matches the host user, so bind-mounted directories stay writable on both sides
-RUN useradd --create-home --uid 1000 cards
+RUN useradd --create-home --uid 1000 research
 COPY --from=build /app/.venv /app/.venv
 # /work/data holds out/ (the CLI default is relative to the working directory); the foundation store is mounted at
 # /foundation, writable because SQLite needs the -shm file of a WAL database even to read (see the landscape's decisions)
 ENV PATH=/app/.venv/bin:$PATH PYTHONUNBUFFERED=1 BDF_DB=/foundation/bundestag.sqlite
-RUN mkdir -p /work/data && chown cards:cards /work /work/data
-USER cards
+RUN mkdir -p /work/data && chown research:research /work /work/data
+USER research
 WORKDIR /work
 VOLUME ["/work/data"]
-ENTRYPOINT ["cards"]
+ENTRYPOINT ["research"]
 CMD ["--help"]

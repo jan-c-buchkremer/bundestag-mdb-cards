@@ -20,8 +20,8 @@ import sqlite3
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from cards import careers, cohesion, data, facts, questions, urls
-from cards.data import (
+from research import careers, cohesion, data, facts, questions, urls
+from research.data import (
     GOVERNMENT_GROUP,
     NO_FRACTION,
     OFFICE,
@@ -31,7 +31,21 @@ from cards.data import (
     lead_rank,
     slugify,
 )
-from cards.ui import FOOTER, ORDER, SHORT, TOKEN, crumbs, dot, e, facet, frac_link, fraction_order, n, shell, short_date
+from research.ui import (
+    FOOTER,
+    ORDER,
+    SHORT,
+    TOKEN,
+    crumbs,
+    dot,
+    e,
+    facet,
+    frac_link,
+    fraction_order,
+    n,
+    shell,
+    short_date,
+)
 
 FACET = 20  # newest entries of a long facet (D23)
 

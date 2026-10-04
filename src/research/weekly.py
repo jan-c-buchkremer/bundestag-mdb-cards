@@ -25,13 +25,13 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
-from cards import debate, facts, redirects, urls
-from cards.data import has_table, page_id
-from cards.ui import (
-    CARDS,
+from research import debate, facts, redirects, urls
+from research.data import has_table, page_id
+from research.ui import (
     FOOTER,
     LANDSCAPE,
     MONTHS,
+    RESEARCH,
     SITTING_TABS,
     WEEKDAYS,
     crumbs,
@@ -46,7 +46,7 @@ from cards.ui import (
 )
 
 # where this site is published: the feed needs absolute links
-BASE = CARDS
+BASE = RESEARCH
 ATOM = "http://www.w3.org/2005/Atom"
 FEED_WEEKS = 20
 NUMBERS = {1: "einem", 2: "zwei", 3: "drei", 4: "vier", 5: "fünf"}
@@ -326,7 +326,7 @@ def feed(weeks: dict[str, dict], have: set[str] | None = None, limit: int = FEED
     sub(root, "link", href=f"{BASE}woche/feed.xml", rel="self")
     sub(root, "link", href=f"{BASE}{urls.PERIOD}")
     sub(root, "updated", stamp(newest["days"][-1]) if newest else "1970-01-01T00:00:00Z")
-    sub(sub(root, "author"), "name", "bundestag-mdb-cards")
+    sub(sub(root, "author"), "name", "bundestag-research-platform")
     for week, w in list(weeks.items())[:limit]:
         entry = sub(root, "entry")
         sub(entry, "title", week_label(week))

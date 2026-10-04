@@ -13,7 +13,7 @@ from __future__ import annotations
 import sqlite3
 from collections import defaultdict
 
-from cards.data import ELECTION, has_table
+from research.data import ELECTION, has_table
 
 
 def municipalities(conn: sqlite3.Connection) -> list[dict] | None:

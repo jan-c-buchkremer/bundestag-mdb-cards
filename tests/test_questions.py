@@ -1,4 +1,4 @@
-from cards import data, questions, sources
+from research import data, questions, sources
 
 DIP = ("https://search.dip.bundestag.de/api/v1/drucksache/9", "BT-Drs. 21/9", "2026-09-27")
 

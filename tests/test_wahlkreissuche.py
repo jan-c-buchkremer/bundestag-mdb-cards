@@ -1,4 +1,4 @@
-from cards import wahlkreissuche
+from research import wahlkreissuche
 
 SRC = ("https://www.bundeswahlleiterin.de/…/btw25_wkr_gemeinden_20241130_utf8.csv",
        "Bundeswahlleiterin, BTW 2025 Wahlkreiseinteilung (Stand 2024-11-30)", "2026-09-29")  # fmt: skip
@@ -35,7 +35,7 @@ def test_municipalities_groups_split_gemeinde(conn):
 
 def test_gemeinden_in_the_place_index(conn):
     """The Gemeinde lookup is the Orte page's place search now: its Gemeinden are in orte/orte.json."""
-    from cards import data, places
+    from research import data, places
 
     add_municipalities(conn)
     cards, _ = data.cards(conn)

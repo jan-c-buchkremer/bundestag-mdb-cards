@@ -4,9 +4,9 @@ import ast
 import re
 from pathlib import Path
 
-from cards import facts
+from research import facts
 
-SRC = Path(__file__).parent.parent / "src" / "cards"
+SRC = Path(__file__).parent.parent / "src" / "research"
 # the markup that only a fact component writes: a speech row, a decision, a Drucksache row, a vote's bar and
 # per-fraction table, and the functions that used to draw them elsewhere
 MARKERS = {

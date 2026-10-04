@@ -10,9 +10,9 @@ from __future__ import annotations
 from collections import Counter
 from pathlib import Path
 
-from cards import urls
-from cards.data import NO_FRACTION, VOTE_CHOICES, majority
-from cards.ui import (
+from research import urls
+from research.data import NO_FRACTION, VOTE_CHOICES, majority
+from research.ui import (
     FOOTER,
     SHORT,
     SITTING_TABS,

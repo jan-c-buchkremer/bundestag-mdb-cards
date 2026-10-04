@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import re
 
-from cards.data import decision_href, land_slug, page_id
+from research.data import decision_href, land_slug, page_id
 
 GOVERNMENT = "gremien/bundesregierung.html"
 PLACES = "orte/index.html"

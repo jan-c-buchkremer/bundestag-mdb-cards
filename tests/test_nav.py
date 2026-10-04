@@ -3,7 +3,7 @@
 
 import re
 
-from cards import ui
+from research import ui
 
 
 def items(html: str) -> list[tuple[str, str]]:

@@ -1,6 +1,6 @@
 from xml.etree import ElementTree as ET
 
-from cards import data, weekly
+from research import data, weekly
 
 
 def sitting(sid, number, date, items=()):
@@ -76,10 +76,10 @@ def test_feed_is_valid_atom():
     entries = root.findall("a:entry", ns)
     assert [x.find("a:title", ns).text for x in entries] == ["Sitzungswoche 28/2026", "Sitzungswoche 27/2026"]
     link = entries[0].find("a:link", ns).get("href")
-    assert link == "https://jan-c-buchkremer.github.io/bundestag-mdb-cards/woche/2026-W28.html"
+    assert link == "https://plenar-radar.de/woche/2026-W28.html"
     content = entries[0].find("a:content", ns)
     assert content.get("type") == "html"
-    assert 'href="https://jan-c-buchkremer.github.io/bundestag-mdb-cards/sitzungen/21-2.html"' in content.text
+    assert 'href="https://plenar-radar.de/sitzungen/21-2.html"' in content.text
 
 
 def test_write(conn, tmp_path):
@@ -93,7 +93,7 @@ def test_write(conn, tmp_path):
     page = (tmp_path / "woche" / "2026-W28.html").read_text()
     assert "Sitzungswoche 28/2026" in page and "Messerangriffe" in page and "an einem Tag getagt" in page
     assert 'href="../sitzungen/21-88.html"' in page and 'href="../sitzungen/index.html">21. Wahlperiode</a>' in page
-    assert "bundestag-topic-landscape/2026-W28.html" in page  # the topic map lives there
+    assert "plenar-radar.de/themenlandschaft/2026-W28.html" in page  # the topic map lives there
     for key in ("sitzungen", "reden", "abstimmungen", "drucksachen"):
         assert f'<section class="facet" id="{key}">' in page
     assert "../sitzungen/index.html" in (tmp_path / "woche" / "index.html").read_text()  # the old index: a stub

@@ -7,11 +7,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from cards.ui import FOOTER, shell
+from research.ui import FOOTER, shell
 
 NAME = "Jan Buchkremer"
 MAIL = "jan.c.buchkremer@gmail.com"
-REPO = "https://github.com/jan-c-buchkremer/bundestag-mdb-cards"
+REPO = "https://github.com/jan-c-buchkremer/bundestag-research-platform"
 AS_OF = "Oktober 2026"
 CONTACT = f'{NAME}<br>E-Mail: <a href="mailto:{MAIL}">{MAIL}</a>'
 
@@ -37,9 +37,9 @@ Hinweise auf Fehler bitte per E-Mail oder als <a href="{REPO}/issues">Issue auf 
 <p>Für die Inhalte verlinkter Seiten sind ausschließlich deren Betreiber verantwortlich. Wird mir eine
 Rechtsverletzung auf einer verlinkten Seite bekannt, entferne ich den Link.</p>
 <h2>Lizenzen</h2>
-<p>Der Code der Seite steht unter der MIT-Lizenz (<a href="{REPO}">bundestag-mdb-cards</a>). Für die Daten gelten
-die Lizenzen ihrer Quellen (<a href="daten.html">Über die Daten</a>). Die Schrift Inter steht unter der SIL Open Font
-License 1.1.</p>
+<p>Der Code der Seite steht unter der MIT-Lizenz (<a href="{REPO}">bundestag-research-platform</a>). Für die Daten
+gelten die Lizenzen ihrer Quellen (<a href="daten.html">Über die Daten</a>). Die Schrift Inter steht unter der SIL
+Open Font License 1.1.</p>
 <h2>Datenschutz</h2>
 <p>Siehe <a href="datenschutz.html">Datenschutzerklärung</a>.</p>
 </div>

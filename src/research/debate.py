@@ -15,9 +15,9 @@ import sqlite3
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from cards.data import MIN_CHARS, NO_FRACTION, PARTY_TO_FRACTION, WP, _houses, after_speaker, kind_filter, page_id
-from cards.speeches import rede_id
-from cards.ui import FOOTER, MONTHS, ORDER, SHORT, TOKEN, dot, e, frac_link, n, shell, short_date
+from research.data import MIN_CHARS, NO_FRACTION, PARTY_TO_FRACTION, WP, _houses, after_speaker, kind_filter, page_id
+from research.speeches import rede_id
+from research.ui import FOOTER, MONTHS, ORDER, SHORT, TOKEN, dot, e, frac_link, n, shell, short_date
 
 GOVERNMENT = "Bundesregierung"
 OTHER = "Sonstige"  # Bundesrat, Wehrbeauftragter: neither fraction nor government

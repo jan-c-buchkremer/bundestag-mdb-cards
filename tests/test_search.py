@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from cards import search
+from research import search
 
 HERE = Path(__file__).parent
 
@@ -27,7 +27,7 @@ def test_search_page_has_custom_ui_markup():
 
 def test_pages_js_ships_the_highlight_script():
     """The highlight-and-scroll code lives in pages.js, loaded by every shell()-built page, speech pages included."""
-    js = (HERE.parent / "src" / "cards" / "pages.js").read_text(encoding="utf-8")
+    js = (HERE.parent / "src" / "research" / "pages.js").read_text(encoding="utf-8")
     assert "function highlightQuery" in js
     assert "getAll('hl')" in js
     assert "data-pagefind-body" in js
@@ -36,7 +36,7 @@ def test_pages_js_ships_the_highlight_script():
 
 
 def site_index(conn):
-    from cards import bodies, careers, data, places, procedures, topics, wahlkreissuche
+    from research import bodies, careers, data, places, procedures, topics, wahlkreissuche
 
     cards, _ = data.cards(conn)
     decided = data.decisions(conn)
@@ -66,7 +66,7 @@ def test_entities_resolve_grouped_by_type(conn, tmp_path):
         pytest.skip("node is not installed")
     path = tmp_path / "suche.json"
     path.write_text(json.dumps(site_index(conn), ensure_ascii=False))
-    js = HERE.parent / "src" / "cards" / "search.js"
+    js = HERE.parent / "src" / "research" / "search.js"
     script = (f"const s = require({json.dumps(str(js))}); const idx = require({json.dumps(str(path))});"
               "console.log(JSON.stringify(['rostock', 'spd', 'miete', '88. sitzung', 'bayern'].map(q => s.resolve(idx, q))));")  # fmt: skip # noqa: E501
     rostock, spd, miete, sitting, bayern = json.loads(subprocess.run(["node", "-e", script], capture_output=True,

@@ -2,7 +2,7 @@ import os
 
 from PIL import Image
 
-from cards import photos
+from research import photos
 
 
 def make(raw, rel, size, mode="RGB"):

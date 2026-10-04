@@ -1,6 +1,6 @@
 import json
 
-from cards import data, facts, procedures
+from research import data, facts, procedures
 
 DIP = ("https://search.dip.bundestag.de/api/v1/vorgang/1", "DIP Vorgang 1", "2026-09-27")
 

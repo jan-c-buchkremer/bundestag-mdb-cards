@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from cards import careers, data, places
+from research import careers, data, places
 
-JS = Path(__file__).parent.parent / "src" / "cards" / "places.js"
+JS = Path(__file__).parent.parent / "src" / "research" / "places.js"
 
 
 def site(conn, tmp_path):

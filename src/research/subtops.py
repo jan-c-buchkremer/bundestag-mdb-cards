@@ -10,8 +10,8 @@ import re
 import sqlite3
 from collections import defaultdict
 
-from cards import data
-from cards.titles import _GESETZ, _PROCEDURAL, short_title
+from research import data
+from research.titles import _GESETZ, _PROCEDURAL, short_title
 
 NO_DEBATE_TITLE = "Abstimmungen ohne Aussprache"
 _MOTION_HEAD = re.compile(r"^–\s*zu (dem|der)\b")  # "– zu dem Antrag der Abgeordneten …" leads into the motion's title

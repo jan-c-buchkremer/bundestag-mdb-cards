@@ -1,7 +1,9 @@
-# bundestag-mdb-cards
+# bundestag-research-platform
 
-One info card per member of the 21st Bundestag: who they are, what they do in the plenary, how they vote,
-what they put their name to — every fact with a link to its source document.
+The research platform of [plenar-radar.de](https://plenar-radar.de/): every member, Vorgang, sitting, speech and
+vote of the 21st Bundestag on a page of its own, linked to each other, every fact with a link to its source document.
+One of three layers behind the site (Foundation, Research, Radar; [`docs/architecture.md`](docs/architecture.md)).
+Formerly bundestag-mdb-cards.
 
 **Status: MVP in progress.** The site is organised around the entities parliament consists of, one canonical page
 each (entity model, URL scheme and redirect table in [`docs/plan.md`](docs/plan.md) section 11, navigation and the
@@ -15,7 +17,7 @@ membership, and link to it.
 
 Every entity page is the same template: a header, then the same facets (Mitglieder, Reden, Abstimmungen und
 Beschlüsse, Drucksachen), each filtered by the entity. Each kind of fact has one rendering component in
-`src/cards/facts.py` (`speech`, `vote`, `decision`, `drucksache`), used by every page.
+`src/research/facts.py` (`speech`, `vote`, `decision`, `drucksache`), used by every page.
 
 | Entity | Pages |
 |---|---|
@@ -37,19 +39,19 @@ below; the search field in the top bar suggests from `suche-kurz.json` (`nav.js`
 
 ```sh
 uv sync
-BDF_DB=/path/to/bundestag.sqlite uv run cards build   # writes data/out/: one page and JSON per card, index.html
+BDF_DB=/path/to/bundestag.sqlite uv run research build   # writes data/out/: one page and JSON per card, index.html
 python3 -m http.server -d data/out                     # then open http://localhost:8000
 uv run pytest && uv run ruff check .
 ```
 
-On server-jan, `uv run cards preview` does both from the live data (`/srv/apps/bundestag`; `--no-build` serves the
+On server-jan, `uv run research preview` does both from the live data (`/srv/apps/bundestag`; `--no-build` serves the
 last build again, `--port` picks another port), and `scripts/stage.sh` shares the running preview on the tailnet.
 How code goes live (tagged releases only) is in `docs/release.md`.
 
 Without `BDF_DB` the store is looked for at `../bundestag-data-foundation/data/bundestag.sqlite`.
 
-`CARDS_URL` is where this site is published (the Atom feed needs absolute links) and `LANDSCAPE_URL` where the
-Themenlandschaft is; both default to their GitHub Pages addresses.
+`RESEARCH_URL` is where this site is published (the Atom feed needs absolute links) and `LANDSCAPE_URL` where the
+Themenlandschaft is; they default to https://plenar-radar.de/ and https://plenar-radar.de/themenlandschaft/.
 
 `LANDSCAPE_CLUSTERS` points to the Themenlandschaft's `speech_clusters.json` (`{"<speech id>": {"week", "cluster_id",
 "label"}}`, written by the landscape build); with it each agenda item on the sitting pages gets a "Worum ging es" block
@@ -68,7 +70,7 @@ Python package brings its binary), which indexes the speech pages into `pagefind
 uv run python scripts/check_links.py data/out --anchors   # every internal href/src in the built HTML resolves
 ```
 
-`tests/test_e2e.py` does the same on the test fixture: it writes it to a SQLite file, runs `cards build` against it and
+`tests/test_e2e.py` does the same on the test fixture: it writes it to a SQLite file, runs `research build` against it and
 `check_links.py --anchors`, and follows every old URL of the redirect table.
 
 **Debattenkultur** (`debatte/`) compares groups, never single members: words spoken per fraction against seats,
@@ -98,16 +100,15 @@ vote. The steps are DIP's Vorgangsablauf when the store has the foundation's `vo
 from Drucksachen and debates. A Beratung that DIP records but whose protocol text is not in the store is shown with
 the protocol PDF, DIP's decisions marked "laut DIP" and a note; `daten.html` lists these gaps.
 
-The map outlines in `src/cards/wahlkreise.json` are made once, not in the daily build:
+The map outlines in `src/research/wahlkreise.json` are made once, not in the daily build:
 
 ```sh
 uv run python scripts/wahlkreise_geo.py    # downloads the Bundeswahlleiterin shapefile, simplifies, writes the JSON
 ```
 
 Built on [bundestag-data-foundation](https://github.com/jan-c-buchkremer/bundestag-data-foundation), whose SQLite
-store is read, never written. Sibling of
-[bundestag-topic-landscape](https://github.com/jan-c-buchkremer/bundestag-topic-landscape), the topic map of one
-sitting week.
+store is read, never written. Sibling of [bundestag-radar](https://github.com/jan-c-buchkremer/bundestag-radar), the
+interpretive layer (the Themenlandschaft, topics, the Kompass).
 
 Code is MIT. Data attribution follows the foundation: "Deutscher Bundestag", "Deutscher Bundestag/Bundesrat – DIP",
 abgeordnetenwatch.de (CC0 1.0).

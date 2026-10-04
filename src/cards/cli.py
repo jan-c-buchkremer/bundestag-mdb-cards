@@ -1,4 +1,4 @@
-"""cards build [--out data/out]"""
+"""cards build [--out data/out] | cards preview [--no-build] [--port 8000]"""
 
 from __future__ import annotations
 
@@ -15,6 +15,7 @@ from cards import (
     debate,
     photos,
     places,
+    preview,
     procedures,
     questions,
     search,
@@ -32,7 +33,15 @@ def main(argv: list[str] | None = None) -> None:
     sub = p.add_subparsers(dest="cmd", required=True)
     b = sub.add_parser("build", help="build every card page, the index and the JSON exports")
     b.add_argument("--out", type=Path, default=Path("data/out"))
+    pv = sub.add_parser("preview", help="build from the live data and serve the site on localhost")
+    pv.add_argument("--out", type=Path, default=Path("data/out"))
+    pv.add_argument("--no-build", action="store_true", help="serve the last build as it is")
+    pv.add_argument("--port", type=int, default=8000)
     args = p.parse_args(argv)
+    if args.cmd == "preview":
+        builder = None if args.no_build else (lambda out: main(["build", "--out", str(out)]))
+        preview.run(args.out, args.port, builder)
+        return
 
     conn = data.connect()
     cards, meta = data.cards(conn)

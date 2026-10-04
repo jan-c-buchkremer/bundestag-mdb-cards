@@ -44,6 +44,7 @@ uv run pytest && uv run ruff check .
 
 On server-jan, `uv run cards preview` does both from the live data (`/srv/apps/bundestag`; `--no-build` serves the
 last build again, `--port` picks another port), and `scripts/stage.sh` shares the running preview on the tailnet.
+How code goes live (tagged releases only) is in `docs/release.md`.
 
 Without `BDF_DB` the store is looked for at `../bundestag-data-foundation/data/bundestag.sqlite`.
 

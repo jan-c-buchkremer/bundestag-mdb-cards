@@ -219,9 +219,11 @@ def render_index(
     last_sitting: dict | None = None,
     places: dict | None = None,
     roles: str = "",
+    committees: dict | None = None,
 ) -> str:
     """The Abgeordnete page: the plenum (or the list), the filters with the place filter (`places`, places.py
-    index_payload) and the Rollen section (`roles`, careers.py), written into the page as HTML."""
+    index_payload) and the Ausschuss filter (`committees`, bodies.index_payload), and the Rollen section (`roles`,
+    careers.py), written into the page as HTML."""
     government = government or []
     by_id = {g["id"]: g for g in government}
     rows = [index_row(c, by_id) for c in cards]
@@ -232,6 +234,7 @@ def render_index(
         "government": [{**g, "card": g["id"] in ids} for g in government],
         "last_sitting": last_sitting,
         "places": places,
+        "committees": committees or {},
     }  # fmt: skip
     slugs = {code: x["slug"] for code, x in places["lands"].items()}
     return (
@@ -258,6 +261,7 @@ def write_site(
     clusters: dict[str, dict] | None = None,
     places: dict | None = None,
     roles: str = "",
+    committees: dict | None = None,
 ) -> dict[str, int]:
     """Write the site; returns the number of vote and sitting pages (empty without the foundation's decisions)."""
     meta = {**meta, "built": dt.date.today().isoformat()}
@@ -266,7 +270,7 @@ def write_site(
     for c in cards:
         (out / f"{c['id']}.html").write_text(render_card(c, meta, by_id), encoding="utf-8")
         (out / f"{c['id']}.json").write_text(json.dumps(c, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    index = render_index(cards, meta, government, last_sitting, places, roles)
+    index = render_index(cards, meta, government, last_sitting, places, roles, committees)
     (out / "abgeordnete.html").write_text(index, encoding="utf-8")
     for name in ASSETS:
         shutil.copyfile(HERE / name, out / name)

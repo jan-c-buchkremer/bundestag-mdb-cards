@@ -69,12 +69,31 @@ def test_offices_committees_and_index(conn):
     assert [c["short"] for c in cards["1"]["committees"]] == ["Gesundheit", "Haushaltsausschuss"]
     assert cards["2"]["name"] == "Dr. Bernd Berg"
     row = data.index_row(cards["1"])
-    assert row["committees"] == ["Gesundheit"]  # the ended membership is not current
+    assert "committees" not in row  # the index filters by bodies.index_payload, as the Gremium pages list them
     assert row["first_term"] is False
     assert data.index_row(cards["2"])["first_term"] is True
     assert data.index_row(cards["4"])["first_term"] is False  # WP 20 before
     assert data.index_row(cards["2"])["office"] == "Parlamentarischer Staatssekretär"
     assert cards["1"]["since"] == "2006-10-01"
+
+
+def test_index_committee_filter_is_the_gremium_pages_membership(conn):
+    """D25: the Ausschuss filter lists the members the Gremium's page shows as current, and links that page; a card
+    links its Gremien to the pages load_bodies made."""
+    from research import bodies
+
+    cards = list(by_id(conn)[0].values())
+    groups = bodies.load_bodies(conn, cards)
+    payload = bodies.index_payload(groups)
+    assert payload["Gesundheit"][1] == ["1"]
+    assert "1" not in payload["Haushaltsausschuss"][1]  # her membership ended
+    slug = {b["short"]: b["slug"] for b in groups}
+    assert payload["Gesundheit"][0] == slug["Gesundheit"]
+    bodies.link_cards(cards, groups)
+    adler = next(c for c in cards if c["id"] == "1")
+    assert {x["short"]: x["slug"] for x in adler["committees"]} == {
+        k: slug[k] for k in ("Gesundheit", "Haushaltsausschuss")
+    }
 
 
 def test_drucksachen_authorship_and_subjects(conn):

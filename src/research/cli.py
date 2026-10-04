@@ -77,10 +77,12 @@ def main(argv: list[str] | None = None) -> None:
                 sp["photo"] = sp["person"] in portraits
     rcm = data.roll_call_members(conn)
     groups = bodies.load_bodies(conn, cards)
+    bodies.link_cards(cards, groups)
     written = build.write_site(
         cards, meta, args.out, gov, data.last_sitting(conn),
         decided, rcm, sittings, clusters,
         places=places.index_payload(cards, wks), roles=careers.build_section(conn, cards, groups, gov),
+        committees=bodies.index_payload(groups),
     )  # fmt: skip
     written |= questions.write(conn, args.out, {c["id"] for c in cards}) | sources.write(conn, args.out, meta)
     written |= debate.write(conn, args.out)

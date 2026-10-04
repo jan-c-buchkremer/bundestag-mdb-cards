@@ -711,12 +711,13 @@ def cards(conn: sqlite3.Connection) -> tuple[list[dict], dict]:
                 "offices": [_dated(m) for m in ms if m["kind"] == "other" and OFFICE.search(m["role"] or "")],
                 "fraction_roles": [_dated(m) for m in fraction_rows if m["role"]],
                 "fractions": [_dated(m) for m in fraction_rows],
+                # "slug": the Gremium's page, set by bodies.link_cards from the pages bodies.load_bodies makes
                 "committees": [
-                    {**_dated(m), "short": committee_short(m["name"]), "slug": slugify(committee_short(m["name"]))}
+                    {**_dated(m), "short": committee_short(m["name"]), "slug": None}
                     for m in ms if m["kind"] == "committee"
                 ],  # fmt: skip
                 "other": [
-                    {**_dated(m), "slug": slugify(m["name"])}
+                    {**_dated(m), "slug": None}
                     for m in ms if m["kind"] == "other" and not OFFICE.search(m["role"] or "")
                 ],  # fmt: skip
                 "reden": sp["reden"], "kurz": sp["kurz"], "fragen": sp["fragen"], "befragung": sp["befragung"],
@@ -852,7 +853,6 @@ def index_row(c: dict, government: dict[str, dict] | None = None) -> dict:
         "constituency": m.get("constituency"), "left": m.get("to"),
         "first_term": c["kind"] == "member" and not any(wp < WP for wp in c["periods"]),
         "office": next((o["role"] for o in c["offices"] if o["to"] is None), None),
-        "committees": sorted({x["short"] for x in c["committees"] if x["to"] is None}),
         "reden": len(c["reden"]),
         "lead": lead_rank([r["role"] for r in c["fraction_roles"] if r["to"] is None]),
         "gov": gov["office"] if gov else None,

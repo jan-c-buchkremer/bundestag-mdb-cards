@@ -2,7 +2,7 @@ import importlib.util
 import json
 from pathlib import Path
 
-from cards import build, data, search, speeches
+from research import build, data, search, speeches
 
 HERE = Path(__file__).parent
 CLUSTERS = HERE / "speech_clusters.json"

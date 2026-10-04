@@ -1,6 +1,6 @@
 import json
 
-from cards import build, compass, data
+from research import build, compass, data
 
 HANDS = {"id": "21/90/h1", "kind": "handzeichen",
          "fractions": {"SPD": "yes", "AfD": "no", "Die Linke": "abstain"}}  # fmt: skip

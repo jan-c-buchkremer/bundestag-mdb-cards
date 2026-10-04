@@ -1,6 +1,6 @@
 from conftest import LONG, speech
 
-from cards import data, debate, questions, speeches
+from research import data, debate, questions, speeches
 
 
 def add_fragestunde(conn):

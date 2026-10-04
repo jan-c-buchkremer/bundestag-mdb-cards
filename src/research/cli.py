@@ -1,4 +1,4 @@
-"""cards build [--out data/out] | cards preview [--no-build] [--port 8000]"""
+"""research build [--out data/out] | research preview [--no-build] [--port 8000]"""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import time
 from collections import Counter
 from pathlib import Path
 
-from cards import (
+from research import (
     bodies,
     build,
     careers,
@@ -29,7 +29,7 @@ from cards import (
 
 
 def main(argv: list[str] | None = None) -> None:
-    p = argparse.ArgumentParser(prog="cards")
+    p = argparse.ArgumentParser(prog="research")
     sub = p.add_subparsers(dest="cmd", required=True)
     b = sub.add_parser("build", help="build every card page, the index and the JSON exports")
     b.add_argument("--out", type=Path, default=Path("data/out"))

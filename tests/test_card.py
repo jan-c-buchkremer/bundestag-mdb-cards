@@ -1,4 +1,4 @@
-from cards import build, data
+from research import build, data
 
 
 def card_page(conn, tmp_path, pid):

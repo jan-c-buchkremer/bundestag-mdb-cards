@@ -12,7 +12,7 @@ import json
 import os
 from pathlib import Path
 
-from cards.ui import e
+from research.ui import e
 
 PAGE = """<!DOCTYPE html>
 <html lang="de">

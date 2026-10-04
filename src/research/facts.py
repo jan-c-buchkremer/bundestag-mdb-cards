@@ -14,10 +14,10 @@ import json
 import re
 from collections import Counter, defaultdict
 
-from cards import urls
-from cards.data import NO_FRACTION, VOTE_CHOICES, iso_week, majority
-from cards.ui import LANDSCAPE, POSITION, SHORT, TOKEN, VOTE, badge, dot, e, frac_link, fraction_order, kind_label, n
-from cards.ui import short_date as sd
+from research import urls
+from research.data import NO_FRACTION, VOTE_CHOICES, iso_week, majority
+from research.ui import LANDSCAPE, POSITION, SHORT, TOKEN, VOTE, badge, dot, e, frac_link, fraction_order, kind_label, n
+from research.ui import short_date as sd
 
 LIMIT = 25  # rows of a list shown before "Alle N zeigen"
 SHOWN = 10  # speeches of an agenda item shown before "alle N Reden zeigen"

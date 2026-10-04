@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from cards import build, data, facts, pages
-from cards.titles import short_title
+from research import build, data, facts, pages
+from research.titles import short_title
 
 CLUSTERS = Path(__file__).parent / "speech_clusters.json"
 
@@ -31,7 +31,7 @@ def test_worum_ging_es_with_clusters(conn, tmp_path):
     item = page.split('id="top-2"', 1)[1]
     block = item.split('<div class="topics">', 1)[1].split("</div></div>", 1)[0]
     assert block.index("Mieten &amp; Wohnungsbau") < block.index("Eigentum")  # two speeches before one
-    assert 'href="https://jan-c-buchkremer.github.io/bundestag-topic-landscape/2026-W28.html#cluster=7"' in block
+    assert 'href="https://plenar-radar.de/themenlandschaft/2026-W28.html#cluster=7"' in block
     assert '<span class="n">2</span>' in block
     assert item.index('class="topics"') < item.index('class="speeches"')  # above the speeches
     assert "not in the store" not in page

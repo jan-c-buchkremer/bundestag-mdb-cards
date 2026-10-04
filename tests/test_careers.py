@@ -1,6 +1,6 @@
 from conftest import STAMM, mandate, membership
 
-from cards import careers, data
+from research import careers, data
 
 
 def add_changes(c):
@@ -71,7 +71,7 @@ def test_first_speech(conn):
 def test_roles_section(conn):
     """Rollen on the Abgeordnete page: the Präsidium, the fraction chairs, the committee chairs and the members in
     the government, each role linked to its entity's page, and the tenure table."""
-    from cards import bodies
+    from research import bodies
 
     conn.execute("UPDATE membership SET role = 'Vorsitzende' WHERE id = '1/21/1'")  # Adler chairs the SPD
     conn.execute("UPDATE membership SET role = 'Vorsitzende' WHERE id = '1/21/2'")  # … and the Gesundheitsausschuss

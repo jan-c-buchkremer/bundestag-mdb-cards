@@ -1,6 +1,6 @@
 import json
 
-from cards import build, data
+from research import build, data
 
 
 def test_write_site(conn, tmp_path):

@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from cards import facts, urls
-from cards.pages import vorgaenge_line
-from cards.ui import e
+from research import facts, urls
+from research.pages import vorgaenge_line
+from research.ui import e
 
 NO_DEBATE_NOTE = (
     "Nach dem Protokoll ist für diese Vorlagen keine Aussprache vorgesehen: Sie werden ohne Aussprache zur "

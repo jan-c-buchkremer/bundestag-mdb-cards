@@ -13,9 +13,9 @@ import sqlite3
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from cards import redirects, urls
-from cards.data import NO_FRACTION, PARTY_TO_FRACTION, WP, display_name, feminine, government_roles
-from cards.ui import SHORT, TOKEN, dot, e, fraction_order, n, short_date
+from research import redirects, urls
+from research.data import NO_FRACTION, PARTY_TO_FRACTION, WP, display_name, feminine, government_roles
+from research.ui import SHORT, TOKEN, dot, e, fraction_order, n, short_date
 
 BUCKETS = ("1", "2", "3", "4", "5 und mehr")
 CHAIR = re.compile(r"^(Vorsitzende[r]?|Delegationsleiter)$")  # a Gremium's chair (bodies.py groups by it too)

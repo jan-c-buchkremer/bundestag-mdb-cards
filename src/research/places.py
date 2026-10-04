@@ -22,9 +22,9 @@ import json
 from collections import defaultdict
 from pathlib import Path
 
-from cards import data, facts, redirects, urls
-from cards.data import STATES
-from cards.ui import FOOTER, TOKEN, crumbs, dot, e, entity_header, facet, frac_link, n, shell, short_date
+from research import data, facts, redirects, urls
+from research.data import STATES
+from research.ui import FOOTER, TOKEN, crumbs, dot, e, entity_header, facet, frac_link, n, shell, short_date
 
 PARTY_FRACTION = {"CDU": "CDU/CSU", "CSU": "CDU/CSU", "GRÜNE": "BÜNDNIS 90/DIE GRÜNEN", "Die Linke": "Die Linke"}
 FACET = 20  # newest entries of a long facet (D23)

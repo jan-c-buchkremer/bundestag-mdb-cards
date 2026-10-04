@@ -1,4 +1,4 @@
-from cards import build, data, subtops
+from research import build, data, subtops
 
 SRC = "'https://x/21088.xml', 'BT-PlPr. 21/88', '2026-09-27'"
 

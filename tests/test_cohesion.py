@@ -1,6 +1,6 @@
 from collections import Counter
 
-from cards import build, cohesion, data
+from research import build, cohesion, data
 
 
 def test_rice():

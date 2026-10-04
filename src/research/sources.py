@@ -9,9 +9,9 @@ import shutil
 import sqlite3
 from pathlib import Path
 
-from cards import data, urls
-from cards.questions import fragestunden
-from cards.ui import FOOTER, e, long_date, n, shell, short_date
+from research import data, urls
+from research.questions import fragestunden
+from research.ui import FOOTER, e, long_date, n, shell, short_date
 
 STALE_AFTER_DAYS = 90  # as the foundation's government.STALE_AFTER_DAYS
 
@@ -165,7 +165,7 @@ Wahlkreis oder Gemeinde.</li>
 <li><a href="regierung/index.html">Fragen an die Regierung</a>: Kleine Anfragen, Fragen und Regierungsbefragung nach
 Fraktionen, und jede einzelne Frage zum Durchsuchen.</li>
 <li>Entscheidungen und Regeln im Einzelnen:
-<a href="https://github.com/jan-c-buchkremer/bundestag-mdb-cards/blob/main/docs/decisions.md">docs/decisions.md</a>.</li>
+<a href="https://github.com/jan-c-buchkremer/bundestag-research-platform/blob/main/docs/decisions.md">docs/decisions.md</a>.</li>
 </ul>
 <h2>Downloads</h2>{downloads}</div>
 <footer>{FOOTER}</footer>"""

@@ -11,8 +11,8 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from cards import facts, urls
-from cards.ui import FOOTER, LANDSCAPE, SITTING_TABS, crumbs, e, long_date, n, shell, short_date, subtabs
+from research import facts, urls
+from research.ui import FOOTER, LANDSCAPE, SITTING_TABS, crumbs, e, long_date, n, shell, short_date, subtabs
 
 TOPICS = 5  # clusters under "Worum ging es"
 
@@ -149,7 +149,7 @@ def vorgaenge_line(vs: list[dict]) -> str:
 
 
 def agenda_item(i: dict, s: dict, clusters: dict[str, dict] | None = None) -> str:
-    from cards import subtop_pages  # imports this module
+    from research import subtop_pages  # imports this module
 
     subs = i.get("sub_items")
     parts = [f'<section class="top" id="top-{i["position"]}"><h3><span class="lbl">{e(i["label"])}</span> '
@@ -231,7 +231,7 @@ def write_pages(out: Path, decisions: list[dict], members: dict[str, list[list]]
     (votes_dir / "index.html").write_text(votes_index(decisions, meta, compass), encoding="utf-8")
     for s in sittings:
         (sit_dir / f"{s['page']}.html").write_text(sitting_page(s, clusters), encoding="utf-8")
-    from cards import weekly  # the calendar; weekly.write rewrites it with the Vorgang pages linked
+    from research import weekly  # the calendar; weekly.write rewrites it with the Vorgang pages linked
 
     (sit_dir / "index.html").write_text(weekly.period_page(sittings, decisions, {}, set()), encoding="utf-8")
     return {"abstimmungen": len(own) + 1, "sitzungen": len(sittings) + 1}

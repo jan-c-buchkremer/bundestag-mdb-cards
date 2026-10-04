@@ -19,8 +19,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-from cards import data, urls
-from cards.ui import FOOTER, ORDER, TOKEN, shell
+from research import data, urls
+from research.ui import FOOTER, ORDER, TOKEN, shell
 
 # the entity types, in the order the results show them (search.js reads them from suche.json)
 TYPES = ("Person", "Gruppe", "Ort", "Vorgang", "Thema", "Sitzungswoche")
@@ -58,7 +58,7 @@ def entities(cards: list[dict], bodies: list[dict], government: bool, procs: lis
              gemeinden: list[dict] | None, themes: dict[int, dict], sittings: list[dict]) -> dict:  # fmt: skip
     """The entity index: {"types": TYPES, "items": [[type, label, sub, href, keys], …]}, each href a canonical
     page relative to the site root, `keys` further words it is found by (a Wahlkreis number, a week's dates)."""
-    from cards import pages
+    from research import pages
 
     items: list[list] = []
 

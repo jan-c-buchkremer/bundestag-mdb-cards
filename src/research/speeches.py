@@ -16,10 +16,10 @@ import sqlite3
 from collections import defaultdict
 from pathlib import Path
 
-from cards import urls
-from cards.data import WP, _fraction, display_speaker, has_speech_kind, page_id, top_label
-from cards.titles import short_title
-from cards.ui import FOOTER, LANDSCAPE, TOKEN, e, long_date, n, search_marks, shell, short_date
+from research import urls
+from research.data import WP, _fraction, display_speaker, has_speech_kind, page_id, top_label
+from research.titles import short_title
+from research.ui import FOOTER, LANDSCAPE, TOKEN, e, long_date, n, search_marks, shell, short_date
 
 HERE = Path(__file__).parent
 SIMILAR = 5

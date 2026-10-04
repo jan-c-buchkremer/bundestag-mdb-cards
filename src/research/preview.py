@@ -1,4 +1,4 @@
-"""cards preview [--no-build] [--port 8000]: build the site from the live data on server-jan and serve it on
+"""research preview [--no-build] [--port 8000]: build the site from the live data on server-jan and serve it on
 localhost, to see a change before it goes out (README, "Build"). Served over HTTP, since the Pagefind search does
 not work from file://.
 
@@ -24,7 +24,7 @@ DEFAULTS = {
     "LANDSCAPE_THEMES": LIVE / "landscape" / "out" / "speech_themes.json",
 }
 # the live site's addresses, so links into the Themenlandschaft go where the public site has it
-URLS = {"CARDS_URL": "https://plenar-radar.de/", "LANDSCAPE_URL": "https://plenar-radar.de/themenlandschaft/"}
+URLS = {"RESEARCH_URL": "https://plenar-radar.de/", "LANDSCAPE_URL": "https://plenar-radar.de/themenlandschaft/"}
 
 
 def live_defaults(env: dict[str, str] | None = None) -> dict[str, str]:

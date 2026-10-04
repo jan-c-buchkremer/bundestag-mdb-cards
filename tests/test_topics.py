@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from cards import data, debate, topics
+from research import data, debate, topics
 
 THEMES = Path(__file__).parent / "speech_themes.json"
 

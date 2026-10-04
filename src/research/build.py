@@ -8,9 +8,9 @@ import json
 import shutil
 from pathlib import Path
 
-from cards import cohesion, compass, facts, legal, pages, ui
-from cards.data import DIP_DOC, VOTE_CHOICES, index_row, page_id
-from cards.ui import VOTE, e, long_date, n
+from research import cohesion, compass, facts, legal, pages, ui
+from research.data import DIP_DOC, VOTE_CHOICES, index_row, page_id
+from research.ui import VOTE, e, long_date, n
 
 HERE = Path(__file__).parent
 # wahlkreise.json: the map, fetched on demand

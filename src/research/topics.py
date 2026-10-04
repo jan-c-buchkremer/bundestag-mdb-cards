@@ -13,8 +13,8 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from cards import facts, urls
-from cards.ui import FOOTER, LANDSCAPE, crumbs, dot, e, entity_header, facet, frac_link, fraction_order, n, shell
+from research import facts, urls
+from research.ui import FOOTER, LANDSCAPE, crumbs, dot, e, entity_header, facet, frac_link, fraction_order, n, shell
 
 SPEECHES = 100  # newest speeches of a theme in the page (a theme holds a few hundred)
 NOTE = ("Themen stammen aus der Themenlandschaft, die alle Reden der Wahlperiode nach Ähnlichkeit gruppiert. Die "

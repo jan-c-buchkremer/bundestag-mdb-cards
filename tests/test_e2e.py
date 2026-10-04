@@ -1,5 +1,5 @@
 """End to end: the fixture store, enriched with what the entity pages need, written to a SQLite file, built with
-`cards build` and checked with scripts/check_links.py --anchors. Also follows every row of the redirect table in
+`research build` and checked with scripts/check_links.py --anchors. Also follows every row of the redirect table in
 docs/plan.md (section 11.3) through the stubs, fragments included."""
 
 import json
@@ -16,7 +16,7 @@ import test_questions
 import test_subtops
 from conftest import LONG, speech, store
 
-from cards import cli, urls
+from research import cli, urls
 
 HERE = Path(__file__).parent
 SRC = ("u", "d", "t")
@@ -205,7 +205,7 @@ def test_files_that_must_keep_existing(site):
     ):
         assert (site / path).exists(), path
     feed = (site / "woche" / "feed.xml").read_text()
-    assert "<id>https://jan-c-buchkremer.github.io/bundestag-mdb-cards/woche/2026-W28.html</id>" in feed
+    assert "<id>https://plenar-radar.de/woche/2026-W28.html</id>" in feed
 
 
 def test_entity_pages_are_written(site):
@@ -271,7 +271,7 @@ def test_week_page_has_vorgaenge_and_votes_as_facets(site):
 
 def test_fragen_lists_link_their_sources(site):
     """regierung/<kind>.json for every kind; the pages a row links (cards, speech pages, sittings) exist."""
-    from cards import questions
+    from research import questions
 
     for slug, _, _ in questions.KINDS:
         d = json.loads((site / "regierung" / f"{slug}.json").read_text())

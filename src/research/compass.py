@@ -23,9 +23,9 @@ import json
 from collections import Counter
 from pathlib import Path
 
-from cards import urls
-from cards.data import VOTE_CHOICES, majority
-from cards.ui import FOOTER, ORDER, SHORT, SITTING_TABS, TOKEN, fraction_order, shell, subtabs
+from research import urls
+from research.data import VOTE_CHOICES, majority
+from research.ui import FOOTER, ORDER, SHORT, SITTING_TABS, TOKEN, fraction_order, shell, subtabs
 
 HERE = Path(__file__).parent
 CANDIDATES_PATH = HERE / "compass_candidates.json"

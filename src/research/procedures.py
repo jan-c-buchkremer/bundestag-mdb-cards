@@ -27,9 +27,9 @@ import sqlite3
 from collections import Counter
 from pathlib import Path
 
-from cards import facts, redirects, urls
-from cards.data import WP, _has_column, drucksache_pdf, has_table, page_id
-from cards.ui import FOOTER, crumbs, e, entity_header, facet, frac_link, n, shell, short_date
+from research import facts, redirects, urls
+from research.data import WP, _has_column, drucksache_pdf, has_table, page_id
+from research.ui import FOOTER, crumbs, e, entity_header, facet, frac_link, n, shell, short_date
 
 GESETZ = "Gesetzgebung"
 CHAMBER = {"BT": "Bundestag", "BR": "Bundesrat", "BV": "Bundesversammlung", "EP": "Europäisches Parlament"}

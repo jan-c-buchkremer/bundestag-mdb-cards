@@ -1,5 +1,20 @@
 # Plan: an info card for every MdB
 
+## Current goal
+
+*(Jan: two weeks, from the reader's side – "By <date>, a reader can …".)*
+
+Every change is reviewed against this goal. Ideas that don't serve it go on "Not now", not into code.
+
+## Not now
+
+Ideas that don't serve the current goal. Each names what it would give a reader.
+
+- Building one card or one section alone (a fast path for `cards preview`): the build has no subset mode; a full
+  preview build takes about 2 minutes.
+
+---
+
 Status: **concept, decisions taken 2026-09-27** (section 9). Sections 1–8 describe what is possible; section 9 lists the decisions
 we take together before any code is written, each with options and a recommendation. Decided points move to
 `decisions.md` and get marked here.

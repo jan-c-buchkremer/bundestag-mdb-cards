@@ -5,8 +5,9 @@ not before? If that sentence is hard to write, the release is not a finished ver
 
 ## Unreleased
 
-Readers pick by seeing: on the Vorgänge, Sachgebiete, EU-Vorlagen and Abstimmungen pages every chart is also a
-filter, the filters combine, and the selection is in the address, so it can be shared and the back button undoes it.
+Readers pick by seeing: on the Vorgänge, Sachgebiete, EU-Vorlagen, Abstimmungen, Fragen, Geschlossenheit,
+Debattenkultur and Gremien pages every chart is also a filter, the filters combine, and the selection is in the
+address, so it can be shared and the back button undoes it.
 
 - `controls.py` and `controls.js` (new): tile field, fraction chips, pipeline, segmented bar, stacked bar rows and an
   activity strip, drawn in Python at build time, each part a button, each chart with "Als Tabelle". Without
@@ -21,6 +22,15 @@ filter, the filters combine, and the selection is in the address, so it can be s
 - `vorgaenge/eu-vorlagen.html`: the Stand as a row of steps, the lead committees as chips (once the store has the
   referral table), the strip. `abstimmungen/index.html`: chips for namentlich, per Handzeichen, angenommen and
   abgelehnt instead of the two selects, and the strip; old `#art=…&ergebnis=…` links keep working.
+- `regierung/index.html` (Fragen): the statistics are charts, and a click on one opens its list filtered (the
+  Kleine Anfragen of a fraction or a month, the turns of one Regierungsbefragung). Each kind's list has chips for
+  Fraktion, Ressort and Stand, the answer time as a bar and a column per month instead of the five selects.
+- `abstimmungen/geschlossenheit.html`: a fraction's row of the small multiples shows its dissents; chips for
+  Fraktion and own vote and the strip instead of the select.
+- `debatte/index.html`: small multiples per fraction instead of the three tables of "Ton und Ordnung" (the tables
+  behind "Als Tabelle"); the Ordnungsmaßnahmen are a list filtered by a card, kind, fraction and week.
+- `gremien/index.html`: a tile per Gremium, the area by its current members, the bar its fractions, filtered by
+  kind and name, "Als Liste" for a plain list. A Gremium's page filters its members by fraction, role and name.
 - A Vorgang's date in lists is its latest step until the build date, so a law with an Inkrafttreten in 2030 no
   longer sorts first; the row says "tritt am … in Kraft".
 - CI installs Node, and the tests that run the page scripts in Node fail there instead of being skipped.

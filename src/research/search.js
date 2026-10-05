@@ -119,7 +119,7 @@ async function boot() {
     if (!INDEX) return;
     const groups = resolve(INDEX, els.input.value);
     els.entities.innerHTML = groups.length ? entitiesHtml(groups)
-      : (els.input.value.trim() ? '<p class="empty">Keine Person, kein Ort, Gremium, Vorgang, Thema oder keine Woche mit diesem Namen.</p>' : '');
+      : (els.input.value.trim() ? '<p class="empty">Keine Person, kein Ort, Gremium, Vorgang, Sachgebiet, Thema oder keine Woche mit diesem Namen.</p>' : '');
   };
   const entitiesReady = fetch('suche.json').then(r => r.json()).then(x => { INDEX = x; renderEntities(); })
     .catch(() => { els.entities.innerHTML = ''; });

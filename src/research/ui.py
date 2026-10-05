@@ -53,6 +53,13 @@ SITTING_TABS = (
     ("calendar", "sitzungen/index.html", "Sitzungswochen"),
     ("votes", "abstimmungen/index.html", "Abstimmungen"),
 )
+# the sub-tabs of Vorgänge: the Vorgänge themselves, the same by DIP Sachgebiet, and the EU-Vorlagen (a kind of
+# Vorgang with a page of its own)
+PROCEDURE_TABS = (
+    ("procedures", "vorgaenge/index.html", "Vorgänge"),
+    ("subjects", "sachgebiete/index.html", "Sachgebiete"),
+    ("eu", "vorgaenge/eu-vorlagen.html", "EU-Vorlagen"),
+)
 # The Radar mark: rings and a sweep, drawn in currentColor; every Radar element carries it (cards.css .rl, .rmark)
 RADAR_ICON = (
     '<svg class="ri" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><circle cx="8" cy="8" r="6.5" '
@@ -170,7 +177,8 @@ def method_note(text: str) -> str:
 
 
 def subtabs(root: str, tabs: tuple[tuple[str, str, str], ...], active: str) -> str:
-    """Sub-tabs of a section (Sitzungswochen | Abstimmungen), styled as the card's tabs."""
+    """Sub-tabs of a section (Sitzungswochen | Abstimmungen, Vorgänge | Sachgebiete | EU-Vorlagen), styled as the
+    card's tabs."""
     links = "".join(
         f'<a href="{root}{href}"{' class="on" aria-current="page"' if key == active else ""}>{label}</a>'
         for key, href, label in tabs

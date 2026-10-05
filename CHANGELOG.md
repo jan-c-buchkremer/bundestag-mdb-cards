@@ -5,6 +5,20 @@ not before? If that sentence is hard to write, the release is not a finished ver
 
 ## Unreleased
 
+Readers can open any of DIP's Sachgebiete and see what the 21st Bundestag did in it: the Vorgänge by kind and
+Einbringer, the speeches, the decisions and the Drucksachen; the EU-Vorlagen have a page of their own.
+
+- `sachgebiete/index.html` (`subjects.py`): every Sachgebiet with its Vorgänge (Gesetzgebung, Anträge, Kleine
+  Anfragen), how many were debated, and the decisions, largest first. Below it what has no Sachgebiet: Fragen,
+  EU-Vorlagen, Petitionen, and the plenary business without a Vorgang.
+- `sachgebiete/<slug>.html`: an entity page per Sachgebiet with the facets Einbringer, Vorgänge (filterable, a
+  Vorgang without a page here links DIP), Reden, Abstimmungen und Beschlüsse, Drucksachen.
+- `vorgaenge/eu-vorlagen.html` (`eu.py`): every EU-Vorlage with its Unterrichtung and a Stand from DIP's steps,
+  filterable, linked with the Sachgebiet "Europapolitik und Europäische Union". The Ausschuss column waits for the
+  foundation's referral table.
+- Vorgänge has the sub-tabs Vorgänge | Sachgebiete | EU-Vorlagen. The Sachgebiete on a Vorgang page link their pages;
+  the search finds Sachgebiete; the front page has a Sachgebiete tile; the Thema pages link the Sachgebiete.
+
 Readers arriving at plenar-radar.de land on a front page that shows what the site offers and takes them there in
 one click, and every page shows by its colour whether it states checkable facts (Recherche, blue) or selects and
 interprets (Radar, violet).

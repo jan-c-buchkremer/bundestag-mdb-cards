@@ -13,6 +13,7 @@ from research import (
     careers,
     data,
     debate,
+    eu,
     landing,
     photos,
     places,
@@ -22,6 +23,7 @@ from research import (
     search,
     sources,
     speeches,
+    subjects,
     topics,
     urls,
     wahlkreissuche,
@@ -99,6 +101,9 @@ def main(argv: list[str] | None = None) -> None:
     print(f"{sum(len(x) for x in missing.values())} Beratungen in {len(missing)} sittings without protocol text")
     written |= sources.write(conn, args.out, meta, missing)
     print(f"wrote {len(procs)} pages in vorgaenge/, stubs in gesetze/ and abstimmungen/ for what moved there")
+    written_subjects = subjects.write(conn, args.out, procs, sittings)
+    n_eu = len(eu.write(conn, args.out, procs, subjects.EUROPE in written_subjects))
+    print(f"wrote {len(written_subjects)} pages in sachgebiete/, vorgaenge/eu-vorlagen.html with {n_eu} EU-Vorlagen")
     print(f"wrote {weekly.write(conn, args.out, sittings, decided).get('woche', 0)} pages in woche/")
     written_themes = topics.write(args.out, themes, data.speech_facts(cards), sittings)
     print(f"wrote {len(written_themes)} topic pages in themen/" if written_themes
@@ -115,13 +120,14 @@ def main(argv: list[str] | None = None) -> None:
         decided,
         speeches=n_speeches,
         procedures=len(procs),
+        subjects=len(written_subjects),
         themes=len(written_themes),
         compass="kompass" in written,
         landscape=bool(clusters),
     )
     print("wrote the front page index.html, the Abgeordnete list in abgeordnete.html")
     index = search.entities(cards, groups, (args.out / urls.GOVERNMENT).exists(), procs, rep, gemeinden,
-                            written_themes, sittings)  # fmt: skip
+                            written_themes, sittings, written_subjects)  # fmt: skip
     print(f"{len(index['items'])} entities in suche.json")
     search.write_index(args.out, index)  # last: indexes everything written above
 

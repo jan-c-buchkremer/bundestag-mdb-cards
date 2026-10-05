@@ -29,7 +29,19 @@ from pathlib import Path
 
 from research import facts, redirects, urls
 from research.data import WP, _has_column, drucksache_pdf, has_table, page_id
-from research.ui import FOOTER, crumbs, e, entity_header, facet, frac_link, n, shell, short_date
+from research.ui import (
+    FOOTER,
+    PROCEDURE_TABS,
+    crumbs,
+    e,
+    entity_header,
+    facet,
+    frac_link,
+    n,
+    shell,
+    short_date,
+    subtabs,
+)
 
 GESETZ = "Gesetzgebung"
 CHAMBER = {"BT": "Bundestag", "BR": "Bundesrat", "BV": "Bundesversammlung", "EP": "Europäisches Parlament"}
@@ -431,7 +443,8 @@ def procedure_page(b: dict, have: set[str], members: dict[str, list[list]], rela
     if b["initiators"]:
         lines.append(f'<span class="k">Eingebracht von</span> {", ".join(frac_link(x) for x in b["initiators"])}')
     if b["subjects"]:
-        lines.append(f'<span class="k">Sachgebiete</span> {e(", ".join(b["subjects"]))}')
+        links = ", ".join(f'<a href="../{e(urls.subject(x))}">{e(x)}</a>' for x in b["subjects"])
+        lines.append(f'<span class="k">Sachgebiete</span> {links}')
     parts = [
         crumbs(("index.html", "Vorgänge"), (None, b["type"])),
         entity_header(b["title"], lines, [f'<a href="{DIP_VORGANG.format(e(b["id"]))}">Vorgang im DIP ↗</a>']),
@@ -518,6 +531,20 @@ def _status_label(s: str) -> str:
     return f'<a href="#status-{e(_status_slug(s))}">{label}</a>' if s in STATUS_GLOSSARY else label
 
 
+def row(b: dict, href: str, external: bool = False) -> str:
+    """One Vorgang in a list (the index, a Sachgebiet's Vorgänge): its newest date, title, kind, Einbringer and Stand,
+    with `data-type` and `data-status` for FILTER_JS. `external`: the link goes to DIP, since the Vorgang has no page
+    here, and is marked ↗."""
+    mark = ' <span class="faint" title="Im DIP">↗</span>' if external else ""
+    by = ", ".join(b["initiators"][:3]) + (" …" if len(b["initiators"]) > 3 else "")
+    return (
+        f'<a class="row" href="{e(href)}" data-status="{e(b["status"])}" data-type="{e(b["type"])}">'
+        f'<span class="d">{short_date(b["latest"]) if b["latest"] else ""}</span><span class="t"><span class="ti">'
+        f'{e(b["title"])}{mark}</span><span class="sub">{e(b["type"])}{f" · {e(by)}" if by else ""}</span></span>'
+        f'<span class="l"><span class="st">{e(b["status"])}</span></span></a>'
+    )
+
+
 def index_page(procs: list[dict]) -> str:
     bills = [b for b in procs if b["type"] == GESETZ]
     status = Counter(b["status"] for b in bills)
@@ -527,15 +554,8 @@ def index_page(procs: list[dict]) -> str:
     )
     type_options = "".join(f'<option value="{e(t)}">{e(t)} ({k})</option>' for t, k in types.most_common())
     table = "".join(f'<tr><td class="l">{_status_label(s)}</td><td>{n(k)}</td></tr>' for s, k in status.most_common())
-    rows = "".join(
-        f'<a class="row" href="{e(b["id"])}.html" data-status="{e(b["status"])}" data-type="{e(b["type"])}">'
-        f'<span class="d">{short_date(b["latest"]) if b["latest"] else ""}</span><span class="t"><span class="ti">'
-        f'{e(b["title"])}</span><span class="sub">{e(b["type"])} · {e(", ".join(b["initiators"][:3]))}'
-        f'{" …" if len(b["initiators"]) > 3 else ""}</span></span><span class="l"><span class="st">{e(b["status"])}'
-        "</span></span></a>"
-        for b in procs
-    )
-    body = f"""<div class="bills"><h1>Vorgänge</h1>
+    rows = "".join(row(b, f"{b['id']}.html") for b in procs)
+    body = f"""{subtabs("../", PROCEDURE_TABS, "procedures")}<div class="bills"><h1>Vorgänge</h1>
 <p class="lead">Ein Vorgang ist im Dokumentationssystem DIP alles, was zu einer Vorlage gehört: ein Gesetzentwurf mit seinen Beratungen, Beschlussempfehlungen und Abstimmungen, ein Antrag, ein Entschließungsantrag. Hier stehen alle {n(types[GESETZ])} Gesetzgebungsvorgänge des 21. Bundestages und alle weiteren Vorgänge, die im Plenum beraten oder abgestimmt wurden ({n(len(procs) - types[GESETZ])}), der zuletzt bewegte zuerst. Ein Gesetz beginnt als Gesetzentwurf von der Bundesregierung, aus der Mitte des Bundestages, meist von Fraktionen, oder vom Bundesrat. Der Bundestag berät es in der Regel dreimal im Plenum und dazwischen in den Ausschüssen, dann stimmt er ab. Danach folgt der Bundesrat. Zuletzt wird das Gesetz ausgefertigt und im Bundesgesetzblatt verkündet.</p>
 <details class="open"><summary>Wie viele Gesetzesvorhaben in welchem Stand sind</summary><div class="rows"><table class="plenum"><thead><tr><th>Stand im DIP</th><th>Vorgänge</th></tr></thead><tbody>{table}</tbody></table></div></details>
 <div class="filters"><input type="search" id="bq" placeholder="Titel oder Einbringer …" autocomplete="off"><select id="bty"><option value="">jede Art</option>{type_options}</select><select id="bst"><option value="">jeder Stand</option>{options}</select></div>

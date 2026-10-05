@@ -11,6 +11,8 @@ GOVERNMENT = "gremien/bundesregierung.html"
 PLACES = "orte/index.html"
 PERIOD = "sitzungen/index.html"
 PROCEDURES = "vorgaenge/index.html"
+SUBJECTS = "sachgebiete/index.html"
+EU = "vorgaenge/eu-vorlagen.html"
 THEMES = "themen/index.html"
 
 
@@ -55,6 +57,20 @@ def land(code: str) -> str:
 
 def wahlkreis(number: int | str) -> str:
     return f"orte/wahlkreis-{number}.html"
+
+
+_UMLAUT = str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "Ä": "Ae", "Ö": "Oe", "Ü": "Ue", "ß": "ss"})
+
+
+def slug(name: str) -> str:
+    """ "Europapolitik und Europäische Union" -> "europapolitik-und-europaeische-union": lowercase ASCII, umlauts
+    spelled out, any other character a hyphen."""
+    return re.sub(r"[^a-z0-9]+", "-", name.translate(_UMLAUT).lower()).strip("-")
+
+
+def subject(name: str) -> str:
+    """A DIP Sachgebiet."""
+    return f"sachgebiete/{slug(name)}.html"
 
 
 def theme(theme_id: int | str) -> str:

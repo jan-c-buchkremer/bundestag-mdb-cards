@@ -1,8 +1,8 @@
 """Search: the search page `suche.html`, the entity index `suche.json` and the Pagefind index in `pagefind/`.
 
 Entity resolution first (docs/plan.md 11.7, D20): the build writes every entity with its canonical page into
-`suche.json` (persons, groups, places with the Gemeinden, Vorgänge, topics, sitting weeks), and `search.js`
-resolves a query against it in the browser, grouped by type. Below, one "Reden" section of full-text hits.
+`suche.json` (persons, groups, places with the Gemeinden, Vorgänge, DIP Sachgebiete, topics, sitting weeks), and
+`search.js` resolves a query against it in the browser, grouped by type. Below, one "Reden" section of full-text hits.
 
 Pagefind (the `pagefind` package ships its binary) indexes the built site as the last step of the build and writes
 a static index; the browser loads only the index chunks a query needs. `suche.html` carries its own UI (`search.js`)
@@ -23,13 +23,13 @@ from research import data, urls
 from research.ui import FOOTER, ORDER, TOKEN, shell
 
 # the entity types, in the order the results show them (search.js reads them from suche.json)
-TYPES = ("Person", "Gruppe", "Ort", "Vorgang", "Thema", "Sitzungswoche")
+TYPES = ("Person", "Gruppe", "Ort", "Vorgang", "Sachgebiet", "Thema", "Sitzungswoche")
 GEMEINDE = "Gemeinde"  # the sub line of a Gemeinde entry; the light index leaves them out
 
 BODY = f"""<h1>Suche</h1>
 <p class="lead">Die Suche findet zuerst Abgeordnete, Fraktionen und Gremien, Länder, Wahlkreise und
-Gemeinden, Vorgänge, Themen und Sitzungswochen mit ihrer Seite. Darunter folgt die Volltextsuche in allen Reden
-der 21. Wahlperiode. Die Filter grenzen sie nach Art, Fraktion, Person, Monat und Thema ein.</p>
+Gemeinden, Vorgänge, Sachgebiete, Themen und Sitzungswochen mit ihrer Seite. Darunter folgt die Volltextsuche in
+allen Reden der 21. Wahlperiode. Die Filter grenzen sie nach Art, Fraktion, Person, Monat und Thema ein.</p>
 <div class="search" id="search">
   <div class="s-bar">
     <input type="search" id="sq" placeholder="Name, Ort, Vorgang, Thema oder Wort aus einer Rede …"
@@ -55,7 +55,8 @@ HEAD = '<link rel="stylesheet" href="reden.css">'
 
 
 def entities(cards: list[dict], bodies: list[dict], government: bool, procs: list[dict], places: dict,
-             gemeinden: list[dict] | None, themes: dict[int, dict], sittings: list[dict]) -> dict:  # fmt: skip
+             gemeinden: list[dict] | None, themes: dict[int, dict], sittings: list[dict],
+             subjects: dict[str, list[dict]] | None = None) -> dict:  # fmt: skip
     """The entity index: {"types": TYPES, "items": [[type, label, sub, href, keys], …]}, each href a canonical
     page relative to the site root, `keys` further words it is found by (a Wahlkreis number, a week's dates)."""
     from research import pages
@@ -93,6 +94,8 @@ def entities(cards: list[dict], bodies: list[dict], government: bool, procs: lis
                     g["d"])  # fmt: skip
     for p in procs:
         add("Vorgang", p["title"], f"{p['type']} · {p['status']}", urls.vorgang(p["id"]), " ".join(p["initiators"]))
+    for name, vs in (subjects or {}).items():
+        add("Sachgebiet", name, f"Sachgebiet (DIP), {len(vs)} Vorgänge", urls.subject(name), "Sachgebiet DIP")
     for th in themes.values():
         add("Thema", th["label"], f"{len(th['speeches'])} Reden", urls.theme(th["id"]))
     weeks: dict[str, list[dict]] = {}

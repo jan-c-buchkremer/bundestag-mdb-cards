@@ -56,6 +56,7 @@ def page(
     speeches: int,
     procedures: int,
     themes: int,
+    subjects: int = 0,
     compass: bool,
     landscape: bool,
 ) -> str:
@@ -113,6 +114,8 @@ def page(
          f"{n(len(members))} Steckbriefe"),
         ("orte/index.html", "Orte", "Abgeordnete nach Land, Wahlkreis und Gemeinde.", "299 Wahlkreise"),
         ("vorgaenge/index.html", "Vorgänge", "Gesetze und Anträge vom Entwurf bis zum Beschluss.", n(procedures)),
+        *([(urls.SUBJECTS, "Sachgebiete", f"Die Arbeit des Bundestages nach den {n(subjects)} Sachgebieten des DIP.",
+             f"{n(subjects)} Sachgebiete")] if subjects else []),
         ("sitzungen/index.html", "Sitzungen", "Sitzungswochen mit Tagesordnung und Reden.", n(len(sittings))),
         ("abstimmungen/index.html", "Abstimmungen", "Namentlich und per Handzeichen.",
          f"{n(n_rc)} namentlich"),

@@ -15,9 +15,21 @@ import sqlite3
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from research.data import MIN_CHARS, NO_FRACTION, PARTY_TO_FRACTION, WP, _houses, after_speaker, kind_filter, page_id
+from research import controls
+from research.data import (
+    MIN_CHARS,
+    NO_FRACTION,
+    PARTY_TO_FRACTION,
+    WP,
+    _houses,
+    after_speaker,
+    iso_week,
+    kind_filter,
+    page_id,
+)
 from research.speeches import rede_id
 from research.ui import FOOTER, MONTHS, ORDER, SHORT, TOKEN, dot, e, frac_link, n, shell, short_date
+from research.urls import slug as controls_slug
 
 GOVERNMENT = "Bundesregierung"
 OTHER = "Sonstige"  # Bundesrat, Wehrbeauftragter: neither fraction nor government
@@ -465,48 +477,155 @@ def sitting_link(sid: str, date: str) -> str:
     return f'<a href="../sitzungen/{e(page_id(sid))}.html">{e(short_date(date))}</a>'
 
 
-def section_order(ms: list[dict], qs: list[dict], ints: dict[str, dict[str, list[int]]]) -> str:
-    kinds = ("Ordnungsruf", "Rüge", "Sitzungsausschluss")
+ORDER_KINDS = ("Ordnungsruf", "Rüge", "Sitzungsausschluss")
+ORDER_PLURAL = {"Ordnungsruf": "Ordnungsrufe", "Rüge": "Rügen", "Sitzungsausschluss": "Sitzungsausschlüsse"}
+QUESTION_RESULTS = ("zugelassen", "abgelehnt", UNCLEAR)
+MIN_WORDS = 2000  # a month of a fraction with fewer words gets no interruption rate
+
+
+def token(g: str) -> str:
+    """A group as a filter value: the fraction's token, "reg" for the Bundesregierung, else its slug."""
+    return TOKEN.get(g) or ("reg" if g == GOVERNMENT else re.sub(r"[^a-z0-9]+", "-", g.lower()).strip("-"))
+
+
+def dec(x: float) -> str:
+    """12.34 -> "12,3"."""
+    return f"{x:.1f}".replace(".", ",")
+
+
+def rates(ints: dict[str, dict[str, list[int]]]) -> dict[str, dict[str, float]]:
+    """Interruptions per 1,000 words, per month and group, for the months with at least MIN_WORDS words."""
+    groups = {g for per in ints.values() for g in per if g != OTHER}
+    return {m: {g: 1000 * per[g][0] / per[g][1] for g in groups if g in per and per[g][1] >= MIN_WORDS}
+            for m, per in ints.items()}  # fmt: skip
+
+
+def multiples(ms: list[dict], qs: list[dict], ints: dict[str, dict[str, list[int]]]) -> str:
+    """Small multiples, one card per fraction (and the Bundesregierung): its Ordnungsmaßnahmen, the Zwischenfragen
+    put to it as a bar (zugelassen, abgelehnt, unklar), and its interruptions per 1,000 words as a column per month,
+    on one scale for all cards. A card filters the list of Ordnungsmaßnahmen below."""
+    per_measure: dict[str, Counter] = defaultdict(Counter)
+    for m in ms:
+        per_measure[m["fraction"]][m["kind"]] += 1
+    per_q: dict[str, Counter] = defaultdict(Counter)
+    for q in qs:
+        per_q[q["asked"]][q["result"]] += 1
+    rate = rates(ints)
+    months = sorted(rate)
+    top = max([v for r in rate.values() for v in r.values()] + [1])
+    groups = sorted({*per_measure, *per_q, *(g for r in rate.values() for g in r)} - {OTHER, UNCLEAR}, key=group_order)
+    shades = {"zugelassen": "k2", "abgelehnt": "k4", UNCLEAR: "k5"}
+    cards = []
+    for g in groups:
+        c, qc = per_measure[g], per_q[g]
+        measures = " · ".join(f"{c[k]} {ORDER_PLURAL[k] if c[k] != 1 else k}" for k in ORDER_KINDS if c[k]) or "keine"
+        asked = sum(qc.values())
+        qbar = "".join(f'<i class="{shades[r]}" style="flex-grow:{qc[r]}" title="{r}: {qc[r]}"></i>'
+                       for r in QUESTION_RESULTS if qc[r])  # fmt: skip
+        qtext = (f"{n(asked)} gewünscht: " + " · ".join(f"{qc[r]} {r}" for r in QUESTION_RESULTS if qc[r])
+                 if asked else "keine gewünscht")  # fmt: skip
+        cols = "".join(
+            f'<i style="height:{100 * rate[m][g] / top:.1f}%" title="{e(month_label(m))}: {dec(rate[m][g])}"></i>'
+            if g in rate[m] else f'<i class="gap" title="{e(month_label(m))}: zu wenige Wörter"></i>'
+            for m in months
+        )  # fmt: skip
+        vals = [rate[m][g] for m in months if g in rate[m]]
+        mean = dec(sum(vals) / len(vals)) if vals else "–"
+        inner = (
+            f'<span class="mh"><i class="dot" style="background:{colour(g)}"></i>{e(label(g))}</span>'
+            f'<span class="mk">Ordnungsmaßnahmen</span><span class="mv">{measures}</span>'
+            f'<span class="mk">Zwischenfragen an die {"Bundesregierung" if g == GOVERNMENT else "Fraktion"}</span>'
+            f'<span class="qb">{qbar}</span><span class="mv">{qtext}</span>'
+            f'<span class="mk">Unterbrechungen je 1.000 Wörter</span><span class="spark">{cols}</span>'
+            f'<span class="mv">im Mittel der Monate {mean}</span>'
+        )
+        cards.append(controls.toggle("fraktion", token(g), inner, cls="mult", label=label(g)))
+    legend = ('<div class="legend"><span><i class="sw k2"></i>zugelassen</span><span><i class="sw k4"></i>abgelehnt'
+              '</span><span><i class="sw k5"></i>unklar</span></div>')  # fmt: skip
+    span = f"{month_label(months[0])} bis {month_label(months[-1])}" if months else ""
+    return (
+        f'{legend}<div class="mults" role="group" aria-label="Je Fraktion">{"".join(cards)}</div>'
+        f'<p class="note">Die Säulen: je ein Monat, {e(span)}, alle Karten auf derselben Skala (höchster Wert '
+        f"{dec(top)}). Ein Klick auf eine Karte zeigt unten ihre Ordnungsmaßnahmen.</p>"
+    )
+
+
+def measures_table(ms: list[dict]) -> str:
     per: dict[str, Counter] = defaultdict(Counter)
     for m in ms:
         per[m["fraction"]][m["kind"]] += 1
-    head = "".join(f"<th>{k}e</th>" if k != "Rüge" else "<th>Rügen</th>" for k in kinds)
+    head = "".join(f"<th>{ORDER_PLURAL[k]}</th>" for k in ORDER_KINDS)
     rows = "".join(
-        f"<tr><td>{dot(f) if f in TOKEN else ''}{frac_link(f)}</td>" + "".join(f"<td>{per[f][k]}</td>" for k in kinds)
-        + "</tr>"
+        f"<tr><td>{dot(f) if f in TOKEN else ''}{frac_link(f)}</td>" + "".join(f"<td>{per[f][k]}</td>"
+                                                                             for k in ORDER_KINDS) + "</tr>"
         for f in sorted(per, key=group_order)
     )  # fmt: skip
+    return (
+        '<h3>Ordnungsrufe, Rügen, Sitzungsausschlüsse</h3><div class="scroll"><table class="plenum deb"><thead><tr>'
+        f"<th>Fraktion der betroffenen Person</th>{head}</tr></thead><tbody>{rows}</tbody></table></div>"
+    )
+
+
+def section_order(ms: list[dict], qs: list[dict], ints: dict[str, dict[str, list[int]]],
+                  sitting_dates: list[str] | None = None) -> str:  # fmt: skip
     items = "".join(
-        f'<li><span class="d">{sitting_link(m["sitting"], m["date"])}</span> <b>{e(m["kind"])}</b> · '
-        f"{dot(m['fraction']) if m['fraction'] in TOKEN else ''}{e(label(m['fraction']))}"
+        f'<li class="mrow" data-fraktion="{e(token(m["fraction"]))}" data-art="{e(controls_slug(m["kind"]))}" '
+        f'data-w="{iso_week(m["date"])}"><span class="d">{sitting_link(m["sitting"], m["date"])}</span> '
+        f"<b>{e(m['kind'])}</b> · {dot(m['fraction']) if m['fraction'] in TOKEN else ''}{e(label(m['fraction']))}"
         f'<div class="q">„{e(m["text"][:280])}{"…" if len(m["text"]) > 280 else ""}“ '
         f'<a href="../reden/{e(page_id(rede_id(m["speech"])))}.html#{e(m["speech"])}">in der Rede →</a></div></li>'
         for m in reversed(ms)
     )
     unclear = sum(1 for m in ms if m["fraction"] == UNCLEAR)
-    out = [
-        '<section id="ordnung"><h2>Ton und Ordnung</h2><h3>Ordnungsrufe, Rügen, Sitzungsausschlüsse</h3>',
-        '<div class="scroll"><table class="plenum deb"><thead><tr><th>Fraktion der betroffenen Person</th>'
-        f"{head}</tr></thead>"
-        f"<tbody>{rows}</tbody></table></div>",
-        f'<p class="how">Gelesen aus den Worten der Sitzungsleitung: gezählt ist ein Satz wie „Ich erteile Ihnen '
-        "einen Ordnungsruf“ oder „ich rüge Sie“, nicht eine Ankündigung oder Drohung („sonst erteile ich …“, „im "
-        "Wiederholungsfall …“). Die Fraktion ist die der Person, die die Sitzungsleitung im selben Absatz beim "
-        "Namen nennt; sonst die des namentlich vermerkten Zwischenrufers direkt davor, oder die der Rednerin oder "
-        "des Redners, wenn die Sitzungsleitung direkt nach deren Worten spricht. Ohne solchen Anhalt steht „unklar“ "
-        f"({unclear} von {len(ms)}). Die Regeln lesen Text und "
-        "können einzelne Fälle übersehen, etwa nachträglich erteilte Ordnungsrufe in anderer Formulierung.</p>",
-        f'<details class="deb"><summary>Alle {len(ms)} mit Datum und Wortlaut</summary><ul class="ms">{items}</ul>'
-        "</details>",
-    ]
-    out.append(questions_block(qs))
-    out.append(interruptions_block(ints))
-    out.append("</section>")
-    return "".join(out)
+    q_unclear = sum(1 for q in qs if q["result"] == UNCLEAR)
+    kinds = Counter(m["kind"] for m in ms)
+    fractions = Counter(m["fraction"] for m in ms)
+    groups = sorted(fractions, key=group_order)
+    art = [(controls_slug(k), k, kinds[k], "accent") for k in ORDER_KINDS]
+    chips = controls.block("Art", controls.chips("art", art, "Art der Maßnahme"))
+    chips += controls.block("Fraktion der betroffenen Person", controls.chips(
+        "fraktion", [(token(g), label(g), fractions[g], token(g) if g in TOKEN or g == GOVERNMENT else "sonstige")
+                     for g in groups], "Fraktion der betroffenen Person"))  # fmt: skip
+    listing = (
+        f'<div class="count" data-count></div><div class="rows" data-rows data-row="li.mrow" '
+        f'data-limit="{controls.LIMIT}"><ul class="ms">{items}</ul>'
+        '<div class="empty" data-none hidden>Keine Treffer für diese Auswahl.</div>'
+        '<button type="button" class="more" data-more hidden>mehr anzeigen</button></div>'
+        if items
+        else '<div class="rows"><div class="empty">Keine Ordnungsmaßnahmen im Datenbestand.</div></div>'
+    )
+    tables = measures_table(ms) + questions_table(qs) + interruptions_table(ints)
+    body = (
+        '<h2>Ton und Ordnung</h2>'
+        + controls.view("je-fraktion", "Je Fraktion: Ordnungsmaßnahmen, Zwischenfragen, Unterbrechungen",
+                        multiples(ms, qs, ints), tables)
+        + '<p class="how"><b>Ordnungsmaßnahmen</b> sind aus den Worten der Sitzungsleitung gelesen: gezählt ist ein '
+        "Satz wie „Ich erteile Ihnen einen Ordnungsruf“ oder „ich rüge Sie“, nicht eine Ankündigung oder Drohung "
+        "(„sonst erteile ich …“, „im Wiederholungsfall …“). Die Fraktion ist die der Person, die die Sitzungsleitung "
+        "im selben Absatz beim Namen nennt, sonst die des namentlich vermerkten Zwischenrufers direkt davor, oder die "
+        "der Rednerin oder des Redners, wenn die Sitzungsleitung direkt nach deren Worten spricht. Ohne solchen "
+        f"Anhalt steht „unklar“ ({unclear} von {len(ms)}). Die Regeln lesen Text und können einzelne Fälle "
+        "übersehen, etwa nachträglich erteilte Ordnungsrufe in anderer Formulierung.</p>"
+        '<p class="how"><b>Zwischenfragen:</b> Ein Wunsch ist ein Satz der Sitzungsleitung wie „Gestatten Sie eine '
+        "Zwischenfrage …?“. Die Antwort ist der nächste eigene Absatz der gefragten Person („Ja, gerne.“ / „Nein, "
+        "danke.“). Folgt direkt der Beitrag der fragenden Person, gilt die Frage als zugelassen. Nicht einordnen "
+        f"ließen sich {q_unclear} von {len(qs)} Wünschen ({pct(q_unclear / (len(qs) or 1))}), etwa wenn die Antwort "
+        "im Redefluss steht. Regierungsmitglieder zählen als Bundesregierung.</p>"
+        '<p class="how"><b>Unterbrechungen:</b> Zurufe, Unruhe, Widerspruch und Lachen, die das Protokoll während '
+        "eines Beitrags vermerkt, je 1.000 Wörter der Beiträge dieser Fraktion im Monat. Zurufe aus der eigenen "
+        "Fraktion und Zurufe an eine andere genannte Person nicht mitgezählt, ebenso Vermerke direkt nach Worten der "
+        "Sitzungsleitung. Das Protokoll hält fest, was die Stenografie hört. Ein Zuruf kann Kritik, Ergänzung oder "
+        f"Zustimmung sein. Monate mit weniger als {n(MIN_WORDS)} Wörtern einer Fraktion bleiben leer.</p>"
+        + "<h3>Die Ordnungsmaßnahmen mit Datum und Wortlaut</h3>"
+        + (controls.toolbar("Wörter im Wortlaut …") + chips
+           + controls.activity([m["date"] for m in ms], sitting_dates or [], "Ordnungsmaßnahmen", "Ordnungsmaßnahme")
+           if ms else "")
+        + listing
+    )  # fmt: skip
+    return f'<section id="ordnung">{controls.scope(body, "Ordnungsmaßnahmen", "Ordnungsmaßnahme")}</section>'
 
 
-def questions_block(qs: list[dict]) -> str:
-    results = ("zugelassen", "abgelehnt", UNCLEAR)
+def questions_table(qs: list[dict]) -> str:
     by: dict[str, Counter] = defaultdict(Counter)
     for q in qs:
         by[q["asked"]][q["result"]] += 1
@@ -516,54 +635,33 @@ def questions_block(qs: list[dict]) -> str:
         f"<tr><td>{dot(k) if k in TOKEN else ''}{e(label(k)) if k != 'alle' else '<b>alle</b>'}</td>"
         f"<td>{sum(by[k].values())}</td>"
         + "".join(f"<td>{by[k][r]} <span class=\"faint\">{pct(by[k][r] / (sum(by[k].values()) or 1))}</span></td>"
-                  for r in results)
+                  for r in QUESTION_RESULTS)
         + "</tr>"
         for k in keys
     )  # fmt: skip
-    unclear = by["alle"][UNCLEAR]
     return (
         "<h3>Zwischenfragen</h3>"
         '<div class="scroll"><table class="plenum deb"><thead><tr><th>Gefragt wurde</th><th>gewünscht</th>'
         f"<th>zugelassen</th><th>abgelehnt</th><th>unklar</th></tr></thead><tbody>{rows}</tbody></table></div>"
-        '<p class="how">Ein Wunsch ist ein Satz der Sitzungsleitung wie „Gestatten Sie eine Zwischenfrage …?“. Die '
-        "Antwort ist der nächste eigene Absatz der gefragten Person („Ja, gerne.“ / „Nein, danke.“); folgt direkt "
-        "der Beitrag der fragenden Person, gilt die Frage als zugelassen. Nicht einordnen ließen sich "
-        f"{unclear} von {len(qs)} Wünschen ({pct(unclear / (len(qs) or 1))}), etwa wenn die Antwort im "
-        "Redefluss steht. Zeilen nach der Fraktion der gefragten Person; Regierungsmitglieder als "
-        "Bundesregierung.</p>"
     )
 
 
-def interruptions_block(ints: dict[str, dict[str, list[int]]]) -> str:
-    groups = sorted({g for per in ints.values() for g in per if g != OTHER}, key=group_order)
-    rate = {m: {g: 1000 * per[g][0] / per[g][1] for g in groups if g in per and per[g][1] >= 2000}
-            for m, per in ints.items()}  # fmt: skip
-    top = max([v for r in rate.values() for v in r.values()] + [1])
+def interruptions_table(ints: dict[str, dict[str, list[int]]]) -> str:
+    rate = rates(ints)
+    groups = sorted({g for r in rate.values() for g in r}, key=group_order)
     head = "".join(f"<th>{dot(g) if g in TOKEN else ''}{e(label(g))}</th>" for g in groups)
 
     def cell(m: str, g: str) -> str:
         if g not in rate[m]:
             return '<td class="faint">–</td>'
-        v = rate[m][g]
-        shown = f"{v:.1f}".replace(".", ",")
-        return (
-            f'<td style="background:color-mix(in srgb, var(--accent) {60 * v / top:.0f}%, transparent)" '
-            f'title="{ints[m][g][0]} Unterbrechungen, {n(ints[m][g][1])} Wörter">{shown}</td>'
-        )
+        shown = dec(rate[m][g])
+        return f'<td title="{ints[m][g][0]} Unterbrechungen, {n(ints[m][g][1])} Wörter">{shown}</td>'
 
-    rows = "".join(
-        f"<tr><td>{MONTHS[int(m[5:]) - 1][:3]} {m[:4]}</td>{''.join(cell(m, g) for g in groups)}</tr>" for m in rate
-    )
+    rows = "".join(f"<tr><td>{e(month_label(m))}</td>{''.join(cell(m, g) for g in groups)}</tr>" for m in rate)
     return (
         "<h3>Unterbrechungen je 1.000 Wörter</h3>"
         f'<div class="scroll"><table class="plenum deb heat"><thead><tr><th>Monat</th>{head}</tr></thead>'
         f"<tbody>{rows}</tbody></table></div>"
-        '<p class="how">Zurufe, Unruhe, Widerspruch und Lachen, die das Protokoll während eines Beitrags vermerkt, '
-        "je 1.000 Wörter der Beiträge dieser Fraktion im Monat. Zurufe aus der eigenen Fraktion und Zurufe an eine "
-        "andere genannte Person nicht mitgezählt, ebenso Vermerke direkt nach Worten der Sitzungsleitung. "
-        "Das Protokoll hält fest, was die Stenografie hört. Ein Zuruf kann "
-        "Kritik, Ergänzung oder Zustimmung sein. Monate mit weniger als 2.000 Wörtern einer Fraktion bleiben "
-        "leer (–).</p>"
     )
 
 
@@ -689,26 +787,43 @@ ul.ms .q { color: var(--muted); margin-top: 3px; }
 .p-debate figure.line circle { fill: var(--accent); }
 .p-debate figure.line line.g { stroke: var(--line); }
 .p-debate figcaption { font-size: 13px; color: var(--muted); }
+.mults { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
+.mult { display: flex; flex-direction: column; align-items: stretch; gap: 2px; text-align: left;
+  border: 1px solid var(--line); border-radius: 10px; background: var(--card); padding: 10px 12px 12px;
+  font-size: 13px; }
+.mult:hover { border-color: var(--k3); }
+.mult[aria-pressed=true] { border-color: var(--accent); background: var(--accent-soft); }
+.mult .mh { display: flex; align-items: center; gap: 7px; font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+.mult .mk { font-size: 10.5px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--faint);
+  margin-top: 6px; }
+.mult .mv { color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.mult .qb { display: flex; gap: 1px; height: 10px; border-radius: 3px; overflow: hidden; background: var(--bg); }
+.mult .qb i { display: block; height: 100%; }
+.mult .spark { display: flex; align-items: flex-end; gap: 1px; height: 40px; border-bottom: 1px solid var(--line); }
+.mult .spark i { flex: 1; display: block; background: var(--k2); min-height: 1px; }
+.mult .spark i.gap { background: transparent; }
+ul.ms li[hidden] { display: none; }
 @media (max-width: 560px) {
   table.deb td.bars { width: 30%; } table.plenum.deb td, table.plenum.deb th { padding: 7px 6px; }
 }
 </style>"""
 
 
-def page(s: dict, ms: list[dict], qs: list[dict], ints: dict, net: dict | None = None) -> str:
+def page(s: dict, ms: list[dict], qs: list[dict], ints: dict, net: dict | None = None,
+         sitting_dates: list[str] | None = None) -> str:  # fmt: skip
     body = (
         '<h1>Debattenkultur</h1><p class="lead">Redeanteile, Ordnungsmaßnahmen und Reaktionen im 21. Bundestag, '
         "gezählt aus den Plenarprotokollen. Die Seite vergleicht Gruppen und keine einzelnen Abgeordneten. Jede Zahl "
         "beruht auf dem Protokolltext, die Ordnungsmaßnahmen sind mit ihrer Sitzung "
         'verlinkt.</p><p class="toc"><a href="#redeanteile">Redeanteile</a> · <a href="#ordnung">Ton und '
         'Ordnung</a> · <a href="#netz">Beifall und Zurufe</a></p>'
-        f"{section_shares(s)}{section_order(ms, qs, ints)}{section_network(net) if net else ''}"
+        f"{section_shares(s)}{section_order(ms, qs, ints, sitting_dates)}{section_network(net) if net else ''}"
         f"<footer>{FOOTER}</footer>"
     )
     return shell(root="../", kind="p-debate", active="debate", title="Debattenkultur im Bundestag",
                  desc="Redeanteile in Wörtern, Ordnungsrufe, Zwischenfragen und Unterbrechungen im 21. Deutschen "
                       "Bundestag, aus den Plenarprotokollen.",
-                 body=body, data={"kind": "debate"}, head=HEAD)  # fmt: skip
+                 body=body, data={"kind": "debate"}, head=HEAD + controls.head("../"))  # fmt: skip
 
 
 def write(conn: sqlite3.Connection, out: Path) -> dict[str, int]:
@@ -719,8 +834,9 @@ def write(conn: sqlite3.Connection, out: Path) -> dict[str, int]:
         return {}
     d = out / "debatte"
     d.mkdir(parents=True, exist_ok=True)
+    days = [r[0] for r in conn.execute("SELECT date FROM sitting WHERE wahlperiode = ? ORDER BY date", (WP,))]
     (d / "index.html").write_text(
-        page(s, order_measures(conn, rows), interim_questions(conn, rows), interruptions(conn), network(conn)),
+        page(s, order_measures(conn, rows), interim_questions(conn, rows), interruptions(conn), network(conn), days),
         encoding="utf-8",
     )
     return {"debatte": 1}

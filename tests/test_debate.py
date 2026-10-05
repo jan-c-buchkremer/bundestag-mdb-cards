@@ -151,3 +151,24 @@ def test_comments_after_the_chair_are_not_the_speakers(conn):
     assert net["share"]["zuruf"] == {("Die Linke", "CDU/CSU"): 0.5, ("AfD", "CDU/CSU"): 0.5}  # as before
     assert net["skipped"] == 2
     assert debate.interruptions(conn)["2026-07"]["CDU/CSU"][0] == 3  # the Zuruf after the chair is not counted
+
+
+def test_small_multiples_per_fraction():
+    """One card per fraction on one scale, each a filter of the Ordnungsmaßnahmen; the tables behind
+    "Als Tabelle"; the list filterable by kind, fraction and week."""
+    ms = [{"kind": "Ordnungsruf", "fraction": "SPD", "sitting": "21/88", "date": "2026-07-08", "speech": "ID1",
+           "text": "Ich erteile Ihnen einen Ordnungsruf."},
+          {"kind": "Rüge", "fraction": "unklar", "sitting": "21/88", "date": "2026-07-08", "speech": "ID1",
+           "text": "Ich rüge Sie."}]  # fmt: skip
+    qs = [{"asked": "SPD", "result": "zugelassen"}, {"asked": "SPD", "result": "abgelehnt"},
+          {"asked": "Bundesregierung", "result": "zugelassen"}]  # fmt: skip
+    ints = {"2026-06": {"SPD": [10, 4000], "AfD": [2, 1000]}, "2026-07": {"SPD": [20, 4000], "AfD": [30, 3000]}}
+    html = debate.section_order(ms, qs, ints, ["2026-07-08"])
+    cards = html.split('class="mults"', 1)[1].split('<p class="note">', 1)[0]
+    assert cards.count('class="tg mult"') == 3  # SPD, AfD, Bundesregierung; "unklar" is no card
+    assert 'data-f="fraktion" data-v="spd"' in cards and 'data-v="reg"' in cards
+    assert "1 Ordnungsruf" in cards and "2 gewünscht: 1 zugelassen · 1 abgelehnt" in cards
+    assert 'style="height:50.0%"' in cards and 'style="height:100.0%"' in cards  # one scale: AfD 10 is the top
+    assert 'class="gap"' in cards  # AfD in June: too few words
+    assert "<th>Ordnungsrufe</th>" in html and "<th>gewünscht</th>" in html  # the tables behind "Als Tabelle"
+    assert 'data-fraktion="spd" data-art="ordnungsruf" data-w="2026-W28"' in html and 'class="strip"' in html

@@ -79,7 +79,7 @@ def topic_page(th: dict, procedures: dict[str, dict]) -> str:
                 "Abstimmungen. Die Vorgänge, in deren Beratung die Reden gehalten wurden, führen zu ihren "
                 "Abstimmungen.")
         + facet("drucksachen", "Drucksachen", "", explain="Drucksachen haben kein Thema der Themenlandschaft. Das DIP "
-                "ordnet sie nach Sachgebieten, die bei jedem Vorgang stehen.")
+                f'ordnet ihre Vorgänge nach <a href="../{urls.SUBJECTS}">Sachgebieten</a>.')
         + method_note(METHOD) + f"<footer>{FOOTER}</footer>"
     )  # fmt: skip
     return shell(root="../", kind="p-topic", active="radar", mode="radar", title=f"Thema: {th['label']}",

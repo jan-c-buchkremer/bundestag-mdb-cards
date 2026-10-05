@@ -27,6 +27,10 @@ don't serve it go on "Not now", not into code.
 
 Ideas that don't serve the current goal. Each names what it would give a reader.
 
+- Members per Sachgebiet: which Abgeordnete work on a Sachgebiet, from the Drucksachen they signed and the speeches
+  they gave on its Vorgänge. It would show a reader who to follow on a subject. Not now: a Fraktionsantrag names the
+  whole fraction as Urheber, so a count per member mostly measures fraction size and misleads. It needs the
+  signatories who actually drafted a document, which DIP does not separate.
 - Building one card or one section alone (a fast path for `cards preview`): the build has no subset mode; a full
   preview build takes about 2 minutes.
 
@@ -402,6 +406,8 @@ Vorgang's timeline only when it belongs to exactly one Vorgang.
 | Tagesordnungspunkt, Unterpunkt | `sitzungen/<wp>-<n>.html#top-<pos>`, `#top-<pos>-<label>` | unchanged |
 | Speech | `reden/<page id>.html`, parts as `#<part id>` | unchanged |
 | Topic | `themen/index.html`, `themen/<theme id>.html` | new, only with `LANDSCAPE_THEMES`, not permanent |
+| Sachgebiet (DIP) | `sachgebiete/<slug>.html` (lowercase ASCII, ä→ae, other characters → `-`); index `sachgebiete/index.html` | new |
+| EU-Vorlagen | `vorgaenge/eu-vorlagen.html` | new |
 | Search | `suche.html?q=…` (entity index `suche.json`, speeches in `pagefind/`) | unchanged URL |
 
 ### 11.3 Redirect table

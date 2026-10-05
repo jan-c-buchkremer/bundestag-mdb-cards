@@ -13,6 +13,7 @@ from pathlib import Path
 import pytest
 import test_procedures
 import test_questions
+import test_subjects
 import test_subtops
 from conftest import LONG, speech, store
 
@@ -32,6 +33,7 @@ def enrich(c: sqlite3.Connection) -> None:
     test_subtops.add_block(c)
     test_questions.add_research(c)
     test_procedures.add_missing_debate(c)
+    test_subjects.add_subjects(c)
     c.execute("UPDATE agenda_item SET drucksache_numbers = '[\"21/500\", \"21/100\"]' WHERE id = '21/88/2'")
     c.execute("INSERT INTO drucksache VALUES ('d6498','21/6498',21,'Gesetzentwurf','Seelotsgesetz','2026-06-02',NULL,"
               "'BT','[\"Bundesregierung\"]',0,?,?,?)", SRC)  # fmt: skip
@@ -214,8 +216,24 @@ def test_files_that_must_keep_existing(site):
 def test_entity_pages_are_written(site):
     for path in ("orte/index.html", "orte/bayern.html", "orte/wahlkreis-58.html", "gremien/bundesregierung.html",
                  "vorgaenge/g1.html", "vorgaenge/g5.html", "vorgaenge/v1.html", "themen/3.html",
-                 "woche/2026-W37.html", "sitzungen/21-89.html"):  # fmt: skip
+                 "woche/2026-W37.html", "sitzungen/21-89.html", "sachgebiete/index.html", "sachgebiete/recht.html",
+                 "sachgebiete/europapolitik-und-europaeische-union.html", "vorgaenge/eu-vorlagen.html"):  # fmt: skip
         assert (site / path).is_file(), path
+
+
+def test_vorgaenge_sachgebiete_and_eu_vorlagen_are_sub_tabs(site):
+    for path, label in (("vorgaenge/index.html", "Vorgänge"), ("sachgebiete/index.html", "Sachgebiete"),
+                        ("vorgaenge/eu-vorlagen.html", "EU-Vorlagen")):  # fmt: skip
+        page = (site / path).read_text()
+        tabs = page.split('<nav class="tabs sub"', 1)[1].split("</nav>", 1)[0]
+        assert f'aria-current="page">{label}</a>' in tabs and tabs.count("<a ") == 3, path
+    europe = (site / "sachgebiete" / "europapolitik-und-europaeische-union.html").read_text()
+    assert 'href="../vorgaenge/eu-vorlagen.html"' in europe
+    assert 'href="../sachgebiete/europapolitik-und-europaeische-union.html"' in (
+        site / "vorgaenge" / "eu-vorlagen.html").read_text()  # fmt: skip
+    recht = (site / "sachgebiete" / "recht.html").read_text()
+    assert 'href="../vorgaenge/g1.html"' in recht and "reden/ID1.html" in recht
+    assert 'href="sachgebiete/index.html"' in (site / "index.html").read_text()  # the front page's tile
 
 
 def test_procedure_timeline_with_roll_call_and_show_of_hands(site):

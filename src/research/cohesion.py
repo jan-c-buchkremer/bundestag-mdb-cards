@@ -244,7 +244,7 @@ def page(decisions: list[dict], members: dict[str, list[list]], sitting_dates: l
     body = f"""{subtabs("../", SITTING_TABS, "votes")}<div class="coh">
 <p class="crumbs"><a href="index.html">Abstimmungen</a></p>
 <h1>Geschlossenheit der Fraktionen</h1>
-<p class="lead">Wie einheitlich haben die Fraktionen in den {n(len(votes))} namentlichen Abstimmungen seit {e(first)} abgestimmt, und wer hat anders gestimmt als die eigene Fraktion? Hier stehen nur namentliche Abstimmungen: Nur bei ihnen ist die Stimme jedes Mitglieds bekannt.</p>
+<p class="lead">Wie einheitlich die Fraktionen in den {n(len(votes))} namentlichen Abstimmungen seit {e(first)} abgestimmt haben und wer anders gestimmt hat als die eigene Fraktion. Hier stehen nur namentliche Abstimmungen, denn nur bei ihnen ist die Stimme jedes Mitglieds bekannt.</p>
 <h2>So ist gerechnet</h2>
 <dl class="def">
 <dt>Fraktionslinie</dt><dd>Die Stimme, die in der Fraktion bei dieser Abstimmung am häufigsten abgegeben wurde: Ja, Nein oder Enthaltung. Liegen zwei davon gleichauf, hat die Fraktion keine Linie, sie war <b>gespalten</b>. Fraktionslose haben keine Linie.</dd>

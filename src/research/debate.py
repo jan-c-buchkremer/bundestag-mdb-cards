@@ -431,7 +431,7 @@ def section_shares(s: dict) -> str:
     ]
     gov, other = s["words"].get(GOVERNMENT, 0), s["words"].get(OTHER, 0)
     out.append(
-        f'<p class="how"><span class="dot" style="background:var(--reg)"></span><b>Bundesregierung</b>: '
+        f'<p class="how"><span class="dot" style="background:var(--reg)"></span> <b>Bundesregierung</b>: '
         f"{n(gov)} Wörter, {pct(gov / (total or 1))} aller Wörter, getrennt von den Fraktionen gezählt "
         "(Bundeskanzler, Ministerinnen und Minister, Staatsminister, Parlamentarische Staatssekretäre, wenn das "
         f"Protokoll sie in dieser Rolle nennt). Sonstige (Bundesrat, Wehrbeauftragter): {n(other)} Wörter.</p>"
@@ -815,7 +815,7 @@ def page(s: dict, ms: list[dict], qs: list[dict], ints: dict, net: dict | None =
         '<h1>Debattenkultur</h1><p class="lead">Redeanteile, Ordnungsmaßnahmen und Reaktionen im 21. Bundestag, '
         "gezählt aus den Plenarprotokollen. Die Seite vergleicht Gruppen und keine einzelnen Abgeordneten. Jede Zahl "
         "beruht auf dem Protokolltext, die Ordnungsmaßnahmen sind mit ihrer Sitzung "
-        'verlinkt.</p><p class="toc"><a href="#redeanteile">Redeanteile</a> · <a href="#ordnung">Ton und '
+        'verlinkt.</p><p class="jump"><a href="#redeanteile">Redeanteile</a> · <a href="#ordnung">Ton und '
         'Ordnung</a> · <a href="#netz">Beifall und Zurufe</a></p>'
         f"{section_shares(s)}{section_order(ms, qs, ints, sitting_dates)}{section_network(net) if net else ''}"
         f"<footer>{FOOTER}</footer>"

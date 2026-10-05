@@ -4,7 +4,6 @@ docs/plan.md (section 11.3) through the stubs, fragments included."""
 
 import json
 import re
-import shutil
 import sqlite3
 import subprocess
 import sys
@@ -15,7 +14,7 @@ import test_procedures
 import test_questions
 import test_subjects
 import test_subtops
-from conftest import LONG, speech, store
+from conftest import LONG, need_node, speech, store
 
 from research import cli, urls
 
@@ -175,8 +174,7 @@ def test_old_index_view_states_reach_the_place_pages(site):
     Node); the page it names exists, and other hashes stay on the Abgeordnete list."""
     front = (site / "index.html").read_text()
     assert "location.replace('abgeordnete.html' + location.search + location.hash)" in front
-    if not shutil.which("node"):
-        pytest.skip("node is not installed")
+    need_node()
     page = (site / "abgeordnete.html").read_text()
     assert '<script src="places.js"></script>' in page and "Places.legacyTarget(location.hash" in page
     slugs = json.loads(re.search(r"Places\.legacyTarget\(location\.hash, (\{.*?\})\)", page).group(1))

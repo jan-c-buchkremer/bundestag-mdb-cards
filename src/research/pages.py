@@ -11,7 +11,7 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from research import facts, urls
+from research import controls, facts, urls
 from research.ui import FOOTER, LANDSCAPE, RADAR_ICON, SITTING_TABS, crumbs, e, long_date, n, shell, short_date, subtabs
 
 TOPICS = 5  # clusters under "Themen"
@@ -66,7 +66,8 @@ def compass_link(compass: bool) -> str:
     )
 
 
-def votes_index(decisions: list[dict], meta: dict, compass: bool = False) -> str:
+def votes_index(decisions: list[dict], meta: dict, compass: bool = False,
+                sitting_dates: list[str] | None = None) -> str:  # fmt: skip
     groups: dict[str, list[dict]] = defaultdict(list)
     for d in decisions:
         groups[d["sitting"] or d["date"]].append(d)
@@ -81,23 +82,31 @@ def votes_index(decisions: list[dict], meta: dict, compass: bool = False) -> str
         else:
             label = '<span class="faint">Protokoll noch nicht ausgewertet</span>'
         rows = "".join(facts.decision(d, "../", when=False) for d in sorted(ds, key=lambda d: d["order"]))
-        out.append(f'<section class="grp"><h3>{label} · {e(long_date(first["date"], True))}</h3>'
+        out.append(f'<section class="grp" data-group><h3>{label} · {e(long_date(first["date"], True))}</h3>'
                    f'<div class="rows">{rows}</div></section>')  # fmt: skip
     first_date = min((d["date"] for d in decisions), default=meta["sittings"]["from"])
+    filters = controls.block("Art und Ergebnis", controls.chips("art", [
+        ("namentlich", "namentlich", kinds["namentlich"], "accent"),
+        ("handzeichen", "per Handzeichen", kinds["handzeichen"], "accent"),
+    ], "Art der Abstimmung") + controls.chips("ergebnis", [
+        ("angenommen", "angenommen", results["angenommen"], "v-yes"),
+        ("abgelehnt", "abgelehnt", results["abgelehnt"], "v-no"),
+    ], "Ergebnis"))  # fmt: skip
+    lists = controls.scope(
+        controls.toolbar("Titel, Drucksache oder Tagesordnungspunkt …") + filters
+        + controls.activity([d["date"] for d in decisions], sitting_dates or [], "Beschlüsse", "Beschluss")
+        + controls.rows(out, "groups", "Keine Beschlüsse im Datenbestand.", row=".dec", cls="grps"),
+        "Beschlüsse", "Beschluss", {"art": "kind", "ergebnis": "result"},
+    )  # fmt: skip
     body = f"""{subtabs("../", SITTING_TABS, "votes")}<h1>Abstimmungen</h1>
 <p class="lead">{n(len(decisions))} Beschlüsse seit {e(long_date(first_date))}: {n(kinds["namentlich"])} namentliche Abstimmungen mit der Stimme jedes Mitglieds, {n(kinds["handzeichen"])} Abstimmungen per Handzeichen, bei denen das Protokoll nur festhält, wie die Fraktionen gestimmt haben. {n(results["angenommen"])} angenommen, {n(results["abgelehnt"])} abgelehnt. Überweisungen an Ausschüsse, Wahlen und Fragen der Tagesordnung sind keine Beschlüsse in der Sache und fehlen hier. Wie geschlossen die Fraktionen in den namentlichen Abstimmungen gestimmt haben und wer wann abgewichen ist, zeigt die Seite <a href="geschlossenheit.html">Geschlossenheit der Fraktionen</a>.{compass_link(compass)}</p>
 <p class="explain">{facts.relation_note(facts.relation_counts(decisions))}</p>
-<div class="filters">
-  <input type="search" id="q" placeholder="Titel, Drucksache oder Tagesordnungspunkt …" autocomplete="off">
-  <select id="kind"><option value="">namentlich und per Handzeichen</option><option value="namentlich">nur namentlich</option><option value="handzeichen">nur per Handzeichen</option></select>
-  <select id="result"><option value="">angenommen und abgelehnt</option><option value="angenommen">angenommen</option><option value="abgelehnt">abgelehnt</option></select>
-</div>
-<div class="count" id="count"></div>
-<div id="groups">{"".join(out)}</div>
+{lists}
 <footer>{FOOTER}</footer>"""  # noqa: E501
     return shell(root="../", kind="p-votes", active="sittings", title="Abstimmungen im Bundestag",
                  desc=f"Alle {len(decisions)} Beschlüsse des 21. Deutschen Bundestages, namentlich und per "
-                 "Handzeichen, mit Ergebnis und Quelle.", body=body, data={"kind": "votes"})  # fmt: skip
+                 "Handzeichen, mit Ergebnis und Quelle.", body=body, data={"kind": "votes"},
+                 head=controls.head("../"))  # fmt: skip
 
 
 # ---------------------------------------------------------------- sittings
@@ -228,7 +237,8 @@ def write_pages(out: Path, decisions: list[dict], members: dict[str, list[list]]
     own = [d for d in decisions if urls.decision(d).startswith("abstimmungen/")]
     for d in own:
         (votes_dir / f"{d['page']}.html").write_text(vote_page(d, members.get(d["id"])), encoding="utf-8")
-    (votes_dir / "index.html").write_text(votes_index(decisions, meta, compass), encoding="utf-8")
+    page = votes_index(decisions, meta, compass, [s["date"] for s in sittings])
+    (votes_dir / "index.html").write_text(page, encoding="utf-8")
     for s in sittings:
         (sit_dir / f"{s['page']}.html").write_text(sitting_page(s, clusters), encoding="utf-8")
     from research import weekly  # the calendar; weekly.write rewrites it with the Vorgang pages linked

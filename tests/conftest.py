@@ -1,7 +1,19 @@
+import os
+import shutil
 import sqlite3
 from pathlib import Path
 
 import pytest
+
+
+def need_node() -> None:
+    """Skip a test that runs a script in Node when Node is missing, except in CI, where it must run."""
+    if shutil.which("node"):
+        return
+    if os.environ.get("CI"):
+        pytest.fail("node is not installed, but the CI must run the Node checks")
+    pytest.skip("node is not installed")
+
 
 LONG = "Wohnen ist die soziale Frage unserer Zeit. " * 15  # 105 words
 PLPR = "BT-PlPr. 21/88"

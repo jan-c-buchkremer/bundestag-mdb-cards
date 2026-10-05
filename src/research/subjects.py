@@ -18,9 +18,9 @@ from collections import Counter
 from pathlib import Path
 from urllib.parse import quote
 
-from research import data, facts, urls, weekly
-from research.data import STATES, WP, has_table, page_id
-from research.procedures import DIP_VORGANG, FILTER_JS, GESETZ, STYLE, _json_list, row
+from research import controls, data, facts, urls, weekly
+from research.data import GOVERNMENT_GROUP, LAENDER_GROUP, OTHER_GROUP, WP, has_table, initiator_group, page_id
+from research.procedures import DIP_VORGANG, GESETZ, STYLE, _json_list, vorgaenge_controls
 from research.ui import (
     FOOTER,
     ORDER,
@@ -41,12 +41,10 @@ EUROPE = "Europapolitik und Europäische Union"  # the Sachgebiet the EU-Vorlage
 KINDS = ((GESETZ, "Gesetzgebung"), ("Antrag", "Anträge"), ("Kleine Anfrage", "Kleine Anfragen"))
 SPEECHES = 100  # newest speeches of a Sachgebiet in the page (the largest have a few thousand)
 DRUCKSACHEN = 100  # newest Drucksachen of a Sachgebiet in the page
-GOVERNMENT = data.GOVERNMENT_GROUP
-LAENDER = "Bundesrat und Länder"
-OTHER = "Sonstige"
+GOVERNMENT = GOVERNMENT_GROUP
+LAENDER = LAENDER_GROUP
+OTHER = OTHER_GROUP
 NONE = "ohne Angabe"
-# a ministry or another part of the government as DIP names it among the initiators
-_MINISTRY = ("Bundesministeri", "Bundeskanzler", "Auswärtiges Amt", "Presse- und Informationsamt")
 OVERLAP = ("Ein Vorgang kann mehrere Sachgebiete haben. Er zählt dann in jedem, deshalb lassen sich die Zahlen "
            "verschiedener Sachgebiete nicht addieren.")  # fmt: skip
 PLURAL = {"Aktuelle Stunde": "Aktuelle Stunden", "Regierungsbefragung": "Regierungsbefragungen",
@@ -58,21 +56,6 @@ KIND_PLURAL = {"Kleine Anfrage": "Kleine Anfragen", "Antrag": "Anträge", "Groß
                "Wahlprüfungsverfahren": "Wahlprüfungsverfahren", "EU-Vorlage": "EU-Vorlagen",
                "Wahl im BT": "Wahlen im BT"}  # fmt: skip
 DIP_SEARCH = "https://dip.bundestag.de/suche?f.wahlperiode=21&f.sachgebiet={}"
-
-
-def initiator_group(title: str) -> str:
-    """The group a DIP initiator belongs to on a Sachgebiet page: one of the fractions (ui.ORDER), the
-    Bundesregierung with its ministries, Bundesrat and Länder, or Sonstige (the Präsident des Deutschen Bundestages,
-    a committee, the Wehrbeauftragte)."""
-    group = data.originator_group(title)
-    if group:
-        return group
-    t = title.strip()
-    if t.startswith(_MINISTRY):
-        return GOVERNMENT
-    if t == "Bundesrat" or t in STATES.values():
-        return LAENDER
-    return OTHER
 
 
 def _group_order(g: str) -> tuple[int, str]:
@@ -111,6 +94,7 @@ def load(conn: sqlite3.Connection, procs: list[dict]) -> dict[str, list[dict]]:
             "id": r["id"], "type": r["type"] or "Vorgang", "title": r["title"], "status": r["status"] or "unbekannt",
             "initiators": _json_list(r["initiators"]), "subjects": subjects, "page": b is not None,
             "latest": (b["latest"] if b else "") or newest.get(r["id"], ""),
+            "in_force": b["in_force"] if b else None,
             "debates": b["debates"] if b else [], "decisions": b["decisions"] if b else [],
             "docs": docs.get(r["id"], []),
         }  # fmt: skip
@@ -136,8 +120,9 @@ def summary(vs: list[dict]) -> dict:
 # ---------------------------------------------------------------- the Sachgebiet page
 
 
-def initiators_table(vs: list[dict]) -> str:
-    """Vorgänge per group of initiators and kind. A Vorgang with several initiators counts once for each group."""
+def per_group(vs: list[dict]) -> dict[str, Counter]:
+    """Vorgänge per group of initiators and kind ("all", the KINDS, "other"). A Vorgang with several initiators
+    counts once for each group."""
     per: dict[str, Counter] = {}
     for v in vs:
         groups = {initiator_group(x) for x in v["initiators"] if isinstance(x, str)} or {NONE}
@@ -145,9 +130,13 @@ def initiators_table(vs: list[dict]) -> str:
             c = per.setdefault(g, Counter())
             c["all"] += 1
             c[v["type"] if v["type"] in dict(KINDS) else "other"] += 1
+    return dict(sorted(per.items(), key=lambda gc: _group_order(gc[0])))
+
+
+def initiators_table(vs: list[dict]) -> str:
+    """The Einbringer as a table: Vorgänge per group and kind (the stacked rows' "Als Tabelle")."""
     rows = []
-    for g in sorted(per, key=_group_order):
-        c = per[g]
+    for g, c in per_group(vs).items():
         name = f"{dot(g)} {frac_link(g)}" if g in ORDER else e(g)
         cells = "".join(f'<td class="num">{n(c[k]) if c[k] else "–"}</td>' for k in [t for t, _ in KINDS] + ["other"])
         rows.append(f'<tr><td>{name}</td><td class="num">{n(c["all"])}</td>{cells}</tr>')
@@ -158,21 +147,25 @@ def initiators_table(vs: list[dict]) -> str:
     )
 
 
-def vorgaenge_list(vs: list[dict]) -> str:
-    """All Vorgänge of a Sachgebiet with the filters of the Vorgänge index (procedures.FILTER_JS)."""
-    rows = "".join(
-        row(v, f"../{urls.vorgang(v['id'])}") if v["page"] else row(v, DIP_VORGANG.format(v["id"]), external=True)
-        for v in vs
-    )
-    kinds = "".join(f'<option value="{e(t)}">{e(t)} ({n(k)})</option>'
-                    for t, k in Counter(v["type"] for v in vs).most_common())  # fmt: skip
-    stands = "".join(f'<option value="{e(s)}">{e(s)} ({n(k)})</option>'
-                     for s, k in Counter(v["status"] for v in vs).most_common())  # fmt: skip
-    return (
-        '<div class="filters"><input type="search" id="bq" placeholder="Titel oder Einbringer …" autocomplete="off" '
-        f'aria-label="Titel oder Einbringer"><select id="bty" aria-label="Art"><option value="">jede Art</option>'
-        f'{kinds}</select><select id="bst" aria-label="Stand"><option value="">jeder Stand</option>{stands}</select>'
-        f'</div><div class="count" id="bcount"></div><div class="rows" id="bills">{rows}</div>'
+def initiators_chart(vs: list[dict]) -> str:
+    """The Einbringer as stacked bar rows, one per group, segments by kind; a row filters the Vorgänge below. The
+    rows without an initiator (ohne Angabe) stand in the table only, having nothing to filter by."""
+    groups = [(controls.GROUP_TOKENS[g], controls.SHORT.get(g, g), controls.GROUP_TOKENS[g], c)
+              for g, c in per_group(vs).items() if g in controls.GROUP_TOKENS]  # fmt: skip
+    kinds = [*KINDS, ("other", "andere")]
+    return controls.stacked("von", [(v, label, colour, Counter({k: c[k] for k, _ in kinds}))
+                                    for v, label, colour, c in groups], kinds, "Einbringer", "Vorgänge")  # fmt: skip
+
+
+def vorgaenge_list(vs: list[dict], sitting_dates: list[str]) -> str:
+    """All Vorgänge of a Sachgebiet with the charts and filters of the Vorgänge index; a Vorgang without a page
+    here links DIP."""
+    return vorgaenge_controls(
+        vs,
+        lambda v: (f"../{urls.vorgang(v['id'])}", False) if v["page"] else (DIP_VORGANG.format(v["id"]), True),
+        sitting_dates,
+        glossary=f"../{urls.PROCEDURES}",
+        wrap=False,
     )
 
 
@@ -181,8 +174,10 @@ def _kinds_line(s: dict) -> str:
     return f"{n(s['vorgaenge'])} {'Vorgang' if s['vorgaenge'] == 1 else 'Vorgänge'} ({kinds})"
 
 
-def subject_page(name: str, vs: list[dict], drucksachen: dict[str, dict], have: set[str]) -> str:
-    """One Sachgebiet; `drucksachen` holds data.drucksache_facts by id, `have` the speech pages that exist."""
+def subject_page(name: str, vs: list[dict], drucksachen: dict[str, dict], have: set[str],
+                 sitting_dates: list[str] | None = None) -> str:  # fmt: skip
+    """One Sachgebiet; `drucksachen` holds data.drucksache_facts by id, `have` the speech pages that exist,
+    `sitting_dates` the days of the sittings (the weeks marked on the activity strip)."""
     s = summary(vs)
     lines = [
         _kinds_line(s),
@@ -216,13 +211,17 @@ def subject_page(name: str, vs: list[dict], drucksachen: dict[str, dict], have: 
         crumbs((f"../{urls.PROCEDURES}", "Vorgänge"), ("index.html", "Sachgebiete"), (None, name))
         + entity_header(name, lines, links, when="Sachgebiet (DIP)")
         + f'<p class="explain">{OVERLAP}{eu}</p>'
-        + facet("einbringer", "Einbringer", initiators_table(vs), explain="Wer die Vorgänge eingebracht hat, nach "
-                "Fraktionen, Bundesregierung (mit den Ministerien) und Bundesrat. Ein Vorgang mit mehreren "
-                "Einbringern zählt bei jedem. Bei einem Fraktionsantrag ist die ganze Fraktion der Einbringer. "
-                "Einzelne Abgeordnete werden deshalb hier nicht gezählt.")
-        + facet("vorgaenge", "Vorgänge", vorgaenge_list(vs), len(vs), "Alle Vorgänge der 21. Wahlperiode mit "
-                "diesem Sachgebiet, der zuletzt bewegte zuerst. Ein Vorgang ohne Beratung im Plenum hat hier keine "
-                "eigene Seite. Er führt zum DIP (↗).")
+        + controls.scope(
+            facet("einbringer", "Einbringer", controls.view("einbringer", "Vorgänge nach Einbringer und Art",
+                  initiators_chart(vs), initiators_table(vs)), explain="Wer die Vorgänge eingebracht hat, nach "
+                  "Fraktionen, Bundesregierung (mit den Ministerien) und Bundesrat. Ein Vorgang mit mehreren "
+                  "Einbringern zählt bei jedem. Bei einem Fraktionsantrag ist die ganze Fraktion der Einbringer. "
+                  "Einzelne Abgeordnete werden deshalb hier nicht gezählt. Ein Klick auf eine Zeile zeigt unten "
+                  "nur ihre Vorgänge.")
+            + facet("vorgaenge", "Vorgänge", vorgaenge_list(vs, sitting_dates or []), len(vs), "Alle Vorgänge der "
+                    "21. Wahlperiode mit diesem Sachgebiet, der zuletzt bewegte zuerst. Jedes Diagramm ist auch ein "
+                    "Filter. Ein Vorgang ohne Beratung im Plenum hat hier keine eigene Seite. Er führt zum DIP (↗)."),
+            "Vorgänge", "Vorgang")
         + facet("reden", "Reden", facts.speech_list(shown, "../", "reden", note=sp_note,
                                                     empty="Kein Vorgang dieses Sachgebiets wurde im Plenum beraten."),
                 len(sps), "Die Reden unter den Tagesordnungspunkten, die eine Drucksache eines dieser Vorgänge "
@@ -232,13 +231,13 @@ def subject_page(name: str, vs: list[dict], drucksachen: dict[str, dict], have: 
                 "Jeder Beschluss steht einmal, auch wenn er mehrere Vorgänge betrifft.")
         + facet("drucksachen", "Drucksachen", facts.drucksache_list(shown_docs, "../", "drs", compact=False,
                 note=drs_note), len(docs))
-        + f"<footer>{FOOTER}</footer>{FILTER_JS}"
+        + f"<footer>{FOOTER}</footer>"
     )  # fmt: skip
     return shell(root="../", kind="p-subject", active="bills", title=f"Sachgebiet {name}",
                  desc=f"Das Sachgebiet „{name}“ im 21. Bundestag: {s['vorgaenge']} Vorgänge mit Reden, "
                       "Abstimmungen und Drucksachen.",
                  body=f'<div class="bills">{body}</div>', data={"kind": "subject", "name": name},
-                 head=STYLE)  # fmt: skip
+                 head=STYLE + controls.head("../"))  # fmt: skip
 
 
 # ---------------------------------------------------------------- the index
@@ -279,8 +278,17 @@ def index_page(subjects: dict[str, list[dict]], none: Counter, plenary: dict[str
     table = (
         '<div class="rows scroll"><table class="plenum subjects"><thead><tr><th>Sachgebiet</th><th>Vorgänge</th>'
         f"{head}<th>im Plenum beraten</th><th>Beschlüsse</th></tr></thead><tbody>{''.join(rows)}</tbody></table></div>"
-        if rows else '<div class="rows"><div class="empty">Keine Vorgänge mit Sachgebiet im Datenbestand.</div></div>'
     )  # fmt: skip
+    if rows:
+        kinds = [*KINDS, ("other", "andere")]
+        items = []
+        for name, vs in subjects.items():
+            c = Counter(v["type"] if v["type"] in dict(KINDS) else "other" for v in vs)
+            items.append((f"../{urls.subject(name)}", name, len(vs), c))
+        table = controls.view("sachgebiete", "Die Sachgebiete nach Zahl der Vorgänge",
+                              controls.tiles(items, kinds, "Vorgänge", "Vorgang", "Sachgebiete"), table)  # fmt: skip
+    else:
+        table = '<div class="rows"><div class="empty">Keine Vorgänge mit Sachgebiet im Datenbestand.</div></div>'
     with_subject = len({v["id"] for vs in subjects.values() for v in vs})
 
     fragen = '<a href="../regierung/index.html#liste">Fragen</a>' if questions else "Fragen"
@@ -305,12 +313,14 @@ def index_page(subjects: dict[str, list[dict]], none: Counter, plenary: dict[str
 <p class="lead">Das Dokumentations- und Informationssystem für Parlamentsmaterialien (DIP) ordnet jeden Vorgang einem
 oder mehreren Sachgebieten zu. Die Dokumentation des Bundestages legt sie fest. Hier stehen alle {n(len(subjects))}
 Sachgebiete mit dem, was der 21. Bundestag darin getan hat, das größte zuerst. {n(with_subject)} Vorgänge der
-Wahlperiode haben ein Sachgebiet. Jede Zeile führt zu ihren Vorgängen, Reden, Abstimmungen und Drucksachen.</p>
+Wahlperiode haben ein Sachgebiet. Jede Kachel führt zu ihren Vorgängen, Reden, Abstimmungen und Drucksachen. Ihre
+Fläche entspricht der Zahl der Vorgänge, mit einer Mindestgröße, damit jeder Name lesbar bleibt. Der Balken in der
+Kachel zeigt die Arten.</p>
 <p class="explain">{OVERLAP} „Im Plenum beraten“ zählt die Vorgänge, deren Drucksache ein Tagesordnungspunkt aufruft.
 „Beschlüsse“ zählt jeden Beschluss einmal.</p>
 {table}
 <section class="facet" id="ohne"><h2>Ohne Sachgebiet</h2>
-<p class="explain">Diese Vorgänge haben im DIP kein Sachgebiet. Sie fehlen deshalb in der Tabelle oben.</p>
+<p class="explain">Diese Vorgänge haben im DIP kein Sachgebiet. Sie fehlen deshalb oben.</p>
 <ul>{"".join(items)}</ul>
 <p class="explain">Ohne Vorgang im DIP sind {e(plenum)}. Sie stehen bei den
 <a href="../{urls.PERIOD}">Sitzungen</a>, die Fragestunden und Regierungsbefragungen auch bei den {fragen}.</p>
@@ -319,7 +329,7 @@ Wahlperiode haben ein Sachgebiet. Jede Zeile führt zu ihren Vorgängen, Reden, 
     return shell(root="../", kind="p-subjects", active="bills", title="Sachgebiete im Bundestag",
                  desc="Die Arbeit des 21. Deutschen Bundestages nach den Sachgebieten des DIP: Vorgänge, Reden, "
                       "Abstimmungen und Drucksachen.", body=body, data={"kind": "subjects"},
-                 head=STYLE)  # fmt: skip
+                 head=STYLE + controls.head("../"))  # fmt: skip
 
 
 def write(conn: sqlite3.Connection, out: Path, procs: list[dict], sittings: list[dict]) -> dict[str, list[dict]]:
@@ -335,7 +345,8 @@ def write(conn: sqlite3.Connection, out: Path, procs: list[dict], sittings: list
     d = out / "sachgebiete"
     d.mkdir(parents=True, exist_ok=True)
     for name, vs in subjects.items():
-        (out / urls.subject(name)).write_text(subject_page(name, vs, drucksachen, have), encoding="utf-8")
+        page = subject_page(name, vs, drucksachen, have, [s["date"] for s in sittings])
+        (out / urls.subject(name)).write_text(page, encoding="utf-8")
     questions = (out / "regierung" / "index.html").is_file()
     page = index_page(subjects, without_subject(conn), plenary_without_vorgang(sittings), questions)
     (out / urls.SUBJECTS).write_text(page, encoding="utf-8")

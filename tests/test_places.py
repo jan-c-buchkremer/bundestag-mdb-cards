@@ -4,7 +4,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-import pytest
+from conftest import need_node
 
 from research import careers, data, places
 
@@ -134,8 +134,7 @@ def test_place_pages_link_the_filtered_plenum_and_the_hub(conn, tmp_path):
 
 def test_place_search_and_old_index_states_in_node(conn):
     """places.js: the place search over orte.json, and the old view states of the Abgeordnete page that moved."""
-    if not shutil.which("node"):
-        pytest.skip("node is not installed")
+    need_node()
     cards, _ = data.cards(conn)
     rep = places.representation(cards, data.constituencies(conn), None)
     index = places.place_index(rep, [{"n": "Fürth, Stadt", "d": "Fürth", "s": "BY", "w": [242]}])

@@ -20,6 +20,7 @@ ASSETS = (
     "card.js",
     "pages.js",
     "parliament.js",
+    "controls.js",
     "wahlkreise.json",
     "search.js",
     "nav.js",

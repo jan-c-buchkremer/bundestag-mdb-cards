@@ -102,7 +102,7 @@ def main(argv: list[str] | None = None) -> None:
     written |= sources.write(conn, args.out, meta, missing)
     print(f"wrote {len(procs)} pages in vorgaenge/, stubs in gesetze/ and abstimmungen/ for what moved there")
     written_subjects = subjects.write(conn, args.out, procs, sittings)
-    n_eu = len(eu.write(conn, args.out, procs, subjects.EUROPE in written_subjects))
+    n_eu = len(eu.write(conn, args.out, procs, subjects.EUROPE in written_subjects, sittings))
     print(f"wrote {len(written_subjects)} pages in sachgebiete/, vorgaenge/eu-vorlagen.html with {n_eu} EU-Vorlagen")
     print(f"wrote {weekly.write(conn, args.out, sittings, decided).get('woche', 0)} pages in woche/")
     written_themes = topics.write(args.out, themes, data.speech_facts(cards), sittings)

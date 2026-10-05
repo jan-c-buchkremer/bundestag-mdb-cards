@@ -107,11 +107,13 @@ def test_subject_page(conn, tmp_path):
     assert order == sorted(order)
     assert 'href="../vorgaenge/g1.html"' in html  # a Vorgang with a page
     assert 'href="https://dip.bundestag.de/vorgang/v1"' in html  # one without links DIP
-    assert 'id="bills"' in html and 'id="bq"' in html and 'id="bty"' in html and 'id="bst"' in html
+    assert 'id="bills"' in html and "data-q" in html and 'data-f="art"' in html and 'data-f="stufe"' in html
     assert "reden/ID1.html" in html and 'id="abst-' not in html  # speeches, decisions linked to their place
     assert "lassen sich die Zahlen verschiedener Sachgebiete nicht addieren" in html
     einbringer = html.split('id="einbringer"', 1)[1].split('id="vorgaenge"', 1)[0]
     assert "<th>Einbringer</th>" in einbringer and "Bundesregierung" in einbringer and "ohne Angabe" in einbringer
+    assert 'class="tg srow" data-f="von" data-v="reg"' in einbringer  # the stacked rows filter the list below
+    assert html.index('class="ctl-scope"') < html.index('id="einbringer"')  # one scope for both facets
 
 
 def test_a_decision_on_two_vorgaenge_of_a_sachgebiet_is_listed_once(conn):
@@ -166,20 +168,30 @@ def test_eu_page(conn):
     assert f'href="../{urls.subject(EUROPE)}"' in html and "Keine davon wurde im Plenum beraten" in html
     assert "Proposal for a Regulation on ports" in html and 'href="https://x/800.pdf"' in html
     assert html.count("Ausschuss: –") == 3 and "enthält der Datenbestand noch nicht" in html
-    assert 'id="eq"' in html and f'<option value="{eu.MITTEILUNG}">' in html
+    assert "data-q" in html and 'data-f="stand" data-v="mitteilung-des-federfuehrenden-ausschusses"' in html
+    assert 'data-stand="an-ausschuesse-ueberwiesen"' in html and 'data-f="ausschuss"' not in html  # no referrals
 
 
 def test_eu_committees_from_the_referral_table(conn):
     add_subjects(conn)
-    conn.execute(f"CREATE TABLE {eu.REFERRAL} (vorgang_id TEXT, committee TEXT, lead INTEGER)")
-    conn.executemany(f"INSERT INTO {eu.REFERRAL} VALUES (?,?,?)",
-                     [("e1", "Verkehrsausschuss", 0), ("e1", "Ausschuss für Wirtschaft", 1)])  # fmt: skip
+    conn.execute(f"CREATE TABLE {eu.REFERRAL} (position_id TEXT, vorgang_id TEXT, committee TEXT, lead INTEGER)")
+    conn.executemany(
+        "INSERT INTO vorgang_position (id, vorgang_id, date, position, chamber, originators, source_url, "
+        "source_document_id, retrieved_at) VALUES (?, 'e1', '2026-01-01', ?, ?, '[]', 'u', 'd', 'r')",
+        [("pbt", "Überweisung gemäß § 93 Geschäftsordnung BT", "BT"), ("pbr", "BR-Sitzung", "BR")],
+    )
+    # the Bundesrat's own EU committee on a BR step is not a Bundestag committee and must not show
+    conn.executemany(f"INSERT INTO {eu.REFERRAL} VALUES (?,?,?,?)",
+                     [("pbt", "e1", "Verkehrsausschuss", 0), ("pbt", "e1", "Ausschuss für Wirtschaft", 1),
+                      ("pbr", "e1", "Ausschuss für Fragen der Europäischen Union", 1)])  # fmt: skip
     got = {v["id"]: v for v in eu.load(conn)}
     assert got["e1"]["committees"] == ["Ausschuss für Wirtschaft (federführend)", "Verkehrsausschuss"]  # lead first
     assert got["e2"]["committees"] == []
-    assert "Ausschuss: Ausschuss für Wirtschaft (federführend), Verkehrsausschuss" in eu.page(
-        list(got.values()), [], europe=False
-    )
+    html = eu.page(list(got.values()), [], europe=False)
+    assert "Ausschuss: Ausschuss für Wirtschaft (federführend), Verkehrsausschuss" in html
+    chips = html.split('aria-label="Federführender Ausschuss"', 1)[1].split("</div>", 1)[0]
+    assert 'data-f="ausschuss" data-v="ausschuss-fuer-wirtschaft"' in chips and 'data-n="1"' in chips
+    assert 'data-ausschuss="ausschuss-fuer-wirtschaft"' in html
 
 
 def test_vorgang_page_links_its_sachgebiete(conn):

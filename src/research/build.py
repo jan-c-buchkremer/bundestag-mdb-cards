@@ -275,7 +275,8 @@ def write_site(
     if sittings:
         quiz = compass.questions(decisions or [], members or {})
         written = pages.write_pages(out, decisions or [], members or {}, sittings, meta, clusters, bool(quiz))
-        written["abstimmungen"] += cohesion.write_page(out, decisions or [], members or {})
+        days = [s["date"] for s in sittings]
+        written["abstimmungen"] += cohesion.write_page(out, decisions or [], members or {}, days)
         written.update(compass.write(out, quiz, cards, places))
         return written
     return {}

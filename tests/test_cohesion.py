@@ -38,7 +38,10 @@ def test_page(conn, tmp_path):
     page = (tmp_path / "abstimmungen" / "geschlossenheit.html").read_text()
     assert "gespalten" in page and "Rice-Index" in page
     rows = page.split('<table class="dis"', 1)[1].split("</tbody>", 1)[0]
-    assert rows.count("<tr data-f=") == 2
+    assert rows.count("<tr data-fraktion=") == 2 and 'data-stimme="no"' in rows and 'data-w="2026-W28"' in rows
+    assert "<select" not in page and 'data-row="tbody tr"' in page  # chips, a strip and the list filter the rows
+    assert 'data-f="fraktion" data-v="cdu"' in page and 'data-f="stimme" data-v="no"' in page
+    assert '<figure class="cv" data-view="geschlossenheit">' in page and "<th>Durchschnitt</th>" in page
     assert 'href="../6.html"' in rows and 'href="../abstimmungen/21-88-1.html"' in rows
     assert "statt Ja" in rows
     assert 'href="../abstimmungen/21-88-2.html"' in page  # the split vote is a hollow point in the SPD timeline

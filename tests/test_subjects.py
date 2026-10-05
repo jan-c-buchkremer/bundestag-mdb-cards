@@ -175,9 +175,11 @@ def test_eu_committees_from_the_referral_table(conn):
     conn.executemany(f"INSERT INTO {eu.REFERRAL} VALUES (?,?,?)",
                      [("e1", "Verkehrsausschuss", 0), ("e1", "Ausschuss für Wirtschaft", 1)])  # fmt: skip
     got = {v["id"]: v for v in eu.load(conn)}
-    assert got["e1"]["committees"] == ["Ausschuss für Wirtschaft", "Verkehrsausschuss"]  # the lead one first
+    assert got["e1"]["committees"] == ["Ausschuss für Wirtschaft (federführend)", "Verkehrsausschuss"]  # lead first
     assert got["e2"]["committees"] == []
-    assert "Ausschuss: Ausschuss für Wirtschaft, Verkehrsausschuss" in eu.page(list(got.values()), [], europe=False)
+    assert "Ausschuss: Ausschuss für Wirtschaft (federführend), Verkehrsausschuss" in eu.page(
+        list(got.values()), [], europe=False
+    )
 
 
 def test_vorgang_page_links_its_sachgebiete(conn):

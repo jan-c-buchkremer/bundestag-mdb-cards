@@ -68,6 +68,10 @@ nav.tabs a .n { color: var(--faint); font-weight: 400; margin-left: 4px; font-si
 .tools label { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); cursor: pointer; }
 .tools label input { accent-color: var(--accent); margin: 0; }
 .rows { background: var(--card); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+/* a table wider than the page scrolls inside its box instead of losing its right-hand columns */
+.rows.scroll { overflow-x: auto; }
+table.plenum.subjects th, table.plenum.subjects td:first-child { white-space: normal; }
+table.plenum.subjects th { vertical-align: bottom; }
 .row { display: grid; grid-template-columns: 92px 1fr auto; gap: 4px 14px; padding: 10px 16px; border-top: 1px solid var(--line); font-size: 13.5px; }
 .row:first-child { border-top: 0; }
 .row[hidden] { display: none; }

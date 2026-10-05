@@ -70,13 +70,19 @@ def stand(positions: list[dict]) -> str:
 
 
 def committees(conn: sqlite3.Connection) -> dict[str, list[str]] | None:
-    """{vorgang id: the committees it went to, the lead one first}; None while the store has no referral table."""
+    """{vorgang id: the committees it went to, the lead one first and marked "(federführend)"}; None while the store
+    has no referral table."""
     if not has_table(conn, REFERRAL):
         return None
     lead = "lead" if _has_column(conn, REFERRAL, "lead") else "0"
     out: dict[str, list[str]] = {}
-    for r in conn.execute(f"SELECT vorgang_id, committee FROM {REFERRAL} ORDER BY vorgang_id, {lead} DESC, committee"):
-        out.setdefault(r["vorgang_id"], []).append(r["committee"])
+    rows = conn.execute(f"SELECT vorgang_id, committee, {lead} AS lead FROM {REFERRAL} "
+                        f"ORDER BY vorgang_id, {lead} DESC, committee")  # fmt: skip
+    for r in rows:
+        names = out.setdefault(r["vorgang_id"], [])
+        name = r["committee"] + (" (federführend)" if r["lead"] else "")
+        if name not in names and r["committee"] not in names:  # several positions name the same committee
+            names.append(name)
     return out
 
 
@@ -161,7 +167,8 @@ def page(eu: list[dict], procs: list[dict], europe: bool) -> str:
     body = f"""{subtabs("../", PROCEDURE_TABS, "eu")}<div class="bills"><h1>EU-Vorlagen</h1>
 <p class="lead">Eine EU-Vorlage ist im DIP eine Art von Vorgang. Es ist ein Dokument der Europäischen Union, das
 dem Bundestag als Unterrichtung zugeht. Die Art sagt, woher ein Vorgang kommt. Ein Sachgebiet sagt, worum es geht.
-Deshalb haben die EU-Vorlagen diese eigene Seite unter den Vorgängen. Thematisch gehören sie zum Sachgebiet {sg}.
+Deshalb haben die EU-Vorlagen diese eigene Seite unter den Vorgängen. Die Europapolitik als Thema hat das
+Sachgebiet {sg}.
 Im 21. Bundestag sind es {n(len(eu))} EU-Vorlagen. {plenum}</p>
 <p class="explain">Der Stand kommt aus dem Ablauf im DIP. Nach § 93 GO-BT wird eine EU-Vorlage an die Ausschüsse
 überwiesen, oder von einer Überweisung wird abgesehen. Der federführende Ausschuss kann danach eine Mitteilung

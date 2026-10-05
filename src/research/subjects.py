@@ -51,6 +51,12 @@ OVERLAP = ("Ein Vorgang kann mehrere Sachgebiete haben. Er zählt dann in jedem,
            "verschiedener Sachgebiete nicht addieren.")  # fmt: skip
 PLURAL = {"Aktuelle Stunde": "Aktuelle Stunden", "Regierungsbefragung": "Regierungsbefragungen",
           "Fragestunde": "Fragestunden"}  # fmt: skip
+# DIP's kinds of Vorgang are singular ("Kleine Anfrage"); in a count they take the plural
+KIND_PLURAL = {"Kleine Anfrage": "Kleine Anfragen", "Antrag": "Anträge", "Große Anfrage": "Große Anfragen",
+               "Entschließungsantrag BT": "Entschließungsanträge BT", "Rechtsverordnung": "Rechtsverordnungen",
+               "Untersuchungsausschuss": "Untersuchungsausschüsse", "Enquete-Kommission": "Enquete-Kommissionen",
+               "Wahlprüfungsverfahren": "Wahlprüfungsverfahren", "EU-Vorlage": "EU-Vorlagen",
+               "Wahl im BT": "Wahlen im BT"}  # fmt: skip
 DIP_SEARCH = "https://dip.bundestag.de/suche?f.wahlperiode=21&f.sachgebiet={}"
 
 
@@ -147,7 +153,7 @@ def initiators_table(vs: list[dict]) -> str:
         rows.append(f'<tr><td>{name}</td><td class="num">{n(c["all"])}</td>{cells}</tr>')
     head = "".join(f"<th>{e(label)}</th>" for _, label in KINDS)
     return (
-        '<div class="rows"><table class="plenum"><thead><tr><th>Einbringer</th><th>Vorgänge</th>'
+        '<div class="rows scroll"><table class="plenum"><thead><tr><th>Einbringer</th><th>Vorgänge</th>'
         f"{head}<th>andere</th></tr></thead><tbody>{''.join(rows)}</tbody></table></div>"
     )
 
@@ -171,7 +177,7 @@ def vorgaenge_list(vs: list[dict]) -> str:
 
 
 def _kinds_line(s: dict) -> str:
-    kinds = ", ".join(f"{n(k)} {e(t)}" for t, k in s["kinds"].most_common())
+    kinds = ", ".join(f"{n(k)} {e(t if k == 1 else KIND_PLURAL.get(t, t))}" for t, k in s["kinds"].most_common())
     return f"{n(s['vorgaenge'])} {'Vorgang' if s['vorgaenge'] == 1 else 'Vorgänge'} ({kinds})"
 
 
@@ -271,7 +277,7 @@ def index_page(subjects: dict[str, list[dict]], none: Counter, plenary: dict[str
                     f'<td class="num">{n(s["decisions"])}</td></tr>')  # fmt: skip
     head = "".join(f"<th>{e(label)}</th>" for _, label in KINDS)
     table = (
-        '<div class="rows"><table class="plenum subjects"><thead><tr><th>Sachgebiet</th><th>Vorgänge</th>'
+        '<div class="rows scroll"><table class="plenum subjects"><thead><tr><th>Sachgebiet</th><th>Vorgänge</th>'
         f"{head}<th>im Plenum beraten</th><th>Beschlüsse</th></tr></thead><tbody>{''.join(rows)}</tbody></table></div>"
         if rows else '<div class="rows"><div class="empty">Keine Vorgänge mit Sachgebiet im Datenbestand.</div></div>'
     )  # fmt: skip

@@ -174,9 +174,16 @@ def test_eu_page(conn):
 
 def test_eu_committees_from_the_referral_table(conn):
     add_subjects(conn)
-    conn.execute(f"CREATE TABLE {eu.REFERRAL} (vorgang_id TEXT, committee TEXT, lead INTEGER)")
-    conn.executemany(f"INSERT INTO {eu.REFERRAL} VALUES (?,?,?)",
-                     [("e1", "Verkehrsausschuss", 0), ("e1", "Ausschuss für Wirtschaft", 1)])  # fmt: skip
+    conn.execute(f"CREATE TABLE {eu.REFERRAL} (position_id TEXT, vorgang_id TEXT, committee TEXT, lead INTEGER)")
+    conn.executemany(
+        "INSERT INTO vorgang_position (id, vorgang_id, date, position, chamber, originators, source_url, "
+        "source_document_id, retrieved_at) VALUES (?, 'e1', '2026-01-01', ?, ?, '[]', 'u', 'd', 'r')",
+        [("pbt", "Überweisung gemäß § 93 Geschäftsordnung BT", "BT"), ("pbr", "BR-Sitzung", "BR")],
+    )
+    # the Bundesrat's own EU committee on a BR step is not a Bundestag committee and must not show
+    conn.executemany(f"INSERT INTO {eu.REFERRAL} VALUES (?,?,?,?)",
+                     [("pbt", "e1", "Verkehrsausschuss", 0), ("pbt", "e1", "Ausschuss für Wirtschaft", 1),
+                      ("pbr", "e1", "Ausschuss für Fragen der Europäischen Union", 1)])  # fmt: skip
     got = {v["id"]: v for v in eu.load(conn)}
     assert got["e1"]["committees"] == ["Ausschuss für Wirtschaft (federführend)", "Verkehrsausschuss"]  # lead first
     assert got["e2"]["committees"] == []

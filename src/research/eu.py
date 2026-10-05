@@ -56,10 +56,15 @@ def committees(conn: sqlite3.Connection) -> dict[str, list[str]] | None:
     has no referral table."""
     if not has_table(conn, REFERRAL):
         return None
-    lead = "lead" if _has_column(conn, REFERRAL, "lead") else "0"
+    lead = "r.lead" if _has_column(conn, REFERRAL, "lead") else "0"
+    # DIP records referrals on Bundesrat steps too ("Ausschuss für Fragen der Europäischen Union" is the Bundesrat's
+    # EU committee): only the Bundestag's own steps count here (foundation docs/design.md, vorgang_referral)
+    bt = (_has_column(conn, REFERRAL, "position_id") and has_table(conn, "vorgang_position")
+          and _has_column(conn, "vorgang_position", "chamber"))  # fmt: skip
+    join = " JOIN vorgang_position p ON p.id = r.position_id WHERE p.chamber = 'BT'" if bt else ""
     out: dict[str, list[str]] = {}
-    rows = conn.execute(f"SELECT vorgang_id, committee, {lead} AS lead FROM {REFERRAL} "
-                        f"ORDER BY vorgang_id, {lead} DESC, committee")  # fmt: skip
+    rows = conn.execute(f"SELECT r.vorgang_id, r.committee, {lead} AS lead FROM {REFERRAL} r{join} "
+                        f"ORDER BY r.vorgang_id, {lead} DESC, r.committee")  # fmt: skip
     for r in rows:
         names = out.setdefault(r["vorgang_id"], [])
         name = r["committee"] + (LEAD if r["lead"] else "")

@@ -246,36 +246,33 @@ def stacked(key: str, groups: list[tuple[str, str, str, Counter]], kinds: list[t
             f"{''.join(out)}</div>")  # fmt: skip
 
 
-def tile_spans(counts: list[int], cols: int, budget: int, least: tuple[int, int]) -> list[tuple[int, int]]:
-    """(columns, rows) of each tile in a grid of `cols` columns: an area of about count / total × `budget` cells,
-    near square, at least `least` (so every name stays readable) and never wider than the grid."""
+ROW_WIDTH = 770  # px, the width of the tile field on a wide screen (main's content width)
+TILE_ROWS = 6  # about this many rows of tiles on a wide screen
+TILE_MIN = 150  # px, the narrowest tile: every name stays readable
+
+
+def tile_basis(counts: list[int]) -> list[int]:
+    """The base width of each tile in px, by count: the tiles fill about TILE_ROWS rows of ROW_WIDTH, at least
+    TILE_MIN. The tiles sit in wrapping flex rows and grow by their count to fill each row, so no row has a gap."""
     total = sum(counts) or 1
-    out = []
-    for k in counts:
-        cells = max(least[0] * least[1], round(k / total * budget))
-        w = min(cols, max(least[0], round((cells * 1.6) ** 0.5)))
-        h = max(least[1], round(cells / w))
-        out.append((w, h))
-    return out
+    return [max(TILE_MIN, round(k / total * ROW_WIDTH * TILE_ROWS)) for k in counts]
 
 
 def tiles(items: list[tuple[str, str, int, Counter]], kinds: list[tuple[str, str]], noun: str, one: str,
           title: str) -> str:  # fmt: skip
-    """The tile field: one tile per item (href, label, count, counts by kind), the area by count (in grid cells, at
-    least a few so the name fits), largest first, a thin bar inside with the composition by kind. A tile is a link
-    to the item's page. The spans are computed for a wide grid (12 columns) and a phone (6 columns)."""
+    """The tile field: one tile per item (href, label, count, counts by kind), largest first, its width by count
+    (`tile_basis`, the rows always full), a thin bar inside with the composition by kind. A tile is a link to the
+    item's page."""
     counts = [k for _, _, k, _ in items]
-    wide = tile_spans(counts, 12, 150, (3, 2))
-    narrow = tile_spans(counts, 6, 80, (3, 2))
     out = []
-    for (href, label, k, c), (w, h), (mw, mh) in zip(items, wide, narrow, strict=True):
+    for (href, label, k, c), basis in zip(items, tile_basis(counts), strict=True):
         total = sum(c.values()) or 1
         bar = "".join(f'<i class="{kind_class(i)}" style="width:{_pct(c[kk], total)}%"></i>'
                       for i, (kk, _) in enumerate(kinds) if c[kk])  # fmt: skip
         parts = ", ".join(f"{n(c[kk])} {kl}" for kk, kl in kinds if c[kk])
         unit = one if k == 1 else noun
         out.append(
-            f'<a class="tile" href="{e(href)}" style="--w:{w};--h:{h};--mw:{mw};--mh:{mh}" '
+            f'<a class="tile" href="{e(href)}" style="--g:{max(k, 1)};--b:{basis}px" '
             f'title="{e(label)}: {n(k)} {e(unit)} ({e(parts)})"><span class="tn">{e(label)}</span>'
             f'<span class="tc">{n(k)} <span class="tu">{e(unit)}</span></span><span class="tbar">{bar}</span></a>'
         )

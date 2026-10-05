@@ -81,8 +81,9 @@ def test_tiles():
     html = controls.tiles(items, kinds, "Vorgänge", "Vorgang", "Sachgebiete")
     assert '<nav class="tiles" aria-label="Sachgebiete">' in html
     assert '<a class="tile" href="a.html"' in html and "1 <span" in html and ">Vorgang</span>" in html
-    big, small = controls.tile_spans([90, 1], 12, 150, (3, 2))
-    assert big[0] * big[1] > small[0] * small[1] == 6 and big[0] <= 12
+    big, small = controls.tile_basis([90, 1])
+    assert big > small == controls.TILE_MIN  # by count, and never narrower than a readable name
+    assert 'style="--g:90;--b:' in html
 
 
 def test_strip():

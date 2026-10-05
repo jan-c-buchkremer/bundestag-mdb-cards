@@ -374,9 +374,13 @@ html.js .cv.alt .cv-alt { display: block; }
 .srow .sbar i { display: block; height: 100%; min-width: 2px; }
 .srow .stot { font-weight: 600; text-align: right; }
 .srow .sx { grid-column: 2 / -1; color: var(--muted); font-size: 11.5px; }
-/* tile field: one tile per item, the area by count (grid spans from controls.tile_spans), wrapping on a phone */
-.tiles { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); grid-auto-rows: 38px; grid-auto-flow: dense; gap: 4px; }
-.tile { grid-column: span var(--w); grid-row: span var(--h); display: flex; flex-direction: column; min-width: 0; overflow: hidden; background: var(--accent-soft); border: 1px solid transparent; border-radius: 8px; padding: 7px 9px 8px; color: var(--text); }
+/* tile field: one tile per item in wrapping rows, its width by count (controls.tile_basis); each tile grows by its
+   count until the row is full, so no row has a gap */
+.tiles { display: flex; flex-wrap: wrap; gap: 4px; }
+/* the last row ends where its tiles end, like a paragraph's last line: without this it would stretch its few small
+   tiles across the whole width and make them look bigger than larger ones above */
+.tiles::after { content: ""; flex: 1000 1 0; }
+.tile { flex: var(--g) 1 var(--b); min-height: 86px; display: flex; flex-direction: column; min-width: 0; overflow: hidden; background: var(--accent-soft); border: 1px solid transparent; border-radius: 8px; padding: 7px 9px 8px; color: var(--text); }
 .tile:hover { text-decoration: none; border-color: var(--accent); }
 .tile .tn { font-size: 13px; font-weight: 600; line-height: 1.25; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
 .tile .tc { margin-top: auto; padding-top: 2px; font-size: 12.5px; font-weight: 600; }
@@ -403,8 +407,7 @@ html.js .cv.alt .cv-alt { display: block; }
   .pipe-main li:not(:last-child)::after { content: "⌄"; right: auto; left: 14px; top: auto; bottom: -15px; transform: none; font-size: 13px; }
   .stage { flex-direction: row; align-items: baseline; justify-content: space-between; padding: 6px 10px 9px; }
   .stage .c { font-size: 15px; }
-  .tiles { grid-template-columns: repeat(6, minmax(0, 1fr)); }
-  .tile { grid-column: span var(--mw); grid-row: span var(--mh); }
+  .tile { flex-basis: max(140px, calc(var(--b) / 2)); }
   .srow { grid-template-columns: minmax(0, 1fr) auto; }
   .srow .sb { grid-column: 1 / -1; grid-row: 2; margin: 3px 0 1px; }
   .srow .sx { grid-column: 1 / -1; }

@@ -13,7 +13,7 @@ don't serve it go on "Not now", not into code.
    - The front page at `/`, the Abgeordnete list at `abgeordnete.html` (old `/#…` links forward there).
    - One shell with a mode (`shell.css`): Recherche or Radar in the header; Kompass and Themen are Radar pages with
      a method note; Radar links inside Research pages are Radar elements; the Themenlandschaft takes the same header.
-2. **Sachgebiete as an entity.** A reader can open any of DIP's 28 Sachgebiete and see what the Bundestag did in
+2. **Sachgebiete as an entity** (merged: research #56). A reader can open any of DIP's 28 Sachgebiete and see what the Bundestag did in
    it: the Vorgänge by kind, the Drucksachen, the debates with their speeches, the decisions and roll-call votes,
    and which fractions were active, each with its source. A Sachgebiet is the Bundestag's own classification, so it
    is Research, not Radar.
@@ -22,6 +22,25 @@ don't serve it go on "Not now", not into code.
      Sachgebiet "Europapolitik und Europäische Union".
    - Vorgänge without a Sachgebiet (Fragen, EU-Vorlagen, petitions) and plenary business without a Vorgang
      (Aktuelle Stunden, Regierungsbefragung, Fragestunde) are named as such, not hidden.
+3. **Choose by seeing.** A reader picks what to look at by seeing it, not by reading a dropdown: the data itself is
+   the control. The big Sachgebiete are big tiles, the fractions are coloured chips, a bill's way through the
+   procedure is a pipeline whose stages they click, a strip of weeks narrows the time. Every chart is also a filter
+   (click, keyboard), filters combine, the state lives in the URL fragment (shareable, the back button works), one
+   "zurücksetzen". Every chart has "Als Liste" or "Als Tabelle" for what was there before; without JavaScript the
+   page shows the chart, its table and the full list. Sizes and order come from counts only (no rankings of people,
+   no ratings). Everything here is Research: the accent and the fraction colours, never the Radar's violet.
+   - The components (`controls.py`, drawn in Python at build time as HTML with inline sizes, one button per
+     clickable part; `controls.js`, the one shared script): tile field, fraction chips, pipeline, segmented bar,
+     stacked bar rows, activity strip (a bar per calendar week, the sitting weeks marked; long lists show the newest
+     30 of the filter result and "mehr anzeigen").
+   - The pipeline's stages and which DIP Beratungsstand belongs to each: one table, `procedures.STAGE`. The exact
+     DIP Stand stays on every row and in the pipeline's table.
+   - A Vorgang's date in lists is its latest step that has happened by the build date; a later Inkrafttreten is
+     named on the row.
+   - This round: `vorgaenge/index.html`, `sachgebiete/index.html`, `sachgebiete/<slug>.html`,
+     `vorgaenge/eu-vorlagen.html`, `abstimmungen/index.html`.
+   - Next rounds, in this order: Fragen (`questions.py`: the three selects and five tables), Geschlossenheit
+     (`cohesion.py`), Debattenkultur (`debate.py`: small multiples per fraction instead of tables), Gremien.
 
 ## Not now
 

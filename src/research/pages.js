@@ -1,5 +1,5 @@
 // The interactive parts of the pages written as HTML by Python: the seating chart of every vote point (facts.py),
-// the filters of the votes overview, the long speech lists of a sitting and the "Alle N zeigen" of fact lists.
+// the long speech lists of a sitting and the "Alle N zeigen" of fact lists.
 // Reads PAGE. Also highlights the terms of a Pagefind search result link (search.js sets `highlightParam: 'hl'`) on
 // whatever page they lead to, so this runs on every shell()-built page. German UI, see docs/plan.md.
 'use strict';
@@ -85,35 +85,6 @@
     }
   }
 
-  function votes() {
-    const q = $('q'), kind = $('kind'), result = $('result'), count = $('count');
-    const rows = [...document.querySelectorAll('#groups .dec')].map(el => ({ el, text: el.textContent.toLowerCase() }));
-    const groups = [...document.querySelectorAll('#groups .grp')];
-    const params = new URLSearchParams(location.hash.slice(1));
-    q.value = params.get('q') || '';
-    kind.value = params.get('art') || '';
-    result.value = params.get('ergebnis') || '';
-    function apply() {
-      const terms = q.value.toLowerCase().split(/\s+/).filter(Boolean);
-      let shown = 0;
-      for (const r of rows) {
-        const ok = (!kind.value || r.el.dataset.kind === kind.value) && (!result.value || r.el.dataset.result === result.value)
-          && terms.every(t => r.text.includes(t));
-        r.el.hidden = !ok;
-        if (ok) shown++;
-      }
-      for (const g of groups) g.hidden = !g.querySelector('.dec:not([hidden])');
-      count.textContent = shown === rows.length ? `${n(rows.length)} Beschlüsse` : `${n(shown)} von ${n(rows.length)} Beschlüssen`;
-      const h = new URLSearchParams();
-      if (q.value) h.set('q', q.value);
-      if (kind.value) h.set('art', kind.value);
-      if (result.value) h.set('ergebnis', result.value);
-      history.replaceState(null, '', h.size ? '#' + h : location.pathname);
-    }
-    q.oninput = kind.onchange = result.onchange = apply;
-    apply();
-  }
-
   // agenda items with many speeches: open and close the rest; closing keeps the button where it was on screen
   function sitting() {
     for (const box of document.querySelectorAll('.sp-list')) {
@@ -172,5 +143,4 @@
   highlightQuery();
   charts();
   sitting();
-  if (PAGE.kind === 'votes') votes();
 })();

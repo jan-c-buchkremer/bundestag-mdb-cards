@@ -22,6 +22,10 @@
   --cdu: #2f2f2f; --spd: #d7263d; --afd: #1f8fd6; --gru: #3f9a3f; --lin: #c0397d; --frl: #8a8a8a;
   /* the government: a neutral slate that is no party's colour and reads on light and dark backgrounds */
   --reg: #64748b; --reg-text: #334155; --reg-soft: #e2e8f0;
+  /* the other Einbringer of a Vorgang (controls.py): Bundesrat und Länder, and Sonstige; neutral, no party's colour */
+  --laender: #8b7355; --sonstige: #b4b4ac;
+  /* kinds in a chart (Gesetzgebung, Anträge, …): a neutral ramp; a selection is the accent, never a fraction colour */
+  --k1: #3f3f46; --k2: #71717a; --k3: #a1a1aa; --k4: #cfcfd4; --k5: #e4e4e7;
   /* the Radar (docs/architecture.md, "Telling Radar apart"): selection and interpretation, never the plain blue */
   --radar: #7c3aed; --radar-soft: #f1ebff; --radar-ink: #5b21b6; --radar-line: #ddd0fb;
   /* the part of the site a page belongs to: Research by default, the Radar on .mode-radar pages */

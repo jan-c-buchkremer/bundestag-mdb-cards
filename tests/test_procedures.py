@@ -124,7 +124,9 @@ def test_write(conn, tmp_path):
     assert "../reden/" not in page  # the speech pages were not written
     assert "Schritte im Bundesrat und die Verkündung fehlen hier" in page
     index = (tmp_path / "vorgaenge" / "index.html").read_text()
-    assert 'href="g1.html"' in index and '<option value="Verkündet">Verkündet (1)</option>' in index
+    assert 'href="g1.html"' in index and 'data-stufe="verkuendet"' in index
+    pipe = index.split('class="pipe"', 1)[1].split("</ol>", 1)[0]
+    assert 'data-f="stufe" data-v="verkuendet"' in pipe and '<span class="c" data-n="1">1</span>' in pipe
     assert 'id="status-verkuendet"' in index
     stub = (tmp_path / "gesetze" / "g1.html").read_text()
     assert 'http-equiv="refresh" content="0; url=../vorgaenge/g1.html"' in stub

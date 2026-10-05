@@ -339,6 +339,27 @@ def originator_group(title: str) -> str | None:
     return None
 
 
+LAENDER_GROUP = "Bundesrat und Länder"
+OTHER_GROUP = "Sonstige"
+# a ministry or another part of the government as DIP names it among a Vorgang's initiators
+_MINISTRY = ("Bundesministeri", "Bundeskanzler", "Auswärtiges Amt", "Presse- und Informationsamt")
+
+
+def initiator_group(title: str) -> str:
+    """The group a DIP initiator of a Vorgang belongs to (the Einbringer on the Vorgänge and Sachgebiet pages): one
+    of the fractions, the Bundesregierung with its ministries, Bundesrat und Länder, or Sonstige (the Präsident des
+    Deutschen Bundestages, a committee, the Wehrbeauftragte)."""
+    group = originator_group(title)
+    if group:
+        return group
+    t = title.strip()
+    if t.startswith(_MINISTRY):
+        return GOVERNMENT_GROUP
+    if t == "Bundesrat" or t in STATES.values():
+        return LAENDER_GROUP
+    return OTHER_GROUP
+
+
 def drucksache_facts(conn: sqlite3.Connection) -> list[dict]:
     """Every WP 21 Drucksache as the fact components show it, oldest first: number, type, title, date, Urheber and
     the groups behind them, the DIP and PDF links, and its Vorgang when it belongs to exactly one."""

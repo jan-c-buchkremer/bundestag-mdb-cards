@@ -400,6 +400,7 @@ def decision(d: dict, root: str = "../", *, point: bool = False, detail: bool = 
         right = group_position(d, group, members) + right
     anchor = f' id="abst-{e(d["page"])}"' if point else ""
     attrs = (f' data-kind="{e(d["kind"])}" data-result="{e(d.get("result") or "")}"'
+             + (f' data-w="{iso_week(d["date"])}"' if d.get("date") else "")
              + (' data-dev="1"' if own and own.get("deviates") else ""))  # fmt: skip
     body = vote(d, root, detail=detail, members=members, subset=subset)
     if detail and d.get("text"):

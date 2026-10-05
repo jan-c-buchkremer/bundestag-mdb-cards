@@ -5,6 +5,26 @@ not before? If that sentence is hard to write, the release is not a finished ver
 
 ## Unreleased
 
+Readers pick by seeing: on the Vorgänge, Sachgebiete, EU-Vorlagen and Abstimmungen pages every chart is also a
+filter, the filters combine, and the selection is in the address, so it can be shared and the back button undoes it.
+
+- `controls.py` and `controls.js` (new): tile field, fraction chips, pipeline, segmented bar, stacked bar rows and an
+  activity strip, drawn in Python at build time, each part a button, each chart with "Als Tabelle". Without
+  JavaScript the page shows the chart, its table and the full list.
+- `vorgaenge/index.html`: the kinds as a segmented bar, the Gesetzgebungsvorgänge as a pipeline from "Eingebracht" to
+  "Verkündet" with the branch "beendet ohne Gesetz" (the DIP Stände mapped in `procedures.STAGE`), the Einbringer as
+  chips, a strip of the weeks. The selects "jede Art" and "jeder Stand" are gone. Long lists show the newest 30 and
+  "mehr anzeigen".
+- `sachgebiete/index.html`: a tile per Sachgebiet, the area by its Vorgänge, the table behind "Als Tabelle".
+  `sachgebiete/<slug>.html`: the Einbringer as stacked bar rows that filter the Vorgänge, and the controls of the
+  Vorgänge index.
+- `vorgaenge/eu-vorlagen.html`: the Stand as a row of steps, the lead committees as chips (once the store has the
+  referral table), the strip. `abstimmungen/index.html`: chips for namentlich, per Handzeichen, angenommen and
+  abgelehnt instead of the two selects, and the strip; old `#art=…&ergebnis=…` links keep working.
+- A Vorgang's date in lists is its latest step until the build date, so a law with an Inkrafttreten in 2030 no
+  longer sorts first; the row says "tritt am … in Kraft".
+- CI installs Node, and the tests that run the page scripts in Node fail there instead of being skipped.
+
 Readers can open any of DIP's Sachgebiete and see what the 21st Bundestag did in it: the Vorgänge by kind and
 Einbringer, the speeches, the decisions and the Drucksachen; the EU-Vorlagen have a page of their own.
 

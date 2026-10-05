@@ -1,0 +1,380 @@
+"""Visual controls (docs/plan.md, goal 3): the reader picks by seeing. The data itself is the control: a tile per
+Sachgebiet, a chip per fraction, the stages of a bill's way through the procedure, a bar per kind of Vorgang and a bar
+per week. Every chart is also a filter, the filters combine, and the list below shows what they leave.
+
+Drawn here, in Python at build time, as HTML with the sizes inline: static, no layout shift, no chart library, like
+the hemicycle. Every clickable part is a real button (or a link where it opens a page), so the charts work with the
+keyboard and a screen reader. One small module, `controls.js`, makes them interactive for every page:
+
+- a page has one scope (`scope`): the controls, the toolbar (search, the active filters, "zurücksetzen") and the
+  list (`rows`), whose rows carry their values as data attributes (`data-art`, `data-stufe`, `data-von`, `data-w`
+  for the ISO week of the row's date, …; several values separated by spaces);
+- a button with `data-f="<key>" data-v="<value>"` toggles that value (`aria-pressed`); values of one key are
+  alternatives, keys combine;
+- the state lives in the URL fragment (`#art=antrag&von=cdu,spd&zeit=2026-W10..2026-W20&q=miete&liste=stufe`), so a
+  view can be shared and the back button works; a fragment without "=" is an anchor and stays one;
+- each chart has a switch to its list or table (`view`), remembered as `liste=<chart>` in the fragment;
+- without JavaScript the page shows every chart, its table and the full list.
+
+Sizes and order come from counts only (docs/plan.md, non-goals: no rankings of people, no ratings). Colours: the
+accent for a neutral selection, the fraction colours only for fractions, the result colours only for results."""
+
+from __future__ import annotations
+
+import datetime as dt
+from collections import Counter
+from collections.abc import Iterable
+
+from research.data import iso_week
+from research.ui import MONTHS, e, n
+
+LIMIT = 30  # rows of a long list shown at first; "mehr anzeigen" shows the next ones
+KIND_CLASSES = 5  # the neutral shades of the kinds (k1 … k5); later kinds share the last one
+# the groups of Einbringer as chips (data.initiator_group): the six fractions, the Bundesregierung, Bundesrat und
+# Länder, Sonstige. The token is the filter value and the colour (shell.css): a fraction's colour for a fraction, the
+# government's slate, neutral ones for the rest
+GROUP_TOKENS = {
+    "AfD": "afd", "CDU/CSU": "cdu", "BÜNDNIS 90/DIE GRÜNEN": "gru", "SPD": "spd", "Die Linke": "lin",
+    "fraktionslos": "frl", "Bundesregierung": "reg", "Bundesrat und Länder": "laender", "Sonstige": "sonstige",
+}  # fmt: skip
+SHORT = {"BÜNDNIS 90/DIE GRÜNEN": "Grüne"}
+DATIVE = {"Vorgänge": "Vorgängen", "Beschlüsse": "Beschlüssen"}  # "12 von 300 Vorgängen"
+HEAD = '<script>document.documentElement.classList.add("js")</script>'
+
+
+def head(root: str) -> str:
+    """What a page with controls puts into <head>: the "js" class before the first paint (so the list and table
+    views do not flash), and controls.js."""
+    return f'{HEAD}<script src="{root}controls.js" defer></script>'
+
+
+def _pct(part: int, whole: int) -> str:
+    return f"{100 * part / whole:.1f}".rstrip("0").rstrip(".") if whole else "0"
+
+
+def share(part: int, whole: int) -> str:
+    """A share in German, "12 %", "0,4 %" for the small ones."""
+    if not whole:
+        return "0 %"
+    p = 100 * part / whole
+    return (f"{p:.0f}" if p >= 1 or p == 0 else f"{p:.1f}".replace(".", ",")) + " %"
+
+
+def _count(k: int) -> str:
+    """A count that controls.js rewrites when other filters are active ("12 von 57")."""
+    return f'<span class="c" data-n="{k}">{n(k)}</span>'
+
+
+def toggle(key: str, value: str, inner: str, *, cls: str = "", style: str = "", label: str = "", name: str = "",
+           disabled: bool = False, tab: bool = True) -> str:  # fmt: skip
+    """A toggle button of a filter value. `label` is the value's name for the active-filter line; `name` the
+    accessible name of a button without text (a bar segment), also its tooltip."""
+    attrs = [
+        f'type="button" class="{("tg " + cls).strip()}" data-f="{e(key)}" data-v="{e(value)}"',
+        'aria-pressed="false"',
+    ]
+    if label:
+        attrs.append(f'data-label="{e(label)}"')
+    if name:
+        attrs.append(f'aria-label="{e(name)}" title="{e(name)}"')
+    if style:
+        attrs.append(f'style="{style}"')
+    if disabled:
+        attrs.append("disabled")
+    if not tab:
+        attrs.append('tabindex="-1"')
+    return f"<button {' '.join(attrs)}>{inner}</button>"
+
+
+def scope(body: str, noun: str, one: str, attrs: dict[str, str] | None = None) -> str:
+    """The part of a page the controls work on: `noun` and `one` name its rows in the count ("Vorgänge",
+    "Vorgang", and in the dative after "von" from DATIVE); `attrs` maps a filter key to the row attribute it reads
+    when they differ ({"art": "kind"})."""
+    extra = "".join(f' data-attr-{e(k)}="{e(v)}"' for k, v in (attrs or {}).items())
+    return (
+        f'<div class="ctl-scope" data-noun="{e(noun)}" data-one="{e(one)}" data-dat="{e(DATIVE.get(noun, noun))}"'
+        f"{extra}>{body}</div>"
+    )  # fmt: skip
+
+
+def toolbar(placeholder: str) -> str:
+    """The search field, the active filters and the one "zurücksetzen" of a scope."""
+    return (
+        '<div class="ctl-bar"><input type="search" data-q placeholder="' + e(placeholder) + '" autocomplete="off" '
+        f'aria-label="{e(placeholder.rstrip(" …"))}"><span class="ctl-sum" data-summary aria-live="polite"></span>'
+        '<button type="button" class="reset" data-reset disabled>zurücksetzen</button></div>'
+    )
+
+
+def rows(rows_html: Iterable[str], key: str, empty: str, row: str = "", cls: str = "rows") -> str:
+    """The list a scope filters, every row in the file (the full list without JavaScript); controls.js shows the
+    first LIMIT of the filter result and "mehr anzeigen" for the next ones. `row`: the selector of a row when the
+    rows sit in groups (`data-group`, hidden when none of their rows is left)."""
+    body = "".join(rows_html)
+    if not body:
+        return f'<div class="rows"><div class="empty">{e(empty)}</div></div>'
+    sel = f' data-row="{e(row)}"' if row else ""
+    return (
+        f'<div class="count" data-count></div><div class="{cls}" id="{e(key)}" data-rows{sel} data-limit="{LIMIT}">'
+        f'{body}<div class="empty" data-none hidden>Keine Treffer für diese Auswahl.</div>'
+        '<button type="button" class="more" data-more hidden>mehr anzeigen</button></div>'
+    )
+
+
+def view(key: str, title: str, chart: str, alt: str, alt_label: str = "Als Tabelle") -> str:
+    """A chart with its list or table one click away; without JavaScript both are shown."""
+    return (
+        f'<figure class="cv" data-view="{e(key)}"><figcaption class="cv-cap"><span class="cv-t">{e(title)}</span>'
+        '<span class="cv-sw" role="group" aria-label="Darstellung">'
+        '<button type="button" data-show="chart" aria-pressed="true">Diagramm</button>'
+        f'<button type="button" data-show="alt" aria-pressed="false">{e(alt_label)}</button></span></figcaption>'
+        f'<div class="cv-chart">{chart}</div><div class="cv-alt">{alt}</div></figure>'
+    )
+
+
+def block(title: str, body: str) -> str:
+    """A control without a chart of its own (chips), titled like a chart."""
+    return f'<div class="cv"><div class="cv-cap"><span class="cv-t">{e(title)}</span></div>{body}</div>'
+
+
+def table(head: list[str], body: list[list[str]], cls: str = "") -> str:
+    """A plain table of counts for a chart's "Als Tabelle" (cells are HTML; the first column left-aligned)."""
+    th = "".join(f"<th>{h}</th>" for h in head)
+    tr = "".join("<tr>" + "".join(f'<td{' class="num"' if i else ""}>{c}</td>' for i, c in enumerate(r)) + "</tr>"
+                 for r in body)  # fmt: skip
+    return (f'<div class="rows scroll"><table class="plenum {cls}"><thead><tr>{th}</tr></thead><tbody>{tr}</tbody>'
+            "</table></div>")  # fmt: skip
+
+
+# ---------------------------------------------------------------- the components
+
+
+def kind_class(i: int) -> str:
+    return f"k{min(i, KIND_CLASSES - 1) + 1}"
+
+
+def segmented(key: str, items: list[tuple[str, str, int]], title: str, noun: str) -> str:
+    """One bar, a segment per kind (value, label, count), width by share, in the order given (largest first); a key
+    below names each kind with its count and share. A segment and its key entry toggle the same value; the key is
+    the keyboard's way (a narrow segment is hard to hit)."""
+    total = sum(k for _, _, k in items)
+    segs, keys = [], []
+    for i, (value, label, k) in enumerate(items):
+        if not k:
+            continue
+        cls = kind_class(i)
+        segs.append(toggle(key, value, "", cls=f"seg-s {cls}", style=f"flex-grow:{k}", tab=False, label=label,
+                           name=f"{label}: {n(k)} {noun}, {share(k, total)}"))  # fmt: skip
+        inner = f'<i class="sw {cls}"></i>{e(label)} {_count(k)} <span class="p">{share(k, total)}</span>'
+        keys.append(toggle(key, value, inner, cls="key", label=label))
+    return (
+        f'<div class="seg" role="group" aria-label="{e(title)}"><div class="seg-bar">{"".join(segs)}</div>'
+        f'<div class="seg-key">{"".join(keys)}</div></div>'
+    )
+
+
+def segmented_table(items: list[tuple[str, str, int]], head: str, noun: str) -> str:
+    total = sum(k for _, _, k in items)
+    return table([e(head), e(noun), "Anteil"], [[e(label), n(k), share(k, total)] for _, label, k in items if k])
+
+
+def pipeline(key: str, stages: list[tuple[str, str, int]], ended: list[tuple[str, str, int]], title: str,
+             ended_title: str = "", rest: tuple[str, str, int] | None = None) -> str:  # fmt: skip
+    """The way through a procedure: the stages (value, label, count) in order, each with the number of items that
+    stand there now and a bar by that number; below, the branch of the items that ended there (`ended`), and `rest`
+    (items without a known stage) when it has any. Each stage toggles its value."""
+    most = max([k for *_, k in stages + ended] + [1])
+
+    def stage(value: str, label: str, k: int, cls: str) -> str:
+        bar = f'<i class="pb" style="width:{_pct(k, most)}%"></i>'
+        return toggle(key, value, f'<span class="pl">{e(label)}</span>{_count(k)}{bar}', cls=cls, label=label)
+
+    main = "".join(f"<li>{stage(v, label, k, 'stage')}</li>" for v, label, k in stages)
+    branch = "".join(stage(v, label, k, "stage end") for v, label, k in ended)
+    extra = stage(*rest, "stage rest") if rest and rest[2] else ""
+    end = (f'<div class="pipe-end">{f"<span class=k>{e(ended_title)}</span>" if branch else ""}{branch}{extra}</div>'
+           if branch or extra else "")  # fmt: skip
+    return f'<div class="pipe" role="group" aria-label="{e(title)}"><ol class="pipe-main">{main}</ol>{end}</div>'
+
+
+def sized_chips(key: str, items: list[tuple[str, str, int]], title: str) -> str:
+    """Toggle chips (value, label, count) in a neutral colour, largest first, each with a bar by its count against
+    the largest: for groups that have no colour of their own, such as committees."""
+    most = max([k for *_, k in items] + [1])
+    out = "".join(toggle(key, value, f'{e(label)} {_count(k)}<i class="cb" style="width:{_pct(k, most)}%"></i>',
+                         cls="chip sized", label=label) for value, label, k in items)  # fmt: skip
+    return f'<div class="chips ctl-chips" role="group" aria-label="{e(title)}">{out}</div>'
+
+
+def chips(key: str, items: list[tuple[str, str, int, str]], title: str) -> str:
+    """Toggle chips (value, label, count, colour token), several at once; a chip without anything to filter is
+    disabled. The colour is the fraction's (or the government's, a neutral one for the rest), the name and the
+    count stand in text."""
+    out = []
+    for value, label, k, colour in items:
+        out.append(toggle(key, value, f'<i class="dot"></i>{e(label)} {_count(k)}', cls="chip",
+                          style=f"--c:var(--{colour})", label=label, disabled=not k))  # fmt: skip
+    return f'<div class="chips ctl-chips" role="group" aria-label="{e(title)}">{"".join(out)}</div>'
+
+
+def group_chips(key: str, counts: Counter, title: str = "Einbringer") -> str:
+    """The Einbringer as chips: the six fractions, the Bundesregierung, Bundesrat und Länder and Sonstige, each with
+    its count (`counts` by group name, data.initiator_group)."""
+    items = [(tok, SHORT.get(g, g), counts[g], tok) for g, tok in GROUP_TOKENS.items()
+             if g != "fraktionslos" or counts[g]]  # fmt: skip
+    return chips(key, items, title)
+
+
+def stacked(key: str, groups: list[tuple[str, str, str, Counter]], kinds: list[tuple[str, str]], title: str,
+            noun: str) -> str:  # fmt: skip
+    """One row per group (value, label, colour token, counts by kind), the segments per kind (`kinds`: (kind,
+    label)) in the kinds' shades, the length by the group's total against the largest; the numbers in the row's
+    text and on each segment's tooltip. A row toggles its group."""
+    most = max([sum(c.values()) for *_, c in groups] + [1])
+    out = []
+    for value, label, colour, c in groups:
+        total = sum(c.values())
+        segs = "".join(f'<i class="{kind_class(i)}" style="flex-grow:{c[k]}" title="{e(kl)}: {n(c[k])}"></i>'
+                       for i, (k, kl) in enumerate(kinds) if c[k])  # fmt: skip
+        text = " · ".join(f"{n(c[k])} {e(kl)}" for k, kl in kinds if c[k])
+        inner = (f'<span class="sn"><i class="dot" style="background:var(--{colour})"></i>{e(label)}</span>'
+                 f'<span class="sb"><span class="sbar" style="width:{_pct(total, most)}%">{segs}</span></span>'
+                 f'<span class="stot">{_count(total)}</span><span class="sx">{text}</span>')  # fmt: skip
+        out.append(toggle(key, value, inner, cls="srow", label=label))
+    legend = "".join(f'<span><i class="sw {kind_class(i)}"></i>{e(kl)}</span>' for i, (_, kl) in enumerate(kinds))
+    return (f'<div class="stack" role="group" aria-label="{e(title)}"><div class="legend">{legend}</div>'
+            f"{''.join(out)}</div>")  # fmt: skip
+
+
+def tile_spans(counts: list[int], cols: int, budget: int, least: tuple[int, int]) -> list[tuple[int, int]]:
+    """(columns, rows) of each tile in a grid of `cols` columns: an area of about count / total × `budget` cells,
+    near square, at least `least` (so every name stays readable) and never wider than the grid."""
+    total = sum(counts) or 1
+    out = []
+    for k in counts:
+        cells = max(least[0] * least[1], round(k / total * budget))
+        w = min(cols, max(least[0], round((cells * 1.6) ** 0.5)))
+        h = max(least[1], round(cells / w))
+        out.append((w, h))
+    return out
+
+
+def tiles(items: list[tuple[str, str, int, Counter]], kinds: list[tuple[str, str]], noun: str, one: str,
+          title: str) -> str:  # fmt: skip
+    """The tile field: one tile per item (href, label, count, counts by kind), the area by count (in grid cells, at
+    least a few so the name fits), largest first, a thin bar inside with the composition by kind. A tile is a link
+    to the item's page. The spans are computed for a wide grid (12 columns) and a phone (6 columns)."""
+    counts = [k for _, _, k, _ in items]
+    wide = tile_spans(counts, 12, 150, (3, 2))
+    narrow = tile_spans(counts, 6, 80, (3, 2))
+    out = []
+    for (href, label, k, c), (w, h), (mw, mh) in zip(items, wide, narrow, strict=True):
+        total = sum(c.values()) or 1
+        bar = "".join(f'<i class="{kind_class(i)}" style="width:{_pct(c[kk], total)}%"></i>'
+                      for i, (kk, _) in enumerate(kinds) if c[kk])  # fmt: skip
+        parts = ", ".join(f"{n(c[kk])} {kl}" for kk, kl in kinds if c[kk])
+        unit = one if k == 1 else noun
+        out.append(
+            f'<a class="tile" href="{e(href)}" style="--w:{w};--h:{h};--mw:{mw};--mh:{mh}" '
+            f'title="{e(label)}: {n(k)} {e(unit)} ({e(parts)})"><span class="tn">{e(label)}</span>'
+            f'<span class="tc">{n(k)} <span class="tu">{e(unit)}</span></span><span class="tbar">{bar}</span></a>'
+        )
+    legend = "".join(f'<span><i class="sw {kind_class(i)}"></i>{e(kl)}</span>' for i, (_, kl) in enumerate(kinds))
+    return (f'<div class="tiles-wrap"><div class="legend">{legend}</div>'
+            f'<nav class="tiles" aria-label="{e(title)}">{"".join(out)}</nav></div>')  # fmt: skip
+
+
+# ---------------------------------------------------------------- the activity strip
+
+
+def weeks_between(first: str, last: str) -> list[str]:
+    """Every ISO week from the week of `first` to the week of `last` (ISO dates)."""
+    d = dt.date.fromisoformat(first)
+    d -= dt.timedelta(days=d.weekday())
+    end = dt.date.fromisoformat(last)
+    out = []
+    while d <= end:
+        out.append(iso_week(d.isoformat()))
+        d += dt.timedelta(days=7)
+    return out
+
+
+def week_monday(week: str) -> dt.date:
+    y, w = week.split("-W")
+    return dt.date.fromisocalendar(int(y), int(w), 1)
+
+
+def week_label(week: str) -> str:
+    y, w = week.split("-W")
+    return f"KW {int(w)}/{y}"
+
+
+def strip_weeks(dates: Iterable[str], sitting_dates: Iterable[str]) -> list[str]:
+    """The weeks a strip spans: from the first to the last date of its rows and of the sittings."""
+    ds = sorted(d for d in [*dates, *sitting_dates] if d)
+    return weeks_between(ds[0], ds[-1]) if ds else []
+
+
+def strip(weeks: list[str], counts: Counter, sittings: set[str], noun: str, one: str) -> str:
+    """The activity strip: a bar per calendar week of the Wahlperiode (dates of Vorgänge fall between sitting weeks
+    too), its height by the number of rows in that week, a tick under the sitting weeks. A click on a bar, or a drag
+    across several, filters the list to those weeks (`zeit`); the arrow keys move along the bars, Enter or Space
+    picks one, Shift with an arrow key widens the range. controls.js redraws the heights for the other filters."""
+    if not weeks:
+        return ""
+    most = max([counts[w] for w in weeks] + [1])
+    bars = []
+    for i, w in enumerate(weeks):
+        k = counts[w]
+        s = w in sittings
+        name = f"{week_label(w)}{', Sitzungswoche' if s else ''}"
+        bars.append(
+            f'<button type="button" class="wk{" s" if s else ""}" data-w="{w}" data-label="{e(name)}" '
+            f'aria-pressed="false" aria-label="{e(name)}: {n(k)} {e(one if k == 1 else noun)}"'
+            f' tabindex="{0 if i == 0 else -1}"><i style="height:{_pct(k, most)}%"></i></button>'
+        )
+    marks = []  # (column, date): the first week, then the first week of each quarter, at least 6 weeks apart
+    for i, w in enumerate(weeks):
+        m = week_monday(w)
+        if i and week_monday(weeks[i - 1]).month != m.month and m.month in (1, 4, 7, 10):
+            if marks and i - marks[-1][0] < 6:
+                marks.pop()
+            marks.append((i, m))
+        elif not i:
+            marks.append((0, m))
+    ticks = []
+    for j, (i, m) in enumerate(marks):
+        end = marks[j + 1][0] if j + 1 < len(marks) else len(weeks)
+        label = MONTHS[m.month - 1][:3] + (f" {m.year}" if j == 0 or m.month == 1 else "")
+        ticks.append(f'<span style="grid-column:{i + 1}/{end + 1}">{e(label)}</span>')
+    return (
+        f'<div class="strip" role="group" aria-label="Zeitraum, je Kalenderwoche" data-f="zeit">'
+        f'<div class="strip-bars" style="--n:{len(weeks)}">{"".join(bars)}</div>'
+        f'<div class="strip-ax" style="--n:{len(weeks)}" aria-hidden="true">{"".join(ticks)}</div>'
+        '<div class="strip-out"><span data-range>Ganzer Zeitraum</span> <button type="button" class="zx" '
+        'data-zeit-clear hidden>Zeitraum aufheben</button> <span class="faint">Ein Balken je Kalenderwoche, ein '
+        "Strich darunter für jede Sitzungswoche.</span></div></div>"
+    )
+
+
+def strip_table(weeks: list[str], counts: Counter, noun: str) -> str:
+    """The strip's "Als Tabelle": the rows per month."""
+    months: Counter = Counter()
+    order: list[tuple[int, int]] = []
+    for w in weeks:
+        m = week_monday(w)
+        if (m.year, m.month) not in order:
+            order.append((m.year, m.month))
+        months[(m.year, m.month)] += counts[w]
+    return table(["Monat", e(noun)], [[f"{MONTHS[mo - 1]} {y}", n(months[(y, mo)])] for y, mo in order])
+
+
+def activity(dates: list[str], sittings: Iterable[str], noun: str, one: str, title: str = "Zeitraum") -> str:
+    """The strip over the rows' dates (ISO dates, one per row), with its table, as a `view`."""
+    sitting_dates = list(sittings)
+    weeks = strip_weeks(dates, sitting_dates)
+    counts = Counter(iso_week(d) for d in dates if d)
+    sw = {iso_week(d) for d in sitting_dates}
+    if not weeks:
+        return ""
+    return view("zeit", title, strip(weeks, counts, sw, noun, one), strip_table(weeks, counts, noun))

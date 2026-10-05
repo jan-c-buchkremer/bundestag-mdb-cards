@@ -1,9 +1,8 @@
 import json
-import shutil
 import subprocess
 from pathlib import Path
 
-import pytest
+from conftest import need_node
 
 from research import search
 
@@ -62,8 +61,7 @@ def test_entity_index_has_every_type(conn):
 
 def test_entities_resolve_grouped_by_type(conn, tmp_path):
     """search.js's resolve() over the index the build writes: entities grouped by type, each with its page."""
-    if not shutil.which("node"):
-        pytest.skip("node is not installed")
+    need_node()
     path = tmp_path / "suche.json"
     path.write_text(json.dumps(site_index(conn), ensure_ascii=False))
     js = HERE.parent / "src" / "research" / "search.js"

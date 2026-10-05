@@ -21,14 +21,16 @@ final one is a foundation requirement. `missing_debates` lists these steps by si
 
 from __future__ import annotations
 
+import datetime as dt
 import json
 import re
 import sqlite3
 from collections import Counter
 from pathlib import Path
 
-from research import facts, redirects, urls
-from research.data import WP, _has_column, drucksache_pdf, has_table, page_id
+from research import controls, facts, redirects, urls
+from research.controls import GROUP_TOKENS
+from research.data import WP, _has_column, drucksache_pdf, has_table, initiator_group, iso_week, page_id
 from research.ui import (
     FOOTER,
     PROCEDURE_TABS,
@@ -102,6 +104,43 @@ STATUS_GLOSSARY = {
         "Gesetz tritt es 14 Tage nach der Ausgabe des Bundesgesetzblatts in Kraft.",
     "unbekannt": "Für diesen Vorgang nennt das DIP keinen Beratungsstand.",
 }  # fmt: skip
+# The stages of a bill's way through the procedure (the pipeline on the Vorgänge and Sachgebiet pages) and the DIP
+# Beratungsstand that belongs to each: the one table that maps DIP's Stände onto the stages. A stage counts the bills
+# that stand there now. The exact DIP Stand stays on every row and in the pipeline's table.
+STAGES = (
+    ("eingebracht", "Eingebracht"),
+    ("ausschuesse", "In den Ausschüssen"),
+    ("beschlossen", "Im Bundestag beschlossen"),
+    ("bundesrat", "Bundesrat"),
+    ("verkuendet", "Verkündet"),
+)
+ENDED = (("abgelehnt", "Abgelehnt"), ("erledigt", "Für erledigt erklärt"), ("versagt", "Zustimmung versagt"))
+NO_STAGE = ("ohne", "ohne Stand im DIP")
+STAGE = {
+    "Noch nicht beraten": "eingebracht",
+    "Dem Bundestag zugeleitet - Noch nicht beraten": "eingebracht",
+    "1. Durchgang im Bundesrat abgeschlossen": "eingebracht",  # the Bundesrat's opinion before the Bundestag
+    "In der Beratung (Einzelheiten siehe Vorgangsablauf)": "ausschuesse",  # DIP's catch-all while it is deliberated
+    "Überwiesen": "ausschuesse",
+    "Beschlussempfehlung liegt vor": "ausschuesse",  # the committee is done, the plenum has not voted yet
+    "Verabschiedet": "beschlossen",
+    "Bundesrat hat Vermittlungsausschuss nicht angerufen": "bundesrat",
+    "Bundesrat hat zugestimmt": "bundesrat",
+    "Vermittlungsvorschlag liegt vor": "bundesrat",
+    "Verkündet": "verkuendet",
+    "Abgelehnt": "abgelehnt",
+    "Für erledigt erklärt": "erledigt",
+    "Bundesrat hat Zustimmung versagt": "versagt",
+    "unbekannt": "ohne",
+}
+
+
+def stage(b: dict) -> str:
+    """The stage of a Gesetzgebung (STAGE; a Stand DIP adds later is "ohne" until it is mapped); "" for any other
+    kind of Vorgang."""
+    return STAGE.get(b["status"], NO_STAGE[0]) if b["type"] == GESETZ else ""
+
+
 GLOSSARY_STEPS = (
     ("Einbringung", "Ein Gesetzentwurf kommt von der Bundesregierung, aus der Mitte des Bundestages (von "
         "einer Fraktion oder von mindestens 5 % der Abgeordneten) oder vom Bundesrat (Art. 76 GG)."),
@@ -169,31 +208,6 @@ def _status_slug(status: str) -> str:
     return _SLUG.sub("-", status.translate(_UMLAUT).lower()).strip("-")
 
 
-FILTER_JS = """<script>
-(() => {
-  const q = document.getElementById("bq"), st = document.getElementById("bst"), ty = document.getElementById("bty");
-  const count = document.getElementById("bcount");
-  const rows = [...document.querySelectorAll("#bills a.row")];
-  function apply() {
-    const words = q.value.toLowerCase().split(/\\s+/).filter(Boolean);
-    let shown = 0;
-    for (const r of rows) {
-      const text = r.textContent.toLowerCase();
-      const ok = (!st.value || r.dataset.status === st.value) && (!ty.value || r.dataset.type === ty.value)
-        && words.every((w) => text.includes(w));
-      r.hidden = !ok;
-      shown += ok;
-    }
-    count.textContent = shown === rows.length ? `${rows.length} Vorgänge` : `${shown} von ${rows.length}`;
-  }
-  q.addEventListener("input", apply);
-  st.addEventListener("change", apply);
-  ty.addEventListener("change", apply);
-  apply();
-})();
-</script>"""
-
-
 def _json_list(s: str | None) -> list:
     try:
         v = json.loads(s or "[]")
@@ -202,10 +216,12 @@ def _json_list(s: str | None) -> list:
     return v if isinstance(v, list) else []
 
 
-def load(conn: sqlite3.Connection, sittings: list[dict], decisions: list[dict]) -> list[dict]:
+def load(conn: sqlite3.Connection, sittings: list[dict], decisions: list[dict], today: str | None = None) -> list[dict]:
     """Every Vorgang of the Wahlperiode that reaches the plenum, with its Drucksachen, debates (agenda items and
     sub-items that carry one of its Vorlagen, with their speeches), decisions and DIP positions (None when the store
-    has no `vorgang_position`), newest activity first. Empty without the `vorgang` table."""
+    has no `vorgang_position`), newest activity first. Empty without the `vorgang` table.
+    `latest` is the newest step that has happened by `today` (the build date), so a law that comes into force in 2030
+    does not sort first; `in_force` is a later Inkrafttreten, shown as such on the row."""
     if not has_table(conn, "vorgang"):
         return []
     has_verk = _has_column(conn, "vorgang", "verkuendung")  # foundation PR #16, older stores don't have it yet
@@ -269,9 +285,18 @@ def load(conn: sqlite3.Connection, sittings: list[dict], decisions: list[dict]) 
     for b in out:
         b["decisions"].sort(key=lambda d: (d["date"], d["order"]))
         b["timeline"] = timeline(b)
-        b["latest"] = max((t["date"] for t in b["timeline"]), default="")
+        b["latest"], b["in_force"] = dates(b["timeline"], today)
     out.sort(key=lambda b: (b["latest"], b["id"]), reverse=True)
     return out
+
+
+def dates(steps: list[dict], today: str | None = None) -> tuple[str, str | None]:
+    """The date of the newest step that has happened by `today` (default: the build date), and the first
+    Inkrafttreten after it, if one is still to come."""
+    today = today or dt.date.today().isoformat()
+    past = [t["date"] for t in steps if t["date"] and t["date"] <= today]
+    future = [t["date"] for t in steps if t["date"] > today and t["what"] == "Inkrafttreten"]
+    return max(past, default=""), min(future, default=None)
 
 
 def phase(what: str, chamber: str | None, kind: str | None = None) -> str:
@@ -525,49 +550,85 @@ Reihenfolge des Verfahrens oben.</p>
 </section>"""
 
 
-def _status_label(s: str) -> str:
-    """The status, linked to its glossary entry when it has one."""
+def _status_label(s: str, glossary: str = "") -> str:
+    """The status, linked to its glossary entry when it has one (`glossary`: the path of the Vorgänge index, "" on
+    the index itself)."""
     label = e(s)
-    return f'<a href="#status-{e(_status_slug(s))}">{label}</a>' if s in STATUS_GLOSSARY else label
+    return f'<a href="{glossary}#status-{e(_status_slug(s))}">{label}</a>' if s in STATUS_GLOSSARY else label
+
+
+def groups(b: dict) -> set[str]:
+    """The groups of a Vorgang's Einbringer (data.initiator_group)."""
+    return {initiator_group(x) for x in b["initiators"] if isinstance(x, str)}
 
 
 def row(b: dict, href: str, external: bool = False) -> str:
-    """One Vorgang in a list (the index, a Sachgebiet's Vorgänge): its newest date, title, kind, Einbringer and Stand,
-    with `data-type` and `data-status` for FILTER_JS. `external`: the link goes to DIP, since the Vorgang has no page
-    here, and is marked ↗."""
+    """One Vorgang in a list (the index, a Sachgebiet's Vorgänge): the date of its newest step, title, kind,
+    Einbringer, a later Inkrafttreten, and the DIP Stand; with its values for the controls (`data-art`, `data-stufe`,
+    `data-von`, `data-w`). `external`: the link goes to DIP, since the Vorgang has no page here, and is marked ↗."""
     mark = ' <span class="faint" title="Im DIP">↗</span>' if external else ""
     by = ", ".join(b["initiators"][:3]) + (" …" if len(b["initiators"]) > 3 else "")
+    von = " ".join(sorted(GROUP_TOKENS[g] for g in groups(b) if g in GROUP_TOKENS))
+    later = f" · tritt am {short_date(b['in_force'])} in Kraft" if b.get("in_force") else ""
     return (
-        f'<a class="row" href="{e(href)}" data-status="{e(b["status"])}" data-type="{e(b["type"])}">'
+        f'<a class="row" href="{e(href)}" data-art="{urls.slug(b["type"])}" data-stufe="{stage(b)}" '
+        f'data-von="{von}" data-w="{iso_week(b["latest"]) if b["latest"] else ""}">'
         f'<span class="d">{short_date(b["latest"]) if b["latest"] else ""}</span><span class="t"><span class="ti">'
-        f'{e(b["title"])}{mark}</span><span class="sub">{e(b["type"])}{f" · {e(by)}" if by else ""}</span></span>'
-        f'<span class="l"><span class="st">{e(b["status"])}</span></span></a>'
+        f'{e(b["title"])}{mark}</span><span class="sub">{e(b["type"])}{f" · {e(by)}" if by else ""}{later}</span>'
+        f'</span><span class="l"><span class="st">{e(b["status"])}</span></span></a>'
     )
 
 
-def index_page(procs: list[dict]) -> str:
-    bills = [b for b in procs if b["type"] == GESETZ]
+def stand_table(bills: list[dict], glossary: str = "") -> str:
+    """The pipeline's "Als Tabelle": each stage with the DIP Stände in it and their counts."""
     status = Counter(b["status"] for b in bills)
+    order = [k for k, _ in (*STAGES, *ENDED, NO_STAGE)]
+    label = dict((*STAGES, *ENDED, NO_STAGE))
+    lines = sorted(status.items(), key=lambda sk: (order.index(STAGE.get(sk[0], NO_STAGE[0])), -sk[1], sk[0]))
+    return controls.table(["Stufe", "Stand im DIP", "Vorgänge"],
+                          [[e(label[STAGE.get(s, NO_STAGE[0])]), _status_label(s, glossary), n(k)]
+                           for s, k in lines])  # fmt: skip
+
+
+def vorgaenge_controls(vs: list[dict], href, sitting_dates: list[str], glossary: str = "", wrap: bool = True) -> str:
+    """The Vorgänge of a page as a list with its charts, each also a filter: the kinds as a segmented bar, the
+    Gesetzgebungsvorgänge as a pipeline of stages, the Einbringer as chips and the dates as an activity strip
+    (controls.py). `href(v)` gives a row's link and whether it leads to DIP; `glossary` the path of the Vorgänge
+    index for the Stand's glossary. `wrap`: in a scope of its own; without, the caller puts it into the scope with
+    its other controls."""
+    noun = "Vorgänge"
+    kinds = [(urls.slug(t), t, k) for t, k in Counter(v["type"] for v in vs).most_common()]
+    bills = [v for v in vs if v["type"] == GESETZ]
+    at = Counter(stage(v) for v in bills)
+    parts = [controls.toolbar("Titel oder Einbringer …"),
+             controls.view("art", "Art", controls.segmented("art", kinds, "Art", noun),
+                           controls.segmented_table(kinds, "Art", noun))]  # fmt: skip
+    if bills:
+        pipe = controls.pipeline("stufe", [(k, label, at[k]) for k, label in STAGES],
+                                 [(k, label, at[k]) for k, label in ENDED], "Stand der Gesetzgebungsvorgänge",
+                                 "beendet ohne Gesetz", (*NO_STAGE, at[NO_STAGE[0]]))  # fmt: skip
+        title = f"Stand der {n(len(bills))} Gesetzgebungsvorgänge" if len(bills) > 1 else "Stand der Gesetzgebung"
+        parts.append(controls.view("stufe", title, pipe, stand_table(bills, glossary)))
+    parts.append(controls.block("Einbringer", controls.group_chips("von", Counter(g for v in vs for g in groups(v)))))
+    parts.append(controls.activity([v["latest"] for v in vs], sitting_dates, noun, "Vorgang", "Zuletzt bewegt"))
+    parts.append(controls.rows((row(v, *href(v)) for v in vs), "bills", "Keine Vorgänge im Datenbestand."))
+    return controls.scope("".join(parts), noun, "Vorgang") if wrap else "".join(parts)
+
+
+def index_page(procs: list[dict], sitting_dates: list[str] | None = None) -> str:
+    bills = [b for b in procs if b["type"] == GESETZ]
     types = Counter(b["type"] for b in procs)
-    options = "".join(
-        f'<option value="{e(s)}">{e(s)} ({k})</option>' for s, k in Counter(b["status"] for b in procs).most_common()
-    )
-    type_options = "".join(f'<option value="{e(t)}">{e(t)} ({k})</option>' for t, k in types.most_common())
-    table = "".join(f'<tr><td class="l">{_status_label(s)}</td><td>{n(k)}</td></tr>' for s, k in status.most_common())
-    rows = "".join(row(b, f"{b['id']}.html") for b in procs)
+    lists = vorgaenge_controls(procs, lambda b: (f"{b['id']}.html", False), sitting_dates or [])
     body = f"""{subtabs("../", PROCEDURE_TABS, "procedures")}<div class="bills"><h1>Vorgänge</h1>
 <p class="lead">Ein Vorgang ist im Dokumentationssystem DIP alles, was zu einer Vorlage gehört: ein Gesetzentwurf mit seinen Beratungen, Beschlussempfehlungen und Abstimmungen, ein Antrag, ein Entschließungsantrag. Hier stehen alle {n(types[GESETZ])} Gesetzgebungsvorgänge des 21. Bundestages und alle weiteren Vorgänge, die im Plenum beraten oder abgestimmt wurden ({n(len(procs) - types[GESETZ])}), der zuletzt bewegte zuerst. Ein Gesetz beginnt als Gesetzentwurf von der Bundesregierung, aus der Mitte des Bundestages, meist von Fraktionen, oder vom Bundesrat. Der Bundestag berät es in der Regel dreimal im Plenum und dazwischen in den Ausschüssen, dann stimmt er ab. Danach folgt der Bundesrat. Zuletzt wird das Gesetz ausgefertigt und im Bundesgesetzblatt verkündet.</p>
-<details class="open"><summary>Wie viele Gesetzesvorhaben in welchem Stand sind</summary><div class="rows"><table class="plenum"><thead><tr><th>Stand im DIP</th><th>Vorgänge</th></tr></thead><tbody>{table}</tbody></table></div></details>
-<div class="filters"><input type="search" id="bq" placeholder="Titel oder Einbringer …" autocomplete="off"><select id="bty"><option value="">jede Art</option>{type_options}</select><select id="bst"><option value="">jeder Stand</option>{options}</select></div>
-<div class="count" id="bcount"></div>
-<div class="rows" id="bills">{rows}</div>
-{_glossary(set(status))}</div>
-<footer>{FOOTER}</footer>
-{FILTER_JS}"""  # noqa: E501
+<p class="explain">Jedes Diagramm ist auch ein Filter: Ein Klick auf eine Art, eine Stufe, einen Einbringer oder eine Woche zeigt unten nur diese Vorgänge. Mehrere Filter gelten zusammen. Das Datum eines Vorgangs ist sein letzter Schritt bis heute. Ein späteres Inkrafttreten steht in der Zeile.</p>
+{lists}
+{_glossary({b["status"] for b in bills})}</div>
+<footer>{FOOTER}</footer>"""  # noqa: E501
     return shell(root="../", kind="p-bills", active="bills", title="Vorgänge im Bundestag",
                  desc="Alle Gesetzgebungsvorgänge und alle im Plenum beratenen Vorgänge des 21. Deutschen Bundestages "
                       "mit Stand, Drucksachen, Debatten und Abstimmungen.", body=body, data={"kind": "procedures"},
-                 head=STYLE)  # fmt: skip
+                 head=STYLE + controls.head("../"))  # fmt: skip
 
 
 def write(conn: sqlite3.Connection, out: Path, sittings: list[dict], decisions: list[dict],
@@ -589,7 +650,7 @@ def write(conn: sqlite3.Connection, out: Path, sittings: list[dict], decisions: 
         (d / f"{b['id']}.html").write_text(procedure_page(b, have, members, relation), encoding="utf-8")
         if b["type"] == GESETZ:
             redirects.write(out, f"gesetze/{b['id']}.html", urls.vorgang(b["id"]), b["title"])
-    (d / "index.html").write_text(index_page(procs), encoding="utf-8")
+    (d / "index.html").write_text(index_page(procs, [s["date"] for s in sittings]), encoding="utf-8")
     redirects.write(out, "gesetze/index.html", urls.PROCEDURES, "Vorgänge")
     written = {b["id"] for b in procs}
     for dec in decisions:

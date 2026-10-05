@@ -258,9 +258,9 @@ def gremien_index_page(bodies: list[dict], government: bool = False) -> str:
     items = [(f"{b['slug']}.html", b["short"], len(current(b)), Counter(TOKEN.get(m["fraction"], "frl")
               for m in current(b))) for b in shown]  # fmt: skip
     attrs = [f'data-art="{"ausschuss" if b["kind"] == "committee" else "gremium"}"' for b in shown]
-    field = controls.tiles(
-        items, fractions, "Mitglieder", "Mitglied", "Ausschüsse und Gremien", attrs, listing=True, per=0.8
-    )  # a committee of 40 gets 32 cells, the smallest 6
+    # 10 px per member: a committee of 40 starts at 400 px before its row fills, a small Gremium at the minimum
+    field = controls.tiles(items, fractions, "Mitglieder", "Mitglied", "Ausschüsse und Gremien", attrs, listing=True,
+                           per=10)  # fmt: skip
     kinds = [("ausschuss", "Ausschüsse und Unterausschüsse", len(committees), "accent"),
              ("gremium", "weitere Gremien", len(others), "accent")]  # fmt: skip
     lists = controls.scope(
@@ -274,7 +274,7 @@ def gremien_index_page(bodies: list[dict], government: bool = False) -> str:
 <h2>Fraktionen</h2><div class="rows">{frac_rows}</div>
 {gov}
 <h2>Ausschüsse und Gremien <span class="n">{n(len(bodies))}</span></h2>
-<p class="explain">Jede Kachel ist ein Gremium. Ihre Fläche entspricht der Zahl der aktuellen Mitglieder, mit einer Mindestgröße, damit jeder Name lesbar bleibt. Der Balken zeigt die Fraktionen.</p>
+<p class="explain">Jede Kachel ist ein Gremium. Ihre Breite richtet sich nach der Zahl der aktuellen Mitglieder, eine Mindestbreite hält jeden Namen lesbar. Der Balken zeigt die Fraktionen.</p>
 {lists}
 </div>
 <footer>{FOOTER}</footer>"""  # noqa: E501

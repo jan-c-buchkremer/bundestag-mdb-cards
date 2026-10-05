@@ -435,7 +435,7 @@ html.js .cv.alt .cv-alt { display: block; }
 .tg.key[aria-pressed=true] .sw.own { background: var(--c); }
 /* the tile field as a list ("Als Liste" of the Gremien): the same links, one per line */
 html.js .cv.alt .tiles { display: block; }
-html.js .cv.alt .tile { display: grid; grid-template-columns: minmax(0, 1fr) auto 120px; align-items: center; gap: 12px; padding: 8px 10px; margin: 0 0 2px; border-radius: 6px; }
+html.js .cv.alt .tile { min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto 120px; align-items: center; gap: 12px; padding: 8px 10px; margin: 0 0 2px; border-radius: 6px; }
 html.js .cv.alt .tile .tc { margin: 0; padding: 0; }
 html.js .cv.alt .tile .tbar { margin: 0; }
 html.js .cv.alt .tile[hidden], .tile[hidden] { display: none; }

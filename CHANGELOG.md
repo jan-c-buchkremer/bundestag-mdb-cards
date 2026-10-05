@@ -16,7 +16,7 @@ address, so it can be shared and the back button undoes it.
   "Verkündet" with the branch "beendet ohne Gesetz" (the DIP Stände mapped in `procedures.STAGE`), the Einbringer as
   chips, a strip of the weeks. The selects "jede Art" and "jeder Stand" are gone. Long lists show the newest 30 and
   "mehr anzeigen".
-- `sachgebiete/index.html`: a tile per Sachgebiet, the area by its Vorgänge, the table behind "Als Tabelle".
+- `sachgebiete/index.html`: a tile per Sachgebiet, its width by its Vorgänge, the table behind "Als Tabelle".
   `sachgebiete/<slug>.html`: the Einbringer as stacked bar rows that filter the Vorgänge, and the controls of the
   Vorgänge index.
 - `vorgaenge/eu-vorlagen.html`: the Stand as a row of steps, the lead committees as chips (once the store has the
@@ -29,7 +29,7 @@ address, so it can be shared and the back button undoes it.
   Fraktion and own vote and the strip instead of the select.
 - `debatte/index.html`: small multiples per fraction instead of the three tables of "Ton und Ordnung" (the tables
   behind "Als Tabelle"); the Ordnungsmaßnahmen are a list filtered by a card, kind, fraction and week.
-- `gremien/index.html`: a tile per Gremium, the area by its current members, the bar its fractions, filtered by
+- `gremien/index.html`: a tile per Gremium, its width by its current members, the bar its fractions, filtered by
   kind and name, "Als Liste" for a plain list. A Gremium's page filters its members by fraction, role and name.
 - A Vorgang's date in lists is its latest step until the build date, so a law with an Inkrafttreten in 2030 no
   longer sorts first; the row says "tritt am … in Kraft".

@@ -314,7 +314,7 @@ def index_page(subjects: dict[str, list[dict]], none: Counter, plenary: dict[str
 oder mehreren Sachgebieten zu. Die Dokumentation des Bundestages legt sie fest. Hier stehen alle {n(len(subjects))}
 Sachgebiete mit dem, was der 21. Bundestag darin getan hat, das größte zuerst. {n(with_subject)} Vorgänge der
 Wahlperiode haben ein Sachgebiet. Jede Kachel führt zu ihren Vorgängen, Reden, Abstimmungen und Drucksachen. Ihre
-Fläche entspricht der Zahl der Vorgänge, mit einer Mindestgröße, damit jeder Name lesbar bleibt. Der Balken in der
+Breite richtet sich nach der Zahl der Vorgänge, eine Mindestbreite hält jeden Namen lesbar. Der Balken in der
 Kachel zeigt die Arten.</p>
 <p class="explain">{OVERLAP} „Im Plenum beraten“ zählt die Vorgänge, deren Drucksache ein Tagesordnungspunkt aufruft.
 „Beschlüsse“ zählt jeden Beschluss einmal.</p>

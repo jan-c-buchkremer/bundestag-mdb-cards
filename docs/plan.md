@@ -38,8 +38,8 @@ don't serve it go on "Not now", not into code.
      DIP Stand stays on every row and in the pipeline's table.
    - A Vorgang's date in lists is its latest step that has happened by the build date; a later Inkrafttreten is
      named on the row.
-   - Built (research #57, in review), in this order: `vorgaenge/index.html`, `sachgebiete/index.html`,
-     `sachgebiete/<slug>.html`, `vorgaenge/eu-vorlagen.html`, `abstimmungen/index.html`; then
+   - Built in this order. Merged (research #57): `vorgaenge/index.html`, `sachgebiete/index.html`,
+     `sachgebiete/<slug>.html`, `vorgaenge/eu-vorlagen.html`, `abstimmungen/index.html`. In review, the second round:
      - Fragen (`questions.py`): the statistics are charts that choose a list and filter it (a click on a fraction's
        row of the Kleine Anfragen opens their list for that fraction); each kind's list has chips for Fraktion,
        Ressort and Stand, the answer time as a segmented bar and a column per month instead of the selects. The

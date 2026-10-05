@@ -106,7 +106,7 @@
     const more = scope?.querySelector('[data-more]');
     const none = scope?.querySelector('[data-none]');
     const strip = scope?.querySelector('.strip');
-    const bars = strip ? [...strip.querySelectorAll('.wk')] : [];
+    const bars = strip ? [...strip.querySelectorAll('.swk')] : [];
     const step = +(list?.dataset.limit || 30);
     const noun = scope?.dataset.noun || '', one = scope?.dataset.one || '', dat = scope?.dataset.dat || noun;
     let state = clean(parse(location.hash));
@@ -266,7 +266,7 @@
     }
 
     document.addEventListener('click', e => {
-      const t = e.target.closest('[data-f][data-v], [data-show], [data-reset], [data-more], [data-zeit-clear], .wk');
+      const t = e.target.closest('[data-f][data-v], [data-show], [data-reset], [data-more], [data-zeit-clear], .swk');
       if (!t) return;
       if (t.matches('[data-show]')) {
         const key = t.closest('figure.cv').dataset.view;
@@ -301,7 +301,7 @@
       } else if (t.matches('[data-more]')) {
         limit += step;
         apply();
-      } else if (t.matches('.wk') && e.detail === 0) {  // Enter or Space; a pointer is handled on pointerup
+      } else if (t.matches('.swk') && e.detail === 0) {  // Enter or Space; a pointer is handled on pointerup
         setZeit(t.dataset.w, t.dataset.w);
       }
     });
@@ -311,9 +311,9 @@
     // the strip: press on a bar and drag across others for a range; arrow keys move, Shift + arrow widens
     if (strip) {
       const box = strip.querySelector('.strip-bars');
-      const at = e => document.elementFromPoint(e.clientX, e.clientY)?.closest('.wk');
+      const at = e => document.elementFromPoint(e.clientX, e.clientY)?.closest('.swk');
       box.addEventListener('pointerdown', e => {
-        const b = e.target.closest('.wk');
+        const b = e.target.closest('.swk');
         if (!b || e.button > 0) return;
         drag = [b.dataset.w, b.dataset.w];
         for (const x of bars) x.tabIndex = x === b ? 0 : -1;
@@ -336,7 +336,7 @@
       window.addEventListener('pointercancel', () => { drag = null; apply(); });
       let anchor = null;
       box.addEventListener('keydown', e => {
-        const b = e.target.closest('.wk');
+        const b = e.target.closest('.swk');
         if (!b) return;
         const i = bars.indexOf(b);
         const j = { ArrowLeft: i - 1, ArrowRight: i + 1, Home: 0, End: bars.length - 1 }[e.key];

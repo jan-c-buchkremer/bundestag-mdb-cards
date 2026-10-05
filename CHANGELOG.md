@@ -5,6 +5,13 @@ not before? If that sentence is hard to write, the release is not a finished ver
 
 ## Unreleased
 
+- UI check (`scripts/ui_check.py`, `scripts/ui_check.sh`, `tests/test_ui.py`, in CI): every kind of page at desktop
+  and phone width, errors and screenshot comparison. Its first run found and this release fixes:
+  - the Orte page's script did not run: a line was split inside its JavaScript, so no place search and no map;
+  - the week strip's bars and the calendar's week cards shared the class `.wk`: on Sitzungen the sittings of a week
+    stood side by side and the page was 1,819 px wide (the strip's bars are now `.swk`);
+  - Radar links did not wrap: on a phone the front page was 802 px wide.
+
 Readers pick by seeing: on the Vorgänge, Sachgebiete, EU-Vorlagen, Abstimmungen, Fragen, Geschlossenheit,
 Debattenkultur and Gremien pages every chart is also a filter, the filters combine, and the selection is in the
 address, so it can be shared and the back button undoes it.

@@ -7,12 +7,19 @@ uv run research preview              # build from the live data on server-jan (~
 uv run research preview --no-build   # serve the last build again
 uv run research preview --port 8001  # when 8000 is taken
 scripts/stage.sh                  # share the running preview on the tailnet until Ctrl-C: https://<host>.ts.net:8445/
+scripts/ui_check.sh data/out --baseline data/ui-baseline   # the UI check on the preview build (scripts/ui_check.py)
 ```
 
 The preview builds from what the nightly run uses (`/srv/apps/bundestag/data`: the foundation store, its raw folder
 and export, the Themenlandschaft's JSON) unless the variable is set (`BDF_DB`, `BDF_RAW`, …; `research/preview.py`). It
 only reads the store, so it can run while the nightly run writes. It is served over HTTP because the Pagefind search
 does not work from file://. Check a change there before proposing a commit.
+
+The UI check opens one page of every kind at desktop and phone width and reports script errors, pages wider than the
+screen, cut-off content, broken images, nameless links and filters that ignore the URL (errors), plus scroll boxes,
+overlaps and accessibility findings (warnings). With `--baseline` it also compares screenshots with the approved
+ones and lists the pages that changed; `--approve` makes this run the baseline. The report is `data/ui/report.md`.
+CI runs the same check on the e2e site (`tests/test_ui.py`).
 
 ## What goes live when
 
@@ -29,7 +36,8 @@ releasing the consumer.
 
 Versions are `v0.MINOR.PATCH`: a minor release is a vertical slice a reader can use, a patch fixes one.
 
-1. Everything for the release is merged to `main`, CI is green, and the preview shows it working.
+1. Everything for the release is merged to `main`, CI is green, the preview shows it working, and the UI check on
+   the preview build has no errors.
 2. In `CHANGELOG.md`, turn "Unreleased" into `## v0.X.0 (YYYY-MM-DD)`, starting with the sentence: what can a reader
    do now that they could not before? Then the changes, one line each. Leave a fresh empty "Unreleased" above it.
    Commit to `main` ("Release v0.X.0").

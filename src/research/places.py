@@ -339,8 +339,7 @@ HUB_JS = """<script>
 // the place hub (places.py `bund_page`): the place search over orte/orte.json (places.js), the map (wkmap.js);
 // every result, map click and list row leads to the canonical place page
 document.addEventListener('DOMContentLoaded', () => {
-  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', '
-                                                                                                                   '"'": '&#39;' })[c]);
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
   const $ = id => document.getElementById(id);
   const q = $('pq'), out = $('presults');
   const KIND = { land: 'Land', wk: 'Wahlkreis', gemeinde: 'Gemeinde' };

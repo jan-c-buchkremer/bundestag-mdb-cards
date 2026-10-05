@@ -79,9 +79,9 @@ def page(
     hero = f"""<section class="hero">
 <div>
   <span class="eyebrow"><span class="live"></span>21. Deutscher Bundestag{f" · {e(upto)}" if upto else ""}</span>
-  <h1>Was im Bundestag <span class="r">passiert</span>. Und was es <span class="v">bedeutet</span>.</h1>
-  <p class="lead">Jede Rede, jede Abstimmung, jedes Mitglied, mit Quelle zum Nachprüfen. Und ein Radar für die
-  Themen, die den Bundestag bewegen.</p>
+  <h1>Den Bundestag <span class="r">recherchieren</span>. Seine Arbeit <span class="v">verstehen</span>.</h1>
+  <p class="lead">Alle Reden, Vorgänge und Mitglieder, mit den offiziellen Quellen zum Nachprüfen. Ein Radar für
+  die erweiterte Analyse.</p>
   <form class="bigq" role="search" action="suche.html">
     <svg viewBox="0 0 16 16" width="18" height="18" aria-hidden="true"><circle cx="7" cy="7" r="5" fill="none"
     stroke="currentColor" stroke-width="1.6"/><path d="M11 11l3.5 3.5" stroke="currentColor" stroke-width="1.6"
@@ -92,7 +92,7 @@ def page(
   <div class="quick">{"".join(quick)}</div>
 </div>
 <div class="house"><div id="chart"></div><div class="cap">{legend}</div>
-<p class="hint">{n(len(seats))} Sitze. Jeder Punkt führt zu einer Karte.</p></div>
+<p class="hint">{n(len(seats))} Sitze. Jeder Punkt führt zu einer Person.</p></div>
 </section>"""
 
     n_dec = len(decisions)
@@ -108,17 +108,18 @@ def page(
 
     n_rc = sum(1 for d in decisions if d["kind"] == "namentlich")
     tiles = (
-        ("abgeordnete.html", "Abgeordnete", "Eine Karte je Mitglied: Reden, Stimmen, Ausschüsse.",
-         f"{n(len(members))} Karten"),
+        ("abgeordnete.html", "Abgeordnete",
+         "Ein Steckbrief pro Mitglied: Zugehörigkeiten, Reden, Ausschüsse und Herkunft.",
+         f"{n(len(members))} Steckbriefe"),
         ("orte/index.html", "Orte", "Wer vertritt mein Land, meinen Wahlkreis, meine Gemeinde?", "299 Wahlkreise"),
         ("vorgaenge/index.html", "Vorgänge", "Gesetze und Anträge vom Entwurf bis zum Beschluss.", n(procedures)),
         ("sitzungen/index.html", "Sitzungen", "Jede Sitzungswoche, jede Tagesordnung, jede Rede.", n(len(sittings))),
-        ("abstimmungen/index.html", "Abstimmungen", "Namentlich und per Handzeichen, mit Ergebnis.",
+        ("abstimmungen/index.html", "Abstimmungen", "Namentlich und per Handzeichen.",
          f"{n(n_rc)} namentlich"),
-        ("regierung/index.html", "Fragen", "Was Abgeordnete die Bundesregierung fragen, und wer antwortet."),
-        ("gremien/index.html", "Gremien", "Fraktionen, Ausschüsse, Regierung und wer darin sitzt."),
-        ("debatte/index.html", "Debattenkultur", "Zwischenrufe, Beifall, Ordnungsrufe: gezählt."),
-        ("daten.html", "Daten", "Alles als offene Daten zum Herunterladen, mit Quellen."),
+        ("regierung/index.html", "Fragen", "Was Abgeordnete die Bundesregierung fragen und wie sie antwortet."),
+        ("gremien/index.html", "Gremien", "Fraktionen, Ausschüsse und Ämter."),
+        ("debatte/index.html", "Debattenkultur", "Statistische Kennzahlen über Beiträge und Verhalten im Bundestag."),
+        ("daten.html", "Daten", "Über die Daten und Downloads."),
     )  # fmt: skip
     research = f"""<section class="world research" id="recherche">
 <span class="tagline">Recherche</span>
@@ -130,8 +131,8 @@ zu ihrer Quelle.</p>
 
     radar_tiles = []
     if landscape:
-        radar_tiles.append(_tile(LANDSCAPE, "Themenlandschaft", "Alle Reden einer Woche als Karte, nach Ähnlichkeit "
-                                 "gruppiert: worüber gestritten wird.", "jede Sitzungswoche"))  # fmt: skip
+        radar_tiles.append(_tile(LANDSCAPE, "Themenlandschaft", "Zu jeder Sitzungswoche eine Landkarte ihrer Themen. "
+                                 "Interaktiv und informativ.", "jede Sitzungswoche"))  # fmt: skip
     if themes:
         radar_tiles.append(_tile(urls.THEMES, "Themen der Wahlperiode", "Die großen Themen über alle Wochen, mit "
                                  "Fraktionen und Vorgängen.", f"{n(themes)} Themen"))  # fmt: skip
@@ -140,12 +141,13 @@ zu ihrer Quelle.</p>
                                  "Fraktion komme ich am nächsten?", "läuft nur im Browser"))  # fmt: skip
     radar = (f"""<section class="world radar" id="radar">
 <span class="tagline">{RADAR_ICON}Radar</span>
-<h2>Was bewegt sich?</h2>
-<p>Auswahl und Deutung: Themen, die ein Modell in den Reden findet, und kuratierte Fragen. Das Radar kann irren,
-aber nie unnachvollziehbar.</p>
+<h2>Analyse</h2>
+<p>Datengetriebene Werkzeuge: automatisierte Extraktion von Themen im Bundestag, eine kuratierte
+Abstimmungssimulation und bald weitere Features.</p>
 <div class="tiles">{"".join(radar_tiles)}</div>
-<p class="fine">Violett heißt auf dieser Seite immer: hier wird ausgewählt oder gedeutet. Jedes Ergebnis führt zu
-seinen Belegen in der Recherche, und die sind blau.</p>
+<p class="fine">Violett heißt auf dieser Seite immer: dieses Tool kann keine absolute Objektivität mehr
+gewährleisten. Jedes Element führt jedoch zu seiner Datengrundlage in der Recherche-Plattform, wo die Fakten sich
+befinden.</p>
 </section>""" if radar_tiles else "")  # fmt: skip
 
     recent = ""

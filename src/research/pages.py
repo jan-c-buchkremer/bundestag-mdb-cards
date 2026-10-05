@@ -176,7 +176,7 @@ def agenda_item(i: dict, s: dict, clusters: dict[str, dict] | None = None) -> st
     parts.append(topics_block(i, clusters or {}))
     if i.get("fragestunde"):
         parts.append(f'<p class="explain">{n(i["fragestunde"])} Fragen, Antworten und Nachfragen in der Fragestunde. '
-                     "Sie stehen auf den Karten der Beteiligten und zählen nicht als Reden.</p>")  # fmt: skip
+                     "Sie stehen in den Steckbriefen der Beteiligten und zählen nicht als Reden.</p>")  # fmt: skip
     if subs:
         parts.append(subtop_pages.block_speeches(i, s))
     elif i["speeches"]:

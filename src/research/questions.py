@@ -607,7 +607,7 @@ def _befragung_section(bf: list[dict], fs: tuple[int, int]) -> str:
     elif fs[0]:
         gap = (
             f'<p class="explain">Die {n(fs[0])} Fragestunden der Wahlperiode haben {n(fs[1])} Fragen, Antworten und '
-            "Nachfragen im Protokoll. Sie stehen auf den Karten der Beteiligten und zählen nicht als Reden.</p>"
+            "Nachfragen im Protokoll. Sie stehen in den Steckbriefen der Beteiligten und zählen nicht als Reden.</p>"
         )
     if not bf:
         return "<h2>Regierungsbefragung</h2>" + gap
@@ -668,7 +668,7 @@ def research_section(counts: dict[str, int]) -> str:
         '<section class="facet fr" id="liste"><h2>Die einzelnen Fragen</h2>'
         '<p class="explain">Jede Kleine Anfrage, jede Schriftliche und Mündliche Frage und jeder Beitrag in der '
         "Fragestunde und der Regierungsbefragung, mit Link zur Quelle: der Drucksache oder dem Vorgang im DIP, dem "
-        "PDF, der Karte der Fragenden und bei mündlichen Fragen dem Protokoll. <b>Nur Titel:</b> Der Datenbestand "
+        "PDF, dem Steckbrief der Fragenden und bei mündlichen Fragen dem Protokoll. <b>Nur Titel:</b> Der Datenbestand "
         "enthält von Kleinen Anfragen und Schriftlichen Fragen nur den Titel, nicht den Wortlaut der Frage; der "
         "steht in der verlinkten Drucksache. Die Fragenden einer Schriftlichen oder Mündlichen Frage nennt DIP je "
         "Sammeldrucksache, nicht je Frage; genannt ist hier nur, wer allein in seiner Sammeldrucksache steht. "

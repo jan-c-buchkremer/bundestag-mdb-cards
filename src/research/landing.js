@@ -9,7 +9,7 @@
     title: `Sitzverteilung im 21. Bundestag, ${seats.length} Sitze`,
     colorOf: s => css('--' + (TOK[s.fraction] || 'frl')),
     tooltip: s => `${s.row.photo ? `<img class="av tip-av" src="fotos/${encodeURIComponent(s.id)}.jpg" alt="" style="float:left;width:38px;height:50px;margin:1px 9px 2px 0;border-radius:5px;object-fit:cover">` : ''}<b>${esc(s.name)}</b><div class="sub">${esc(s.fraction)}</div>${s.row.office ? `<div>${esc(s.row.office)}</div>` : ''}`,
-    tapHint: 'Nochmals tippen öffnet die Karte',
+    tapHint: 'Nochmals tippen öffnet den Steckbrief',
     onClick: s => { location.href = `${encodeURIComponent(s.id)}.html`; },
   });
 })();

@@ -44,8 +44,8 @@ PHASES = ("Eingebracht", "Beratung", "Ausschuss", "Abstimmung", "Bundesrat", "Ve
 # DIP's Beratungsstand values for Gesetzgebung (checked against the dev store, 21. WP: 14 values plus the "unbekannt"
 # fallback for a Vorgang without one), in the order of "So entsteht ein Gesetz" below. Sources: see GLOSSARY_SOURCES.
 STATUS_GLOSSARY = {
-    "Noch nicht beraten": "Der Entwurf kommt aus der Mitte des Bundestages – von einer Fraktion oder mindestens "
-        "5 % der Abgeordneten – und wartet auf seine erste Beratung im Plenum.",
+    "Noch nicht beraten": "Der Entwurf kommt aus der Mitte des Bundestages – von einer Fraktion oder von "
+        "mindestens 5 % der Abgeordneten – und wartet auf seine erste Beratung im Plenum.",
     "Dem Bundestag zugeleitet - Noch nicht beraten": "Der Entwurf kommt von der Bundesregierung oder vom "
         "Bundesrat und ist dem Bundestag förmlich zugeleitet (Art. 76 GG); bei einem Regierungsentwurf ist dem "
         "meist der „1. Durchgang“ im Bundesrat vorausgegangen. Die erste Beratung im Plenum steht noch aus.",

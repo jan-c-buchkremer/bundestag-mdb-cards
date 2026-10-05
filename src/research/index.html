@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Abgeordnete des Bundestages</title>
-<meta name="description" content="Eine Karte für jedes Mitglied des 21. Deutschen Bundestages: Reden, namentliche Abstimmungen und Ausschüsse, jede Angabe mit Quelle.">
+<meta name="description" content="Ein Steckbrief für jedes Mitglied des 21. Deutschen Bundestages: Reden, namentliche Abstimmungen und Ausschüsse, jede Angabe mit Quelle.">
 <link rel="stylesheet" href="shell.css">
 <link rel="stylesheet" href="cards.css">
 <script src="places.js"></script>
@@ -86,7 +86,7 @@ __HEADER__
   <div class="placehint" id="places" hidden></div>
   <div class="chips" id="chips"></div>
   <div class="viewbar"><button type="button" id="aslist" aria-pressed="false">Als Liste</button><div class="toggles" id="toggles"></div></div>
-  <div class="chart" id="chartbox"><div id="chart"></div><p class="note">Sitze nach Fraktionen, wie in der Sitzverteilung des Bundestages; innerhalb einer Fraktion vorn die Fraktionsspitze, dann nach Land und Name. Das ist ein Schema, nicht die echte Sitzordnung.</p></div>
+  <div class="chart" id="chartbox"><div id="chart"></div><p class="note">Sitze nach Fraktionen, wie in der Sitzverteilung des Bundestages. Vorne die Fraktionsspitze, dann nach Land und Name sortiert. Der eigentliche Bundestag hat keine feste Sitzordnung.</p></div>
   <div class="count" id="count"></div>
   <div id="list"></div>
   __ROLES__
@@ -127,7 +127,7 @@ const speakers = CARDS.filter(c => c.kind === 'speaker');
 const current = members.filter(c => !c.left);
 const BY_ID = new Map(CARDS.map(c => [c.id, c]));
 const SPOKE = new Set(LAST ? LAST.speakers : []);
-$('lead').textContent = `Eine Karte für jedes der ${members.length} Mitglieder der 21. Wahlperiode (${current.length} davon heute im Bundestag) und für ${speakers.length} Rednerinnen und Redner ohne Mandat. Jede Karte zeigt Reden, namentliche Abstimmungen und Ausschüsse, jede Angabe mit Quelle. Unten: wer welche Rolle hat. Stand: Plenarprotokolle bis ${shortDate(META.sittings.to)}, Stammdaten ${META.stammdaten.doc.split(' ').pop()}.`;
+$('lead').textContent = `Ein Steckbrief für jedes der ${members.length} Mitglieder der 21. Wahlperiode (${current.length} davon heute im Bundestag) und für ${speakers.length} Rednerinnen und Redner ohne Mandat. Jeder Steckbrief zeigt Reden, namentliche Abstimmungen und Ausschüsse, jede Angabe mit Quelle. Stand: Plenarprotokolle bis ${shortDate(META.sittings.to)}, Stammdaten ${META.stammdaten.doc.split(' ').pop()}.`;
 
 // view: the plenum, or the same filter as a list ("Als Liste"); ort: a Land code or a Wahlkreis number
 const state = { view: 'plenum', q: '', ort: '', type: '', committee: '', fractions: new Set(), flags: new Set(), redner: false };
@@ -219,7 +219,7 @@ function placeHints() {
 
 function renderPeople() {
   const shown = CARDS.filter(c => matches(c)).sort(byName);
-  $('count').textContent = `${shown.length} ${shown.length === 1 ? 'Karte' : 'Karten'}`;
+  $('count').textContent = `${shown.length} ${shown.length === 1 ? 'Steckbrief' : 'Steckbriefe'}`;
   $('list').innerHTML = shown.length ? `<div class="rows people">${shown.map(personRow).join('')}</div>` : '<div class="rows"><div class="empty">Keine Treffer.</div></div>';
 }
 
@@ -245,10 +245,10 @@ function renderPlenum() {
         const where = c.type === 'Direktwahl' ? `Wahlkreis ${c.number} ${esc(c.constituency)}` : c.state ? `Landesliste ${STATES[c.state] || c.state}` : '';
         // an office only the protocols show: its date is the latest sitting that prints it, not the end of office
         const office = s.gov ? s.office + (s.evidence && s.seen ? ` (laut Plenarprotokoll, zuletzt belegt am ${shortDate(s.seen)})` : '') : c.gov || c.office;
-        return `${c.photo ? `<img class="av tip-av" src="fotos/${encodeURIComponent(s.id)}.jpg" alt="">` : ''}<b>${esc(s.name)}</b><div class="sub">${[s.fraction && esc(s.fraction), where].filter(Boolean).join(' · ')}</div>${office ? `<div>${esc(office)}</div>` : ''}${state.redner && SPOKE.has(s.id) ? `<div class="sub">sprach am ${shortDate(LAST.date)}</div>` : ''}${s.gov && !s.card && !BY_ID.has(s.id) ? '<div class="sub">noch keine Karte</div>' : ''}`;
+        return `${c.photo ? `<img class="av tip-av" src="fotos/${encodeURIComponent(s.id)}.jpg" alt="">` : ''}<b>${esc(s.name)}</b><div class="sub">${[s.fraction && esc(s.fraction), where].filter(Boolean).join(' · ')}</div>${office ? `<div>${esc(office)}</div>` : ''}${state.redner && SPOKE.has(s.id) ? `<div class="sub">sprach am ${shortDate(LAST.date)}</div>` : ''}${s.gov && !s.card && !BY_ID.has(s.id) ? '<div class="sub">noch kein Steckbrief</div>' : ''}`;
       },
       label: s => [s.name, s.fraction, s.gov ? s.office : null].filter(Boolean).join(', '),
-      tapHint: 'Nochmals tippen öffnet die Karte',
+      tapHint: 'Nochmals tippen öffnet den Steckbrief',
       onClick: s => { if (BY_ID.has(s.id)) location.href = `${encodeURIComponent(s.id)}.html`; },
     });
   }
@@ -265,7 +265,7 @@ function renderPlenum() {
   const gone = PLACE ? CARDS.filter(c => c.left && matches(c)).length : 0;  // listed on the place page, no seat
   $('count').textContent = state.redner
     ? `${listed.length} Redner:innen in der Sitzung ${LAST.id} am ${shortDate(LAST.date)}${f ? ' passend zum Filter' : ''}; ${on.length} davon mit Sitz im Plenum`
-    : f ? `${on.length} von ${current.length} Sitzen passen zum Filter${gone ? `; dazu ${gone} ausgeschieden, ohne Sitz (in der Liste)` : ''}` : `${current.length} Sitze${GOVERNMENT.length ? `, ${GOVERNMENT.length} Mitglieder der Bundesregierung auf der Regierungsbank` : ''}. Ein Sitz öffnet die Karte.`;
+    : f ? `${on.length} von ${current.length} Sitzen passen zum Filter${gone ? `; dazu ${gone} ausgeschieden, ohne Sitz (in der Liste)` : ''}` : `${current.length} Sitze${GOVERNMENT.length ? `, ${GOVERNMENT.length} Mitglieder der Bundesregierung auf der Regierungsbank` : ''}. Ein Sitz öffnet den Steckbrief.`;
   $('list').innerHTML = listed.length ? `<div class="rows people">${listed.map(personRow).join('')}</div>` : f || state.redner ? '<div class="rows"><div class="empty">Keine Treffer.</div></div>' : '';
 }
 

@@ -331,13 +331,13 @@ function renderSideJobs(el) {
       ].filter(Boolean).join(' · ')}</div></div>
       <div class="l">${j.url ? `<a href="${esc(j.url)}" title="Der Eintrag als Rohdaten (JSON) bei abgeordnetenwatch.de">Datensatz</a>` : ''}</div></div>`);
   el.innerHTML = `
-    <p class="explain">Veröffentlichungspflichtige Angaben nach den Verhaltensregeln des Bundestages, wie der Bundestag sie veröffentlicht; zusammengestellt von ${C.aw ? `<a href="${esc(C.aw.url)}">abgeordnetenwatch.de</a>` : 'abgeordnetenwatch.de'} (CC0). Einkünfte stehen als veröffentlichte Stufe mit ihrer Spanne, nicht als genauer Betrag. Die Karte rechnet nichts zusammen und bringt die Angaben nicht mit Reden oder Abstimmungen in Verbindung.</p>
+    <p class="explain">Veröffentlichungspflichtige Angaben nach den Verhaltensregeln des Bundestages, wie der Bundestag sie veröffentlicht; zusammengestellt von ${C.aw ? `<a href="${esc(C.aw.url)}">abgeordnetenwatch.de</a>` : 'abgeordnetenwatch.de'} (CC0). Einkünfte stehen als veröffentlichte Stufe mit ihrer Spanne, nicht als genauer Betrag. Der Steckbrief rechnet nichts zusammen und bringt die Angaben nicht mit Reden oder Abstimmungen in Verbindung.</p>
     ${list(rows, 'Keine Nebentätigkeiten gemeldet.')}`;
 }
 
 function renderSources(el) {
   const s = META.stammdaten;
-  const issue = `${REPO}/issues/new?title=${encodeURIComponent(`Fehler auf der Karte von ${C.name} (${C.id})`)}`;
+  const issue = `${REPO}/issues/new?title=${encodeURIComponent(`Fehler im Steckbrief von ${C.name} (${C.id})`)}`;
   el.innerHTML = `
     <ul class="sources">
       ${member ? `<li><a href="${esc(s.url)}">Stammdaten aller Abgeordneten</a> (${esc(s.doc)}, abgerufen ${shortDate(s.retrieved)}): Person, Mandat, Wahlperioden, Ausschüsse und Ämter. © Deutscher Bundestag</li>` : ''}

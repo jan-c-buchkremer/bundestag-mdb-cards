@@ -164,7 +164,7 @@ def documents_tab(c: dict, meta: dict) -> str:
         "tragen oft die Namen der ganzen Fraktion; die Zahl der Namen zeigt, ob eine Drucksache von wenigen oder von "
         "allen stammt.</p>",
         "" if dip["complete"] else '<p class="explain"><b>Noch unvollständig:</b> Die Drucksachen aus DIP werden '
-        "gerade für die ganze Wahlperiode nachgeladen. Bis dahin fehlen Monate; deshalb nennt die Karte oben noch "
+        "gerade für die ganze Wahlperiode nachgeladen. Bis dahin fehlen Monate; deshalb nennt der Steckbrief oben noch "
         "keine Zahlen.</p>",
         _h2("drucksachen-eigene", "Anträge, Anfragen, Gesetzentwürfe", len(docs)),
         (f'<div class="tools"><label><input type="checkbox" class="fonly"> nur Drucksachen mit höchstens '

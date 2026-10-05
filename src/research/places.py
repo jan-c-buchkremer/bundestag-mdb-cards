@@ -185,7 +185,7 @@ def _facets(people: list[dict], speeches: list[dict], authored: dict[str, list[d
     ids = {x["card"]["id"] for x in people}
     sps = [s for s in speeches if s["person"] in ids and s["kind"] in ("rede", "kurz")]
     shown = sorted(sps, key=lambda s: (s["date"], s["id"]), reverse=True)[:FACET]
-    more = (f'<p class="explain">Die neuesten {n(len(shown))} von {n(len(sps))}; alle stehen auf den Karten.</p>'
+    more = (f'<p class="explain">Die neuesten {n(len(shown))} von {n(len(sps))}; alle stehen in den Steckbriefen.</p>'
             if len(sps) > len(shown) else "")  # fmt: skip
     out = [facet("reden", "Reden", facts.speech_list(shown, "../", "reden", limit=None, note=more), len(sps),
                  f"Reden {who}.")]  # fmt: skip

@@ -264,8 +264,8 @@ def _chart(d: dict, members: list[list] | None) -> str:
         extra = ('<label class="toggle"><input type="checkbox" class="dev"> Abweichungen von der Fraktionsmehrheit '
                  "hervorheben</label>"
                  '<p class="note">Sitze nach Fraktionen wie in der Sitzverteilung; in jeder Fraktion nach Stimme, dann '
-                 "Name. Ein Schema, nicht die echte Sitzordnung. Punkt antippen oder anklicken öffnet die "
-                 "Karte.</p>")  # fmt: skip
+                 "Name. Ein Schema, nicht die echte Sitzordnung. Punkt antippen oder anklicken öffnet den "
+                 "Steckbrief.</p>")  # fmt: skip
     elif d["kind"] != "namentlich" and d.get("fractions") and d.get("house"):
         payload = {"mode": "hands", "house": d["house"], "positions": d["fractions"]}
         extra = ('<p class="note">Abstimmung per Handzeichen: Das Protokoll hält nur fest, wie die Fraktionen gestimmt '

@@ -44,7 +44,7 @@
       label: s => `${s.name}, ${s.fraction}: ${VOTE[s.vote] || s.vote}`,
       onClick: s => { if (s.pid) location.href = `${ROOT}${encodeURIComponent(s.pid)}.html`; },
       government: [], bundesrat: 0, title: 'Stimmen im Plenum',
-      tapHint: 'Nochmals tippen öffnet die Karte',
+      tapHint: 'Nochmals tippen öffnet den Steckbrief',
     });
     plenumOnly(chart);
     const count = k => seats.filter(s => s.vote === k).length;

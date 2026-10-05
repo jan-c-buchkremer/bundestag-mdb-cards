@@ -107,7 +107,7 @@ def page(meta: dict, stale: list[dict], fragestunden: tuple[int, int], files: li
             "Antworten fehlen im Datenbestand (vor dem nächsten Einlesen der Protokolle).</li>"
         )
     if dip and not dip.get("complete"):
-        gaps.append("<li>DIP-Drucksachen sind noch nicht für jeden Sitzungsmonat geladen; Karten nennen deshalb "
+        gaps.append("<li>DIP-Drucksachen sind noch nicht für jeden Sitzungsmonat geladen; Steckbriefe nennen deshalb "
                     "keine Summen für Drucksachen.</li>")  # fmt: skip
     if stale:
         items = "".join(
@@ -151,8 +151,8 @@ def page(meta: dict, stale: list[dict], fragestunden: tuple[int, int], files: li
 Kein Einsatz in verzerrendem oder herabsetzendem Zusammenhang (DIP-Nutzungsbedingungen Nr. 5).</p>
 <h2>Bekannte Lücken</h2><ul>{"".join(gaps)}</ul>
 <h2>Wie gezählt wird</h2><ul>
-<li><a href="abgeordnete.html">Abgeordnete</a>: eine Karte je Mitglied, jede Angabe mit Quelle; das Plenum, gefiltert
-nach Fraktion, Ort oder Ausschuss, und die <a href="abgeordnete.html#rollen">Rollen</a>.</li>
+<li><a href="abgeordnete.html">Abgeordnete</a>: ein Steckbrief je Mitglied, jede Angabe mit Quelle; das Plenum,
+gefiltert nach Fraktion, Ort oder Ausschuss, und die <a href="abgeordnete.html#rollen">Rollen</a>.</li>
 <li><a href="abstimmungen/index.html">Abstimmungen</a>: namentliche Abstimmungen und Beschlüsse per Handzeichen, diese
 regelbasiert aus dem Text der Sitzungsleitung gelesen.</li>
 <li><a href="sitzungen/index.html">Sitzungen</a>: die Sitzungswochen als Kalender, Tagesordnung und Reden je

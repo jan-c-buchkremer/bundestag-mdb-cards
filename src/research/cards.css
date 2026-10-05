@@ -413,3 +413,18 @@ html.js .cv.alt .cv-alt { display: block; }
   .srow .sx { grid-column: 1 / -1; }
   .strip-bars { height: 48px; gap: 0; }
 }
+
+/* month columns (controls.columns): a column per month, stacked by group, the month's name under it */
+.months { display: grid; grid-template-columns: repeat(var(--n), minmax(0, 56px)); gap: 2px; align-items: end; }
+.mc { display: flex; flex-direction: column; height: 120px; min-width: 0; padding: 0; border: 0; border-radius: 4px; background: transparent; }
+.mc:hover { background: var(--bg); }
+.mc[aria-pressed=true] { background: var(--accent-soft); box-shadow: inset 0 -2px 0 var(--accent); }
+.mc-a { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; min-height: 0; }
+.mc-b { display: flex; flex-direction: column-reverse; margin: 0 2px; min-height: 1px; border-radius: 2px 2px 0 0; overflow: hidden; }
+.mc-b i { display: block; width: 100%; }
+.mc-l { flex: none; height: 15px; margin-top: 3px; overflow: hidden; white-space: nowrap; font-size: 10.5px; color: var(--muted); text-align: center; }
+@media (max-width: 640px) {
+  .mc { height: 90px; }
+  .mc:not(.t) .mc-l { visibility: hidden; }
+  .mc.t .mc-l { overflow: visible; text-align: left; }
+}

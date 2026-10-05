@@ -11,9 +11,9 @@ keyboard and a screen reader. One small module, `controls.js`, makes them intera
   for the ISO week of the row's date, …; several values separated by spaces);
 - a button with `data-f="<key>" data-v="<value>"` toggles that value (`aria-pressed`); values of one key are
   alternatives, keys combine;
-- the state lives in the URL fragment (`#art=antrag&von=cdu,spd&zeit=2026-W10..2026-W20&q=miete&liste=stufe`), so a
+- the state lives in the URL fragment (`#art=antrag&von=cdu,spd&zeit=2026-W10..2026-W20&q=miete&ansicht=stufe`), so a
   view can be shared and the back button works; a fragment without "=" is an anchor and stays one;
-- each chart has a switch to its list or table (`view`), remembered as `liste=<chart>` in the fragment;
+- each chart has a switch to its list or table (`view`), remembered as `ansicht=<chart>` in the fragment;
 - without JavaScript the page shows every chart, its table and the full list.
 
 Sizes and order come from counts only (docs/plan.md, non-goals: no rankings of people, no ratings). Colours: the
@@ -38,7 +38,7 @@ GROUP_TOKENS = {
     "fraktionslos": "frl", "Bundesregierung": "reg", "Bundesrat und Länder": "laender", "Sonstige": "sonstige",
 }  # fmt: skip
 SHORT = {"BÜNDNIS 90/DIE GRÜNEN": "Grüne"}
-DATIVE = {"Vorgänge": "Vorgängen", "Beschlüsse": "Beschlüssen"}  # "12 von 300 Vorgängen"
+DATIVE = {"Vorgänge": "Vorgängen", "Beschlüsse": "Beschlüssen", "Einträge": "Einträgen"}  # "12 von 300 Vorgängen"
 HEAD = '<script>document.documentElement.classList.add("js")</script>'
 
 
@@ -66,9 +66,11 @@ def _count(k: int) -> str:
 
 
 def toggle(key: str, value: str, inner: str, *, cls: str = "", style: str = "", label: str = "", name: str = "",
-           disabled: bool = False, tab: bool = True) -> str:  # fmt: skip
+           disabled: bool = False, tab: bool = True, single: bool = False, also: str = "") -> str:  # fmt: skip
     """A toggle button of a filter value. `label` is the value's name for the active-filter line; `name` the
-    accessible name of a button without text (a bar segment), also its tooltip."""
+    accessible name of a button without text (a bar segment), also its tooltip. `single`: the key holds one value
+    and chooses what the list is; `also`: "key=value" chosen with it (a chart of the Kleine Anfragen chooses that
+    list)."""
     attrs = [
         f'type="button" class="{("tg " + cls).strip()}" data-f="{e(key)}" data-v="{e(value)}"',
         'aria-pressed="false"',
@@ -83,6 +85,10 @@ def toggle(key: str, value: str, inner: str, *, cls: str = "", style: str = "", 
         attrs.append("disabled")
     if not tab:
         attrs.append('tabindex="-1"')
+    if single:
+        attrs.append("data-single")
+    if also:
+        attrs.append(f'data-set="{e(also)}"')
     return f"<button {' '.join(attrs)}>{inner}</button>"
 
 
@@ -153,7 +159,7 @@ def kind_class(i: int) -> str:
     return f"k{min(i, KIND_CLASSES - 1) + 1}"
 
 
-def segmented(key: str, items: list[tuple[str, str, int]], title: str, noun: str) -> str:
+def segmented(key: str, items: list[tuple[str, str, int]], title: str, noun: str, also: str = "") -> str:
     """One bar, a segment per kind (value, label, count), width by share, in the order given (largest first); a key
     below names each kind with its count and share. A segment and its key entry toggle the same value; the key is
     the keyboard's way (a narrow segment is hard to hit)."""
@@ -164,9 +170,9 @@ def segmented(key: str, items: list[tuple[str, str, int]], title: str, noun: str
             continue
         cls = kind_class(i)
         segs.append(toggle(key, value, "", cls=f"seg-s {cls}", style=f"flex-grow:{k}", tab=False, label=label,
-                           name=f"{label}: {n(k)} {noun}, {share(k, total)}"))  # fmt: skip
+                           name=f"{label}: {n(k)} {noun}, {share(k, total)}", also=also))  # fmt: skip
         inner = f'<i class="sw {cls}"></i>{e(label)} {_count(k)} <span class="p">{share(k, total)}</span>'
-        keys.append(toggle(key, value, inner, cls="key", label=label))
+        keys.append(toggle(key, value, inner, cls="key", label=label, also=also))
     return (
         f'<div class="seg" role="group" aria-label="{e(title)}"><div class="seg-bar">{"".join(segs)}</div>'
         f'<div class="seg-key">{"".join(keys)}</div></div>'
@@ -197,23 +203,23 @@ def pipeline(key: str, stages: list[tuple[str, str, int]], ended: list[tuple[str
     return f'<div class="pipe" role="group" aria-label="{e(title)}"><ol class="pipe-main">{main}</ol>{end}</div>'
 
 
-def sized_chips(key: str, items: list[tuple[str, str, int]], title: str) -> str:
+def sized_chips(key: str, items: list[tuple[str, str, int]], title: str, also: str = "") -> str:
     """Toggle chips (value, label, count) in a neutral colour, largest first, each with a bar by its count against
     the largest: for groups that have no colour of their own, such as committees."""
     most = max([k for *_, k in items] + [1])
     out = "".join(toggle(key, value, f'{e(label)} {_count(k)}<i class="cb" style="width:{_pct(k, most)}%"></i>',
-                         cls="chip sized", label=label) for value, label, k in items)  # fmt: skip
+                         cls="chip sized", label=label, also=also) for value, label, k in items)  # fmt: skip
     return f'<div class="chips ctl-chips" role="group" aria-label="{e(title)}">{out}</div>'
 
 
-def chips(key: str, items: list[tuple[str, str, int, str]], title: str) -> str:
+def chips(key: str, items: list[tuple[str, str, int, str]], title: str, also: str = "") -> str:
     """Toggle chips (value, label, count, colour token), several at once; a chip without anything to filter is
     disabled. The colour is the fraction's (or the government's, a neutral one for the rest), the name and the
     count stand in text."""
     out = []
     for value, label, k, colour in items:
         out.append(toggle(key, value, f'<i class="dot"></i>{e(label)} {_count(k)}', cls="chip",
-                          style=f"--c:var(--{colour})", label=label, disabled=not k))  # fmt: skip
+                          style=f"--c:var(--{colour})", label=label, disabled=not k, also=also))  # fmt: skip
     return f'<div class="chips ctl-chips" role="group" aria-label="{e(title)}">{"".join(out)}</div>'
 
 
@@ -225,25 +231,40 @@ def group_chips(key: str, counts: Counter, title: str = "Einbringer") -> str:
     return chips(key, items, title)
 
 
-def stacked(key: str, groups: list[tuple[str, str, str, Counter]], kinds: list[tuple[str, str]], title: str,
-            noun: str) -> str:  # fmt: skip
+def stacked(key: str, groups: list[tuple[str, str, str, Counter]], kinds: list[tuple], title: str,
+            noun: str, also: str = "") -> str:  # fmt: skip
     """One row per group (value, label, colour token, counts by kind), the segments per kind (`kinds`: (kind,
-    label)) in the kinds' shades, the length by the group's total against the largest; the numbers in the row's
-    text and on each segment's tooltip. A row toggles its group."""
+    label) in the kinds' neutral shades, or (kind, label, colour token), e.g. the fractions), the length by the
+    group's total against the largest; the numbers in the row's text and on each segment's tooltip. A row toggles its
+    group; `also` chooses a list with it."""
     most = max([sum(c.values()) for *_, c in groups] + [1])
     out = []
     for value, label, colour, c in groups:
         total = sum(c.values())
-        segs = "".join(f'<i class="{kind_class(i)}" style="flex-grow:{c[k]}" title="{e(kl)}: {n(c[k])}"></i>'
-                       for i, (k, kl) in enumerate(kinds) if c[k])  # fmt: skip
-        text = " · ".join(f"{n(c[k])} {e(kl)}" for k, kl in kinds if c[k])
+        own = [(k[0], k[1], colour) for k in kinds] if len(kinds) == 1 and len(kinds[0]) == 2 else kinds  # one kind
+        segs = "".join(
+            f'<i {_shade(i, kind)} style="flex-grow:{c[kind[0]]}{_bg(kind)}" title="{e(kind[1])}: {n(c[kind[0]])}"></i>'
+            for i, kind in enumerate(own)
+            if c[kind[0]]
+        )
+        text = " · ".join(f"{n(c[k[0]])} {e(k[1])}" for k in kinds if c[k[0]]) if len(kinds) > 1 else ""
         inner = (f'<span class="sn"><i class="dot" style="background:var(--{colour})"></i>{e(label)}</span>'
                  f'<span class="sb"><span class="sbar" style="width:{_pct(total, most)}%">{segs}</span></span>'
                  f'<span class="stot">{_count(total)}</span><span class="sx">{text}</span>')  # fmt: skip
-        out.append(toggle(key, value, inner, cls="srow", label=label))
-    legend = "".join(f'<span><i class="sw {kind_class(i)}"></i>{e(kl)}</span>' for i, (_, kl) in enumerate(kinds))
-    return (f'<div class="stack" role="group" aria-label="{e(title)}"><div class="legend">{legend}</div>'
-            f"{''.join(out)}</div>")  # fmt: skip
+        out.append(toggle(key, value, inner, cls="srow", label=label, also=also))
+    legend = "".join(f'<span><i {_shade(i, k, "sw")} style="{_bg(k)[1:]}"></i>{e(k[1])}</span>'
+                     for i, k in enumerate(kinds)) if len(kinds) > 1 else ""  # fmt: skip
+    return (f'<div class="stack" role="group" aria-label="{e(title)}">'
+            f'{f"<div class=legend>{legend}</div>" if legend else ""}{"".join(out)}</div>')  # fmt: skip
+
+
+def _shade(i: int, kind: tuple, cls: str = "") -> str:
+    """The class of a kind's segment: its neutral shade, or none when the kind brings its own colour."""
+    return f'class="{" ".join(x for x in (cls, "" if len(kind) > 2 else kind_class(i)) if x)}"'
+
+
+def _bg(kind: tuple) -> str:
+    return f";background:var(--{kind[2]})" if len(kind) > 2 else ""
 
 
 ROW_WIDTH = 770  # px, the width of the tile field on a wide screen (main's content width)
@@ -279,6 +300,59 @@ def tiles(items: list[tuple[str, str, int, Counter]], kinds: list[tuple[str, str
     legend = "".join(f'<span><i class="sw {kind_class(i)}"></i>{e(kl)}</span>' for i, (_, kl) in enumerate(kinds))
     return (f'<div class="tiles-wrap"><div class="legend">{legend}</div>'
             f'<nav class="tiles" aria-label="{e(title)}">{"".join(out)}</nav></div>')  # fmt: skip
+
+
+def month_label(month: str, year: bool = True) -> str:
+    """ "2026-03" -> "März 2026" (or "März")."""
+    name = MONTHS[int(month[5:7]) - 1]
+    return f"{name} {month[:4]}" if year else name
+
+
+def months_between(first: str, last: str) -> list[str]:
+    """Every month from the month of `first` to the month of `last` ("2025-04")."""
+    y, m = int(first[:4]), int(first[5:7])
+    out = []
+    while f"{y}-{m:02d}" <= last[:7]:
+        out.append(f"{y}-{m:02d}")
+        y, m = (y + 1, 1) if m == 12 else (y, m + 1)
+    return out
+
+
+def columns(key: str, months: list[str], counts: dict[str, Counter], groups: list[tuple[str, str, str]],
+            title: str, noun: str, one: str, also: str = "") -> str:  # fmt: skip
+    """A column per month (value "2026-03"), its height by the month's count, stacked by group (`groups`: (group,
+    label, colour token); one group: one colour), the number in its name and tooltip. A column toggles its month;
+    `also` chooses a list with it."""
+    totals = {m: sum(counts.get(m, Counter()).values()) for m in months}
+    most = max([*totals.values(), 1])
+    cols = []
+    for i, m in enumerate(months):
+        c = counts.get(m, Counter())
+        k = totals[m]
+        parts = ", ".join(f"{label} {n(c[g])}" for g, label, _ in groups if c[g]) if len(groups) > 1 else ""
+        name = f"{month_label(m)}: {n(k)} {one if k == 1 else noun}" + (f" ({parts})" if parts else "")
+        segs = "".join(f'<i style="flex-grow:{c[g]};background:var(--{colour})"></i>' for g, _, colour in groups
+                       if c[g])  # fmt: skip
+        quarter = m[5:7] in ("01", "04", "07", "10")  # labelled on a phone too
+        first_quarter = quarter and not any(x[5:7] in ("01", "04", "07", "10") for x in months[:i])
+        tick = month_label(m, False)[:3] + (f" {m[2:4]}" if i == 0 or m.endswith("-01") or first_quarter else "")
+        bar = f'<span class="mc-a"><span class="mc-b" style="height:{_pct(k, most)}%">{segs}</span></span>'
+        cls = "mc t" if quarter else "mc"
+        cols.append(toggle(key, m, f"{bar}<span class=\"mc-l\">{e(tick)}</span>", cls=cls, label=month_label(m),
+                           name=name, also=also))  # fmt: skip
+    legend = ("" if len(groups) < 2 else '<div class="legend">' + "".join(
+        f'<span><i class="sw" style="background:var(--{colour})"></i>{e(label)}</span>' for _, label, colour in groups)
+        + "</div>")  # fmt: skip
+    return (f'{legend}<div class="months" role="group" aria-label="{e(title)}" style="--n:{len(months)}">'
+            f"{''.join(cols)}</div>")  # fmt: skip
+
+
+def months_table(months: list[str], counts: dict[str, Counter], groups: list[tuple[str, str, str]], noun: str) -> str:
+    """The columns' "Als Tabelle": a row per month, a column per group (or the count)."""
+    if len(groups) < 2:
+        return table(["Monat", e(noun)], [[month_label(m), n(sum(counts.get(m, Counter()).values()))] for m in months])
+    head = ["Monat", *(e(label) for _, label, _ in groups)]
+    return table(head, [[month_label(m), *(n(counts.get(m, Counter())[g]) for g, _, _ in groups)] for m in months])
 
 
 # ---------------------------------------------------------------- the activity strip

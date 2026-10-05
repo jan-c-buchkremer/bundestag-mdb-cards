@@ -194,10 +194,47 @@ def test_research_page_frame(conn, tmp_path):
     add_research(conn)
     questions.write(conn, tmp_path, {c["id"] for c in data.cards(conn)[0]})
     page = (tmp_path / "regierung" / "index.html").read_text()
-    assert 'id="liste"' in page and 'data-k="schriftliche-fragen"' in page and "Nur Titel:" in page
+    assert 'id="liste"' in page and 'data-f="liste" data-v="schriftliche-fragen"' in page and "Nur Titel:" in page
     assert '<script src="../fragen.js"></script>' in page and "Kleine Anfragen</h2>" in page  # statistics stay
+    assert "<select" not in page and "data-single" in page and "data-external" in page
     for slug, _, _ in questions.KINDS:
         assert (tmp_path / "regierung" / f"{slug}.json").is_file()
+        assert f'class="qpanel" data-kind="{slug}" hidden' in page
+
+
+def test_fragen_controls(conn, tmp_path):
+    """The statistics are charts that choose a list (data-set) and keep their counts (data-static); each kind has
+    its filters as chips and columns, counted from the same values the page script filters by."""
+    add_research(conn)
+    questions.write(conn, tmp_path, {c["id"] for c in data.cards(conn)[0]})
+    page = (tmp_path / "regierung" / "index.html").read_text()
+    stats = page.split('class="qs" data-static', 1)[1].split('id="liste"', 1)[0]
+    assert 'data-f="fraktion" data-v="spd"' in stats and 'data-set="liste=kleine-anfragen"' in stats
+    assert 'data-f="monat" data-v="2026-06"' in stats and "<th>gestellt</th>" in stats  # chart and its table
+    ka = page.split('data-kind="kleine-anfragen"', 1)[1].split('class="qpanel"', 1)[0]
+    assert 'data-f="frist" data-v="15-bis-28-tage"' in ka and 'data-f="stand" data-v="beantwortet"' in ka
+    lists = questions.research(conn, {c["id"] for c in data.cards(conn)[0]})
+    f = questions.facets(lists["kleine-anfragen"])[0]
+    assert f["fraktion"] == ["spd"] and f["stand"] == "beantwortet" and f["monat"] == "2026-06"
+
+
+def test_fragen_js_filters_by_the_same_values(conn):
+    """fragen.js derives each row's filter values from the JSON as questions.facets does (run in Node)."""
+    import json
+    import subprocess
+    from pathlib import Path
+
+    from conftest import need_node
+
+    need_node()
+    add_research(conn)
+    lists = questions.research(conn, {c["id"] for c in data.cards(conn)[0]})
+    src = Path(questions.__file__).parent / "fragen.js"
+    for slug, d in lists.items():
+        script = (f"const F = require({json.dumps(str(src))}); const d = {json.dumps(d, ensure_ascii=False)};"
+                  "console.log(JSON.stringify(d.rows.map(r => F.tokens(d, r))))")  # fmt: skip
+        got = json.loads(subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True).stdout)
+        assert got == questions.facets(d), slug
 
 
 def test_research_json_size_on_the_full_data_shape():

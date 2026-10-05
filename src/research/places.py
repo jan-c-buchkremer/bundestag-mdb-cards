@@ -281,7 +281,7 @@ def land_page(land: str, wks: list[dict], lst: list[dict], ctx: dict) -> str:
 
 def plenum_href(key: str) -> str:
     """The Abgeordnete page filtered by a place (its plenum and list show exactly `people(rep, key)`)."""
-    return f"index.html#ort={key}"
+    return f"abgeordnete.html#ort={key}"
 
 
 HUB_STYLE = """<style>
@@ -425,7 +425,7 @@ def bund_page(rep: dict, lookup: list[str]) -> str:
             + entity_header("Bund, Länder und Wahlkreise", [
                 f"16 Länder, {n(len(rep['wahlkreise']))} Wahlkreise. Jede Seite zeigt, wer den Ort im 21. Bundestag "
                 "vertritt: direkt gewählt im Wahlkreis und über die Landesliste des Landes. Die Abgeordneten eines "
-                f'Ortes zeigt auch das <a href="../index.html">Plenum</a>, gefiltert nach dem Ort.'], lookup,
+                f'Ortes zeigt auch das <a href="../abgeordnete.html">Plenum</a>, gefiltert nach dem Ort.'], lookup,
                 when="Orte")
             + f'<div class="hub">{search}<div class="cols">{mapbox}<div>'
             + facet("laender", "Länder und Wahlkreise", "".join(lands) + unplaced)

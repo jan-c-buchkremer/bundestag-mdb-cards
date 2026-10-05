@@ -15,6 +15,7 @@ from research.ui import VOTE, e, long_date, n
 HERE = Path(__file__).parent
 # wahlkreise.json: the map, fetched on demand
 ASSETS = (
+    "shell.css",
     "cards.css",
     "card.js",
     "pages.js",
@@ -25,6 +26,8 @@ ASSETS = (
     "places.js",
     "wkmap.js",
     "fragen.js",
+    "landing.css",
+    "landing.js",
 )
 
 
@@ -261,7 +264,7 @@ def write_site(
         (out / f"{c['id']}.html").write_text(render_card(c, meta, by_id), encoding="utf-8")
         (out / f"{c['id']}.json").write_text(json.dumps(c, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     index = render_index(cards, meta, government, last_sitting, places, roles)
-    (out / "index.html").write_text(index, encoding="utf-8")
+    (out / "abgeordnete.html").write_text(index, encoding="utf-8")
     for name in ASSETS:
         shutil.copyfile(HERE / name, out / name)
     shutil.copytree(HERE / "fonts", out / "fonts", dirs_exist_ok=True)

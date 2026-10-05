@@ -13,6 +13,7 @@ from research import (
     careers,
     data,
     debate,
+    landing,
     photos,
     places,
     preview,
@@ -106,6 +107,19 @@ def main(argv: list[str] | None = None) -> None:
     print(f"wrote {len(rep['wahlkreise'])} Wahlkreis pages and {len(data.STATES)} Land pages in orte/")
     n_bodies = bodies.write(conn, args.out, cards, gov, decided, rcm)
     print(f"wrote {n_bodies['gremien']} pages in gremien/, {n_bodies['fraktionen']} pages in fraktionen/")
+    landing.write(
+        args.out,
+        cards,
+        meta,
+        sittings,
+        decided,
+        speeches=n_speeches,
+        procedures=len(procs),
+        themes=len(written_themes),
+        compass="kompass" in written,
+        landscape=bool(clusters),
+    )
+    print("wrote the front page index.html, the Abgeordnete list in abgeordnete.html")
     index = search.entities(cards, groups, (args.out / urls.GOVERNMENT).exists(), procs, rep, gemeinden,
                             written_themes, sittings)  # fmt: skip
     print(f"{len(index['items'])} entities in suche.json")

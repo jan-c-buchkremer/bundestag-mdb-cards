@@ -29,14 +29,16 @@ ORDER = ("AfD", "CDU/CSU", "BÜNDNIS 90/DIE GRÜNEN", "SPD", "Die Linke", NO_FRA
 SHORT = {"BÜNDNIS 90/DIE GRÜNEN": "Grüne"}
 TOKEN = {"CDU/CSU": "cdu", "SPD": "spd", "AfD": "afd", "BÜNDNIS 90/DIE GRÜNEN": "gru", "Die Linke": "lin",
          NO_FRACTION: "frl"}  # fmt: skip
-# The top bar (docs/plan.md 12.1, D26): a search field at the left end, then the sections in this order. The home
-# item (Abgeordnete, the landing page) sits in the centre column of a three-column grid, so it stays centred whatever
-# the widths of the two sides; Debattenkultur is a statistics page, quieter than the research items; Daten is last.
+# The top bar (docs/plan.md 12.1, D26): a search field at the left end, then the sections in this order. The site's
+# name sits in the centre column of a three-column grid, so it stays centred whatever the widths of the two sides; it
+# leads to the front page (landing.py) and says which part of the site the reader is in: Recherche or Radar
+# (docs/architecture.md, "Telling Radar apart"). Debattenkultur is a statistics page, quieter than the research items;
+# Daten is the last research item, the Radar entry closes the bar in the Radar colour.
 NAV_LEFT = (
+    ("cards", "abgeordnete.html", "Abgeordnete"),
     ("places", "orte/index.html", "Orte"),
     ("bodies", "gremien/index.html", "Gremien"),
 )
-NAV_HOME = ("cards", "index.html", "Abgeordnete")
 NAV_RIGHT = (
     ("bills", "vorgaenge/index.html", "Vorgänge"),
     ("sittings", "sitzungen/index.html", "Sitzungen"),
@@ -44,19 +46,35 @@ NAV_RIGHT = (
     ("debate", "debatte/index.html", "Debattenkultur"),
     ("data", "daten.html", "Daten"),
 )
-NAV = (*NAV_LEFT, NAV_HOME, *NAV_RIGHT)
+NAV = (*NAV_LEFT, *NAV_RIGHT)
 QUIET = {"debate"}  # informative statistics, not a research tool
 # the sub-tabs of Sitzungen (D27): every vote belongs to a sitting, so Abstimmungen is a view of the time hierarchy
 SITTING_TABS = (
     ("calendar", "sitzungen/index.html", "Sitzungswochen"),
     ("votes", "abstimmungen/index.html", "Abstimmungen"),
 )
+# The Radar mark: rings and a sweep, drawn in currentColor; every Radar element carries it (cards.css .rl, .rmark)
+RADAR_ICON = (
+    '<svg class="ri" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><circle cx="8" cy="8" r="6.5" '
+    'fill="none" stroke="currentColor" stroke-width="1.3" opacity=".45"/><circle cx="8" cy="8" r="3.5" fill="none" '
+    'stroke="currentColor" stroke-width="1.3" opacity=".7"/><path d="M8 8 12.6 3.4" stroke="currentColor" '
+    'stroke-width="1.6" stroke-linecap="round"/><circle cx="8" cy="8" r="1.4" fill="currentColor"/></svg>'
+)
+# The site's mark: a hemicycle of seats, the colours of the two parts meeting in it
+LOGO = (
+    '<svg class="logo" viewBox="0 0 28 16" width="28" height="16" aria-hidden="true">'
+    '<path d="M3 15a11 11 0 0 1 11-11" fill="none" stroke="var(--research)" stroke-width="2.6" stroke-linecap="round" '
+    'stroke-dasharray="0 4.6"/><path d="M14 4a11 11 0 0 1 11 11" fill="none" stroke="var(--radar)" '
+    'stroke-width="2.6" stroke-linecap="round" stroke-dasharray="0 4.6"/>'
+    '<path d="M8 15a6 6 0 0 1 12 0" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" '
+    'stroke-dasharray="0 4.4" opacity=".55"/></svg>'
+)
 FOOTER = (
     "Daten: Deutscher Bundestag (Plenarprotokolle, namentliche Abstimmungen), Deutscher Bundestag/Bundesrat – DIP, "
     'gesammelt mit <a href="https://github.com/jan-c-buchkremer/bundestag-data-foundation">bundestag-data-foundation'
     "</a>. Beschlüsse per Handzeichen sind regelbasiert aus dem Text der Sitzungsleitung gelesen. Code: "
     '<a href="https://github.com/jan-c-buchkremer/bundestag-research-platform">bundestag-research-platform</a> '
-    f'(MIT). Worüber debattiert wird, zeigt die <a href="{LANDSCAPE}">Themenlandschaft ↗</a>. {LEGAL}'
+    f'(MIT). Worüber debattiert wird, zeigt die <a class="rl" href="{LANDSCAPE}">Themenlandschaft</a>. {LEGAL}'
 )
 
 
@@ -98,9 +116,10 @@ def frac_link(f: str | None, root: str = "../") -> str:
     return e(f or "")
 
 
-def site_header(root: str, active: str | None) -> str:
-    """The header of every page; `root` is the way back to the site root ("" or "../"). The search field submits to
-    suche.html?q=…; nav.js adds the suggestions from the entity index and the phone's search icon."""
+def site_header(root: str, active: str | None, mode: str = "research") -> str:
+    """The header of every page; `root` is the way back to the site root ("" or "../"). `mode` is the part of the site
+    the page belongs to: "research", "radar", or "home" for the front page, which belongs to both. The search field
+    submits to suche.html?q=…; nav.js adds the suggestions from the entity index and the phone's search icon."""
 
     def link(key: str, href: str, label: str, cls: str = "") -> str:
         on = key == active
@@ -120,10 +139,33 @@ def site_header(root: str, active: str | None) -> str:
     )
     left = "".join(link(*x) for x in NAV_LEFT)
     right = "".join(link(*x) for x in NAV_RIGHT)
+    on = active == "radar"
+    radar = (f'<a href="{LANDSCAPE}" data-nav="radar" class="to-radar{" on" if on else ""}"'
+             f'{' aria-current="page"' if on else ""}>{RADAR_ICON}Radar</a>')  # fmt: skip
+    tag = {"research": '<span class="mode">Recherche</span>',
+           "radar": f'<span class="mode">{RADAR_ICON}Radar</span>'}.get(mode, "")  # fmt: skip
+    on = " on" if active == "home" else ""
+    home = (f'<a href="{root}index.html" class="home brand{on}" aria-label="plenar-radar.de, Startseite">{LOGO}'
+            f'<span class="wm">plenar<b>radar</b></span>{tag}</a>')  # fmt: skip
     return (
-        f'<header><nav class="site" aria-label="Bereiche"><div class="nav-l">{search}{left}</div>'
-        f'<div class="nav-c">{link(*NAV_HOME, cls="home")}</div><div class="nav-r">{right}</div></nav>'
+        f'<header class="m-{mode}"><nav class="site" aria-label="Bereiche"><div class="nav-l">{search}{left}</div>'
+        f'<div class="nav-c">{home}</div><div class="nav-r">{right}{radar}</div></nav>'
         f'<script src="{root}nav.js" defer></script></header>'
+    )
+
+
+def radar_link(href: str, label: str, title: str = "") -> str:
+    """A link to a Radar result inside a Research page: the Radar colour and mark, never a plain blue link
+    (docs/architecture.md, "Telling Radar apart")."""
+    t = f' title="{e(title)}"' if title else ""
+    return f'<a class="rl" href="{e(href)}"{t}>{e(label)}</a>'
+
+
+def method_note(text: str) -> str:
+    """The footer note of a Radar page: in two or three sentences, how its results were made and what they can and
+    cannot tell (docs/architecture.md)."""
+    return (
+        f'<aside class="radar-note"><span class="rmark">{RADAR_ICON}So entsteht diese Seite</span><p>{text}</p></aside>'
     )
 
 
@@ -136,15 +178,27 @@ def subtabs(root: str, tabs: tuple[tuple[str, str, str], ...], active: str) -> s
     return f'<nav class="tabs sub" aria-label="Ansichten"><div class="tabs-in">{links}</div></nav>'
 
 
-def shell(*, root: str, kind: str, active: str, title: str, desc: str, body: str, data: object, head: str = "") -> str:
+def shell(
+    *,
+    root: str,
+    kind: str,
+    active: str | None,
+    title: str,
+    desc: str,
+    body: str,
+    data: object,
+    head: str = "",
+    mode: str = "research",
+) -> str:
+    """A page of the site in the shared shell; `mode` "radar" gives it the Radar colour and header (site_header)."""
     return (
         (HERE / "page.html")
         .read_text(encoding="utf-8")
         .replace("__TITLE__", e(title))
         .replace("__DESC__", e(desc))
         .replace("__HEAD__", head)
-        .replace("__KIND__", kind)
-        .replace("__HEADER__", site_header(root, active))
+        .replace("__KIND__", f"{kind} mode-{mode}")
+        .replace("__HEADER__", site_header(root, active, mode))
         .replace("__BODY__", body)
         .replace("__DATA__", _json(data))
         .replace("__ROOT__", root)

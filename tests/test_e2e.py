@@ -151,8 +151,8 @@ REDIRECTS = [
     ("index.html", "index.html", ""),
     ("abstimmungen/geschlossenheit.html", "abstimmungen/geschlossenheit.html", ""),
     # this session's moves (docs/plan.md 12.6)
-    ("karrieren/index.html", "index.html", "rollen"),  # Karrieren is the Rollen section of the Abgeordnete page
-    ("karrieren/index.html#x", "index.html", "rollen"),  # the old page had no anchors: any fragment → #rollen
+    ("karrieren/index.html", "abgeordnete.html", "rollen"),  # Karrieren is the Rollen section of the Abgeordnete page
+    ("karrieren/index.html#x", "abgeordnete.html", "rollen"),  # the old page had no anchors: any fragment → #rollen
     ("abstimmungen/index.html", "abstimmungen/index.html", ""),  # a sub-tab of Sitzungen now, same URL
     ("orte/index.html#suche", "orte/index.html", "suche"),
     ("orte/index.html#karte", "orte/index.html", "karte"),

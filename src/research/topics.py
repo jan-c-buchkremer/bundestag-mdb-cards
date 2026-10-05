@@ -14,12 +14,29 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 from research import facts, urls
-from research.ui import FOOTER, LANDSCAPE, crumbs, dot, e, entity_header, facet, frac_link, fraction_order, n, shell
+from research.ui import (
+    FOOTER,
+    LANDSCAPE,
+    crumbs,
+    dot,
+    e,
+    entity_header,
+    facet,
+    frac_link,
+    fraction_order,
+    method_note,
+    n,
+    shell,
+)
 
 SPEECHES = 100  # newest speeches of a theme in the page (a theme holds a few hundred)
 NOTE = ("Themen stammen aus der Themenlandschaft, die alle Reden der Wahlperiode nach Ähnlichkeit gruppiert. Die "
         "Nummer eines Themas kann sich ändern, wenn neue Sitzungswochen hinzukommen; Links auf diese Seite sind "
         "deshalb nicht dauerhaft.")  # fmt: skip
+# the Radar method note (docs/architecture.md): how the themes were made and what they can and cannot tell
+METHOD = ("Jede Rede der Wahlperiode als Embedding (multilingual-e5-base), gruppiert mit UMAP und HDBSCAN, benannt "
+          "nach typischen Wörtern (c-TF-IDF). Ein Thema zeigt, dass Reden ähnliche Wörter benutzen, nicht welche "
+          "Position sie vertreten; mit neuen Sitzungswochen können sich Themen und ihre Namen ändern.")  # fmt: skip
 
 
 def by_theme(themes: dict[str, dict], speeches: list[dict]) -> dict[int, dict]:
@@ -38,7 +55,7 @@ def topic_page(th: dict, procedures: dict[str, dict]) -> str:
     sps = th["speeches"]
     newest = sorted(sps, key=lambda s: (s["date"], s["id"]), reverse=True)[:SPEECHES]
     more = (f'<p class="explain">Die neuesten {n(len(newest))} von {n(len(sps))}. Alle: '
-            f'<a href="{LANDSCAPE}index.html#thema={e(th["id"])}">das Thema in der Themenlandschaft ↗</a>.</p>'
+            f'<a class="rl" href="{LANDSCAPE}index.html#thema={e(th["id"])}">das Thema in der Themenlandschaft</a>.</p>'
             if len(sps) > len(newest) else "")  # fmt: skip
     per = Counter(s.get("fraction") or "ohne Fraktion" for s in sps)
     rows = "".join(f'<tr><td>{dot(f)} {frac_link(f)}</td><td class="num">{n(k)}</td></tr>'
@@ -50,7 +67,7 @@ def topic_page(th: dict, procedures: dict[str, dict]) -> str:
     body = (
         crumbs(("index.html", "Themen"), (None, th["label"]))
         + entity_header(th["label"], [f"{n(len(sps))} Reden in der 21. Wahlperiode", NOTE],
-                        [f'<a href="{LANDSCAPE}index.html#thema={e(th["id"])}">In der Themenlandschaft ↗</a>'],
+                        [f'<a class="rl" href="{LANDSCAPE}index.html#thema={e(th["id"])}">In der Themenlandschaft</a>'],
                         when="Thema")
         + facet("fraktionen", "Fraktionen", '<div class="rows"><table class="plenum"><thead><tr><th>Fraktion</th>'
                 f"<th>Reden</th></tr></thead><tbody>{rows}</tbody></table></div>", explain="Wie viele Reden zu "
@@ -62,22 +79,23 @@ def topic_page(th: dict, procedures: dict[str, dict]) -> str:
                 "Abstimmungen.")
         + facet("drucksachen", "Drucksachen", "", explain="Drucksachen haben kein Thema der Themenlandschaft; das DIP "
                 "ordnet sie nach Sachgebieten, die bei jedem Vorgang stehen.")
-        + f"<footer>{FOOTER}</footer>"
+        + method_note(METHOD) + f"<footer>{FOOTER}</footer>"
     )  # fmt: skip
-    return shell(root="../", kind="p-topic", active="debate", title=f"Thema: {th['label']}",
+    return shell(root="../", kind="p-topic", active="radar", mode="radar", title=f"Thema: {th['label']}",
                  desc=f"Das Thema „{th['label']}“ im 21. Bundestag: Reden, Fraktionen und Vorgänge.", body=body,
                  data={"kind": "topic", "id": th["id"]}, head='<meta name="robots" content="noindex">')  # fmt: skip
 
 
 def index_page(themes: dict[int, dict]) -> str:
     rows = "".join(
-        f'<a class="row" href="{e(th["id"])}.html"><span class="t"><span class="ti">{e(th["label"])}</span></span>'
+        f'<a class="row v" href="{e(th["id"])}.html"><span class="t"><span class="ti">{e(th["label"])}</span></span>'
         f'<span class="l">{n(len(th["speeches"]))} Reden</span></a>'
         for th in themes.values()
     )
     body = ('<h1>Themen</h1><p class="lead">Die Themen der 21. Wahlperiode aus der Themenlandschaft, das größte '
-            f'zuerst. {NOTE}</p><div class="rows">{rows}</div><footer>{FOOTER}</footer>')  # fmt: skip
-    return shell(root="../", kind="p-topics", active="debate", title="Themen der Wahlperiode",
+            f'zuerst. {NOTE}</p><div class="rows">{rows}</div>'
+            f"{method_note(METHOD)}<footer>{FOOTER}</footer>")  # fmt: skip
+    return shell(root="../", kind="p-topics", active="radar", mode="radar", title="Themen der Wahlperiode",
                  desc="Die Themen der Reden im 21. Deutschen Bundestag, aus der Themenlandschaft.", body=body,
                  data={"kind": "topics"}, head='<meta name="robots" content="noindex">')  # fmt: skip
 

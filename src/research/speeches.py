@@ -120,10 +120,10 @@ def speech_page(r: dict, cards: set[str], clusters: dict[str, dict], similar: li
     links = [f'<a href="{e(r["pdf"])}">Plenarprotokoll {e(r["cite"])} (PDF)</a>']
     theme = (themes or {}).get(r["id"])
     if theme and theme.get("theme_id") is not None:
-        links.append(f'<a href="../{e(urls.theme(theme["theme_id"]))}">Thema: {e(theme["label"])}</a>')
+        links.append(f'<a class="rl" href="../{e(urls.theme(theme["theme_id"]))}">Thema: {e(theme["label"])}</a>')
     if cluster:
-        links.append(f'<a href="{LANDSCAPE}{e(cluster["week"])}.html#cluster={e(cluster["cluster_id"])}">In dieser '
-                     f'Woche: {e(cluster["label"])} ↗</a>')  # fmt: skip
+        links.append(f'<a class="rl" href="{LANDSCAPE}{e(cluster["week"])}.html#cluster={e(cluster["cluster_id"])}">'
+                     f'In dieser Woche: {e(cluster["label"])}</a>')  # fmt: skip
     marks = search_marks("Fragestunde" if fs else "Rede", r["date"], Person=main["name"], Fraktion=main["fraction"],
                          Thema=theme["label"] if theme else cluster["label"] if cluster else None)  # fmt: skip
     parts = []

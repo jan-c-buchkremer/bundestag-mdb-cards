@@ -82,12 +82,22 @@ A reader always knows when they are looking at, or about to go to, interpretatio
   typischen Wörtern") and what that can and cannot tell (e.g. "Themen zeigen Ähnlichkeit der Wortwahl, nicht
   Positionen; sie können sich mit neuen Sitzungswochen ändern").
 
+How it is built (2026-10): Research publishes `shell.css`: the tokens (`--research` blue, `--radar` violet `#7c3aed`,
+soft `#f1ebff`), the header and the Radar elements (`a.rl`, `.rmark`, `.radar-note`). The header has a mode. A
+Research page has a blue stripe and a "Recherche" tag next to the site's name. A Radar page (`body.mode-radar`) has a
+violet stripe, a "Radar" tag, a violet-tinted background and the Radar entry marked as current. The front page
+carries both colours. The violet Radar entry closes the top bar on every page. Radar pages link the published
+`shell.css` and `nav.js` and write the same header markup (bundestag-radar `shell.py`). On Radar pages `--accent` is
+violet and links into Research carry `a.ev` (blue).
+
 ## URLs
 
 One domain, split by path; the two builds never write the same path and `release.sh` merges them.
 
-- Radar: `/` (the front page, once Radar can carry it; until then Research's index stays there), `/themen/`,
-  `/kompass/`, its weekly overviews and the Themenlandschaft.
+- The front page `/` belongs to both parts and shows both. For now Research builds it (`landing.py`), and the
+  Abgeordnete list is at `/abgeordnete.html` (an old `/#…` link is forwarded there). Radar may take `/` once it
+  builds pages of its own beyond the Themenlandschaft.
+- Radar: `/themen/`, `/kompass/`, its weekly overviews and the Themenlandschaft.
 - Research: the entity paths (`/abgeordnete/`, `/vorgaenge/`, `/sitzungen/`, `/abstimmungen/`, `/orte/`,
   `/gremien/`, `/regierung/`, …), search, `/daten/`, Impressum and Datenschutz.
 
@@ -115,11 +125,11 @@ Each repo releases on its own (`v0.MINOR.PATCH`, a CHANGELOG entry that starts w
    the MdB card stays a card, the Themenlandschaft stays `LANDSCAPE_*`. An infra PR for `compose.yml`, `update.sh`, `release.sh`, Gatus; drop the GitHub Pages publishing.
    Rides along with the next release of each repo.
 3. The Radar design rule in Research: `--radar` token, the Radar element, existing landscape links and blocks
-   converted to it.
-4. Radar takes the shell from Research and gets its Radar header and footer method note.
+   converted to it. Done 2026-10 (`shell.css`; Kompass and Themen are Radar pages in Research's build).
+4. Radar takes the shell from Research and gets its Radar header and footer method note. Done 2026-10.
 5. Kompass, the topic pages and the week summaries move to Radar; Research keeps redirects and shows them as Radar
    links.
 6. Definitions move down when a page needs them: the fraction line (`data.majority`, for the vote pages and
    Geschlossenheit) and the reading of Ordnungsmaßnahmen from the chair's text (`debate.py`, for Debattenkultur).
 7. Release checks: schema version check at build start, `release.json` with versions and digests.
-8. Radar takes `/` when it has a front page worth arriving at.
+8. The front page: done 2026-10 as a page of both parts, built by Research (URLs above).

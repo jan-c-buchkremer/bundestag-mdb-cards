@@ -263,7 +263,8 @@ def week_page(week: str, w: dict, prev: str | None, nxt: str | None, have: set[s
     body = (
         crumbs(("../sitzungen/index.html", "21. Wahlperiode"), (None, week_label(week)))
         + entity_header(week_label(week), [f"{e(long_date(frm))} bis {e(long_date(to))}"], [
-            f'<a href="{LANDSCAPE}{e(week)}.html">Worüber debattiert wurde: diese Woche in der Themenlandschaft ↗</a>',
+            f'<a class="rl" href="{LANDSCAPE}{e(week)}.html">Worüber debattiert wurde: diese Woche in der '
+            "Themenlandschaft</a>",
             '<a href="feed.xml">Als Feed abonnieren (Atom)</a>'], when="Sitzungswoche")
         + f'<nav class="prevnext">{nav}</nav>'
         + facet("sitzungen", "Sitzungen", f'<div class="rows">{sits}</div>', len(w["sittings"]))
@@ -462,7 +463,7 @@ def week_card(week: str, ss: list[dict], decided: dict[str, list[dict]], moved: 
         f'<section class="wk" id="{e(week)}"><span class="n">{plural(n_speeches, "Rede", "Reden")}</span>'
         f'<h3><a href="../{e(urls.week(week))}">{e(week_label(week))}</a></h3>'
         f'<div class="dates">{short(ss[0]["date"])[:6]} – {short(ss[-1]["date"])} · '
-        f'<a href="{LANDSCAPE}{e(week)}.html">Themenlandschaft ↗</a></div>'
+        f'<a class="rl" href="{LANDSCAPE}{e(week)}.html">Themenlandschaft</a></div>'
         + (f'<div class="opts">{"".join(opts)}</div>' if opts else "")
         + f"{''.join(sits)}</section>"
     )

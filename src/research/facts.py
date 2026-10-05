@@ -112,8 +112,8 @@ def speech(sp: dict, root: str = "../", *, speaker: bool = True, where: bool = T
         lines.append(f'<span class="ex">{e(sp["excerpt"])}</span>')
     go = [f'<a href="{root}{e(urls.speech(sp["id"]))}" title="Der ganze Text dieser Rede">Text</a>']
     if sp.get("on_map") and sp.get("date"):
-        go.append(f'<a href="{LANDSCAPE}{iso_week(sp["date"])}.html#rede={e(sp["id"])}" '
-                  'title="Diese Rede in der Themenlandschaft ihrer Woche">Themenlandschaft ↗</a>')  # fmt: skip
+        go.append(f'<a class="rl" href="{LANDSCAPE}{iso_week(sp["date"])}.html#rede={e(sp["id"])}" '
+                  'title="Diese Rede in der Themenlandschaft ihrer Woche (Radar)">Themenlandschaft</a>')  # fmt: skip
     if sp.get("pdf"):
         go.append(f'<a href="{e(sp["pdf"])}" title="{e(sp.get("cite"))}">Protokoll</a>')
     search = " ".join(str(x) for x in (sp.get("title"), sp.get("date"), sp.get("name"), sp.get("speaker_name")) if x)

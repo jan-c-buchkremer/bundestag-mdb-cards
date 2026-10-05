@@ -2,7 +2,16 @@
 
 ## Current goal
 
-*(Jan: two weeks, from the reader's side – "By <date>, a reader can …".)*
+By 2026-10-19, a reader who arrives at plenar-radar.de lands on a front page that shows what the site offers and
+takes them there in one click, and on every page can tell by its look whether they are in Research (checkable
+facts, blue) or on the Radar (selection and interpretation, violet; docs/architecture.md, "Telling Radar apart").
+
+- The front page at `/`: bolder than the research pages, the same shell; the Abgeordnete list moves to
+  `abgeordnete.html` (old `/#…` links forward there).
+- One shared shell with a mode: the header says Recherche or Radar (colour stripe and label); Kompass, Themen and
+  the weekly overviews are Radar pages with a method note in the footer; Radar links inside Research pages are
+  Radar elements.
+- The Themenlandschaft (bundestag-radar) takes the same header, the Radar colour and the method note.
 
 Every change is reviewed against this goal. Ideas that don't serve it go on "Not now", not into code.
 

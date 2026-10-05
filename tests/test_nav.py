@@ -1,5 +1,6 @@
-"""The top bar (docs/plan.md 12.1, D26): a search field, then Orte · Gremien · Abgeordnete (home, centre) · Vorgänge
-· Sitzungen · Fragen · Debattenkultur (quieter) · Daten, and no Themenlandschaft item."""
+"""The top bar (docs/plan.md 12.1, D26; docs/architecture.md, "Telling Radar apart"): a search field, then Abgeordnete
+· Orte · Gremien, the site's name in the centre (home, with the part of the site), Vorgänge · Sitzungen · Fragen ·
+Debattenkultur (quieter) · Daten, and the Radar entry last, in the Radar colour."""
 
 import re
 
@@ -19,20 +20,29 @@ def test_order_and_marks():
     html = ui.site_header("../", "places")
     got = items(html)
     assert got[0] == ("search", "")
-    assert [label for _, label in got[1:]] == ["Orte", "Gremien", "Abgeordnete", "Vorgänge", "Sitzungen", "Fragen",
+    assert [label for _, label in got[1:]] == ["Abgeordnete", "Orte", "Gremien", "Vorgänge", "Sitzungen", "Fragen",
                                                "Debattenkultur", "Daten"]  # fmt: skip
     classes = dict((label, cls) for cls, label in got[1:])
-    assert "home" in classes["Abgeordnete"] and "quiet" in classes["Debattenkultur"] and "on" in classes["Orte"]
-    assert not any(
-        "home" in c or "quiet" in c for label, c in classes.items() if label not in ("Abgeordnete", "Debattenkultur")
-    )
-    # the home item alone in the centre column of the grid, Daten the last item of the right one
+    assert "quiet" in classes["Debattenkultur"] and "on" in classes["Orte"]
+    assert not any("quiet" in c for label, c in classes.items() if label != "Debattenkultur")
+    # the site's name alone in the centre column, leading to the front page; the Radar entry ends the right one
     centre = html.split('<div class="nav-c">', 1)[1].split("</div>", 1)[0]
-    assert re.findall(r">([^<]+)</a>", centre) == ["Abgeordnete"]
+    assert 'href="../index.html" class="home brand"' in centre and "plenar<b>radar</b>" in centre
     right = html.split('<div class="nav-r">', 1)[1].split("</div>", 1)[0]
-    assert re.findall(r">([^<]+)</a>", right)[-1] == "Daten"
-    assert "Themenlandschaft" not in html and ui.LANDSCAPE not in html
-    assert ui.LANDSCAPE in ui.FOOTER  # it moved to the footer
+    assert right.rstrip().endswith("Radar</a>") and f'href="{ui.LANDSCAPE}" data-nav="radar" class="to-radar"' in right
+    assert ui.LANDSCAPE in ui.FOOTER and 'class="rl"' in ui.FOOTER
+
+
+def test_mode():
+    """The header says which part of the site a page is in; the front page belongs to both."""
+    assert '<header class="m-research">' in ui.site_header("", None) and ">Recherche</span>" in ui.site_header("", None)
+    radar = ui.site_header("", "radar", "radar")
+    assert '<header class="m-radar">' in radar and 'class="to-radar on"' in radar
+    assert '<span class="mode"><svg class="ri"' in radar
+    home = ui.site_header("", "home", "home")
+    assert '<header class="m-home">' in home and 'class="mode"' not in home and 'class="home brand on"' in home
+    page = ui.shell(root="", kind="p-x", active="radar", title="T", desc="D", body="", data={}, mode="radar")
+    assert '<body class="p-x mode-radar">' in page
 
 
 def test_search_field_submits_to_the_search_page():
@@ -41,6 +51,4 @@ def test_search_field_submits_to_the_search_page():
     assert form and form.group(1) == "../suche.html"
     assert '<input type="search" name="q"' in form.group(2)  # GET: suche.html?q=…
     assert '<script src="../nav.js" defer></script>' in html
-    assert 'class="home' in ui.site_header("", "cards") and 'aria-current="page">Abgeordnete' in ui.site_header(
-        "", "cards"
-    )
+    assert 'aria-current="page">Abgeordnete' in ui.site_header("", "cards")

@@ -13,7 +13,7 @@
   const icon = form.querySelector('.nav-qi');
   const header = form.closest('header');
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-  const narrow = matchMedia('(max-width: 1080px)');
+  const narrow = matchMedia('(max-width: 1240px)');
   let index = null, loading = null, links = [], hi = -1;
 
   function lib() {

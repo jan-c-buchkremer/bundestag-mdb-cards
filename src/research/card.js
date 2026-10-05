@@ -318,7 +318,7 @@ function renderCareer(el) {
     ${now.length ? `<div class="rows memb">${now.join('')}</div>` : ''}
     <p class="explain">Alle Mandate seit der ersten Wahlperiode laut Stammdaten des Bundestages (${esc(META.stammdaten.doc)}).</p>
     ${gaps.length ? `<p class="explain">Nicht im Bundestag ${gaps.join(', ')}.</p>` : ''}
-    ${C.in_stammdaten ? '' : `<p class="explain">Das aktuelle Mandat fehlt in diesem Stand der Stammdaten; Mitglied spätestens seit ${longDate(C.first_vote)}.</p>`}
+    ${C.in_stammdaten ? '' : `<p class="explain">Das aktuelle Mandat fehlt in diesem Stand der Stammdaten. Mitglied spätestens seit ${longDate(C.first_vote)}.</p>`}
     <div class="rows memb">${rows.join('') || '<div class="empty">Keine Mandate in den Stammdaten.</div>'}</div>`;
 }
 
@@ -331,13 +331,13 @@ function renderSideJobs(el) {
       ].filter(Boolean).join(' · ')}</div></div>
       <div class="l">${j.url ? `<a href="${esc(j.url)}" title="Der Eintrag als Rohdaten (JSON) bei abgeordnetenwatch.de">Datensatz</a>` : ''}</div></div>`);
   el.innerHTML = `
-    <p class="explain">Veröffentlichungspflichtige Angaben nach den Verhaltensregeln des Bundestages, wie der Bundestag sie veröffentlicht; zusammengestellt von ${C.aw ? `<a href="${esc(C.aw.url)}">abgeordnetenwatch.de</a>` : 'abgeordnetenwatch.de'} (CC0). Einkünfte stehen als veröffentlichte Stufe mit ihrer Spanne, nicht als genauer Betrag. Die Karte rechnet nichts zusammen und bringt die Angaben nicht mit Reden oder Abstimmungen in Verbindung.</p>
+    <p class="explain">Veröffentlichungspflichtige Angaben nach den Verhaltensregeln des Bundestages, wie der Bundestag sie veröffentlicht; zusammengestellt von ${C.aw ? `<a href="${esc(C.aw.url)}">abgeordnetenwatch.de</a>` : 'abgeordnetenwatch.de'} (CC0). Einkünfte stehen als veröffentlichte Stufe mit ihrer Spanne, nicht als genauer Betrag. Der Steckbrief rechnet nichts zusammen und bringt die Angaben nicht mit Reden oder Abstimmungen in Verbindung.</p>
     ${list(rows, 'Keine Nebentätigkeiten gemeldet.')}`;
 }
 
 function renderSources(el) {
   const s = META.stammdaten;
-  const issue = `${REPO}/issues/new?title=${encodeURIComponent(`Fehler auf der Karte von ${C.name} (${C.id})`)}`;
+  const issue = `${REPO}/issues/new?title=${encodeURIComponent(`Fehler im Steckbrief von ${C.name} (${C.id})`)}`;
   el.innerHTML = `
     <ul class="sources">
       ${member ? `<li><a href="${esc(s.url)}">Stammdaten aller Abgeordneten</a> (${esc(s.doc)}, abgerufen ${shortDate(s.retrieved)}): Person, Mandat, Wahlperioden, Ausschüsse und Ämter. © Deutscher Bundestag</li>` : ''}
@@ -441,4 +441,4 @@ window.addEventListener('hashchange', () => {
 
 renderCard();
 renderTabs();
-document.getElementById('foot').innerHTML = `Daten: Deutscher Bundestag${member && META.election.length ? ', Die Bundeswahlleiterin' : ''}${C.aw_id ? ', abgeordnetenwatch.de (CC0 1.0)' : ''}${C.government.length ? ', Wikidata (CC0 1.0)' : ''}. Code: <a href="${REPO}">bundestag-research-platform</a> (MIT). Keine Rangliste, keine Bewertung: Zahlen stehen immer mit ihrem Zusammenhang. <a href="impressum.html">Impressum</a> · <a href="datenschutz.html">Datenschutz</a>`;
+document.getElementById('foot').innerHTML = `Daten: Deutscher Bundestag${member && META.election.length ? ', Die Bundeswahlleiterin' : ''}${C.aw_id ? ', abgeordnetenwatch.de (CC0 1.0)' : ''}${C.government.length ? ', Wikidata (CC0 1.0)' : ''}. Code: <a href="${REPO}">bundestag-research-platform</a> (MIT). Die Seite enthält keine Rangliste und keine Bewertung. Zahlen stehen immer mit ihrem Zusammenhang. <a href="impressum.html">Impressum</a> · <a href="datenschutz.html">Datenschutz</a>`;

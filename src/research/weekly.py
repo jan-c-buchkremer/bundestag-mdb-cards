@@ -263,17 +263,18 @@ def week_page(week: str, w: dict, prev: str | None, nxt: str | None, have: set[s
     body = (
         crumbs(("../sitzungen/index.html", "21. Wahlperiode"), (None, week_label(week)))
         + entity_header(week_label(week), [f"{e(long_date(frm))} bis {e(long_date(to))}"], [
-            f'<a href="{LANDSCAPE}{e(week)}.html">Worüber debattiert wurde: diese Woche in der Themenlandschaft ↗</a>',
+            f'<a class="rl" href="{LANDSCAPE}{e(week)}.html">Die Themen dieser Woche in der '
+            "Themenlandschaft</a>",
             '<a href="feed.xml">Als Feed abonnieren (Atom)</a>'], when="Sitzungswoche")
         + f'<nav class="prevnext">{nav}</nav>'
         + facet("sitzungen", "Sitzungen", f'<div class="rows">{sits}</div>', len(w["sittings"]))
-        + facet("woche", "Die Woche in Sätzen", summary, explain="Jeder Satz ist aus den Daten gezählt und verlinkt "
+        + facet("woche", "Die Woche im Überblick", summary, explain="Jeder Satz ist aus den Daten gezählt und verlinkt "
                 "die Sitzung, Abstimmung oder den Vorgang, aus dem er stammt.")
         + facet("reden", "Reden", facts.speech_list(sps, "../", "reden", where=True), len(sps))
         + facet("vorgaenge", "Vorgänge", moved_rows(w, "../", have), len({x["id"] for xs in w["moves"].values()
                                                                            for x in xs if x["id"] in have}),
-                "Vorgänge, die in dieser Woche weitergekommen sind: im Plenum beraten, abgestimmt oder mit einem "
-                "Schritt im Bundestag laut DIP. Ein Vorgang erstreckt sich meist über mehrere Wochen; sein ganzer "
+                "Vorgänge mit einem Fortschritt in dieser Woche: im Plenum beraten, abgestimmt oder mit einem "
+                "Schritt im Bundestag laut DIP. Ein Vorgang erstreckt sich meist über mehrere Wochen. Sein ganzer "
                 "Ablauf steht auf seiner Seite.")
         + facet("abstimmungen", "Abstimmungen und Beschlüsse", facts.decision_list(ds, "../", "dec"), len(ds))
         + facet("drucksachen", "Drucksachen", f"<p>{facts.drucksache_list(refs, '../', limit=40)}</p>" if refs
@@ -462,7 +463,7 @@ def week_card(week: str, ss: list[dict], decided: dict[str, list[dict]], moved: 
         f'<section class="wk" id="{e(week)}"><span class="n">{plural(n_speeches, "Rede", "Reden")}</span>'
         f'<h3><a href="../{e(urls.week(week))}">{e(week_label(week))}</a></h3>'
         f'<div class="dates">{short(ss[0]["date"])[:6]} – {short(ss[-1]["date"])} · '
-        f'<a href="{LANDSCAPE}{e(week)}.html">Themenlandschaft ↗</a></div>'
+        f'<a class="rl" href="{LANDSCAPE}{e(week)}.html">Themenlandschaft</a></div>'
         + (f'<div class="opts">{"".join(opts)}</div>' if opts else "")
         + f"{''.join(sits)}</section>"
     )

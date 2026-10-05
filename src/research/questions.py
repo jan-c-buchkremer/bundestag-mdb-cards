@@ -544,9 +544,10 @@ def _ka_section(ka: dict) -> str:
     )  # fmt: skip
     return (
         "<h2>Kleine Anfragen</h2>"
-        '<p class="explain">Eine Kleine Anfrage stellt eine Fraktion (oder fünf Prozent der Abgeordneten) schriftlich '
-        f"an die Bundesregierung. Nach § 104 Abs. 2 der Geschäftsordnung des Bundestages wird die Bundesregierung "
-        f"aufgefordert, innerhalb von {DEADLINE} Tagen zu antworten; im Benehmen mit den Fragestellern kann die Frist "
+        '<p class="explain">Eine Kleine Anfrage stellt eine Fraktion oder eine Gruppe von mindestens 5 % der '
+        "Abgeordneten schriftlich an die Bundesregierung. Nach § 104 Abs. 2 der Geschäftsordnung des Bundestages wird "
+        "die Bundesregierung "
+        f"aufgefordert, innerhalb von {DEADLINE} Tagen zu antworten. Im Benehmen mit den Fragestellern kann die Frist "
         "verlängert werden. Gezählt werden Kalendertage "
         "zwischen dem Datum der Anfrage-Drucksache und dem der Antwort-Drucksache (Quelle: DIP). Offen heißt: im "
         f"Datenbestand noch keine Antwort, Stand {short_date(ka['as_of'])}. Fraktionen ohne Kleine Anfrage "
@@ -558,9 +559,10 @@ def _ka_section(ka: dict) -> str:
 def _questions_section(wq: dict) -> str:
     parts = ["<h2>Schriftliche und Mündliche Fragen</h2>"]
     parts.append(
-        '<p class="explain">Jede und jeder Abgeordnete kann einzelne Fragen an die Bundesregierung richten: '
-        "schriftlich (die Antworten erscheinen wöchentlich gesammelt als Drucksache) oder mündlich für die "
-        "Fragestunde. DIP führt jede Frage als eigenen Vorgang; der Monat ist der der Sammeldrucksache.</p>"
+        '<p class="explain">Jede und jeder Abgeordnete kann einzelne Fragen an die Bundesregierung richten, '
+        "schriftlich oder mündlich für die "
+        "Fragestunde. Die Antworten auf schriftliche Fragen erscheinen wöchentlich gesammelt als Drucksache. DIP "
+        "führt jede Frage als eigenen Vorgang, der Monat ist der der Sammeldrucksache.</p>"
     )
     for kind, label in (("Schriftliche Frage", "Schriftliche Fragen"), ("Mündliche Frage", "Mündliche Fragen")):
         w = wq.get(kind)
@@ -607,7 +609,7 @@ def _befragung_section(bf: list[dict], fs: tuple[int, int]) -> str:
     elif fs[0]:
         gap = (
             f'<p class="explain">Die {n(fs[0])} Fragestunden der Wahlperiode haben {n(fs[1])} Fragen, Antworten und '
-            "Nachfragen im Protokoll. Sie stehen auf den Karten der Beteiligten und zählen nicht als Reden.</p>"
+            "Nachfragen im Protokoll. Sie stehen in den Steckbriefen der Beteiligten und zählen nicht als Reden.</p>"
         )
     if not bf:
         return "<h2>Regierungsbefragung</h2>" + gap
@@ -668,7 +670,7 @@ def research_section(counts: dict[str, int]) -> str:
         '<section class="facet fr" id="liste"><h2>Die einzelnen Fragen</h2>'
         '<p class="explain">Jede Kleine Anfrage, jede Schriftliche und Mündliche Frage und jeder Beitrag in der '
         "Fragestunde und der Regierungsbefragung, mit Link zur Quelle: der Drucksache oder dem Vorgang im DIP, dem "
-        "PDF, der Karte der Fragenden und bei mündlichen Fragen dem Protokoll. <b>Nur Titel:</b> Der Datenbestand "
+        "PDF, dem Steckbrief der Fragenden und bei mündlichen Fragen dem Protokoll. <b>Nur Titel:</b> Der Datenbestand "
         "enthält von Kleinen Anfragen und Schriftlichen Fragen nur den Titel, nicht den Wortlaut der Frage; der "
         "steht in der verlinkten Drucksache. Die Fragenden einer Schriftlichen oder Mündlichen Frage nennt DIP je "
         "Sammeldrucksache, nicht je Frage; genannt ist hier nur, wer allein in seiner Sammeldrucksache steht. "
@@ -699,8 +701,8 @@ def page(ka: dict, wq: dict, bf: list[dict], fs: tuple[int, int], counts: dict[s
         f"<footer>{FOOTER}</footer>" + ('<script src="../fragen.js"></script>' if research else "")
     )
     return shell(root="../", kind="p-questions", active="questions", title="Fragen an die Regierung",
-                 desc="Jede Frage der Abgeordneten an die Bundesregierung im 21. Bundestag zum Durchsuchen, und wie "
-                      "oft die Fraktionen fragen und wie schnell die Regierung antwortet: Kleine Anfragen, "
+                 desc="Alle Fragen der Abgeordneten an die Bundesregierung im 21. Bundestag, durchsuchbar und nach "
+                      "Fraktion und Antwortzeit ausgewertet: Kleine Anfragen, "
                       "Schriftliche und Mündliche Fragen, Fragestunde, Regierungsbefragung.",
                  body=body, data={"kind": "questions"}, head=STYLE + RESEARCH_STYLE)  # fmt: skip
 

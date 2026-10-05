@@ -44,17 +44,17 @@ PHASES = ("Eingebracht", "Beratung", "Ausschuss", "Abstimmung", "Bundesrat", "Ve
 # DIP's Beratungsstand values for Gesetzgebung (checked against the dev store, 21. WP: 14 values plus the "unbekannt"
 # fallback for a Vorgang without one), in the order of "So entsteht ein Gesetz" below. Sources: see GLOSSARY_SOURCES.
 STATUS_GLOSSARY = {
-    "Noch nicht beraten": "Der Entwurf kommt aus der Mitte des Bundestages – von einer Fraktion oder mindestens "
-        "5 % der Abgeordneten – und wartet auf seine erste Beratung im Plenum.",
+    "Noch nicht beraten": "Der Entwurf kommt aus der Mitte des Bundestages – von einer Fraktion oder von "
+        "mindestens 5 % der Abgeordneten – und wartet auf seine erste Beratung im Plenum.",
     "Dem Bundestag zugeleitet - Noch nicht beraten": "Der Entwurf kommt von der Bundesregierung oder vom "
         "Bundesrat und ist dem Bundestag förmlich zugeleitet (Art. 76 GG); bei einem Regierungsentwurf ist dem "
         "meist der „1. Durchgang“ im Bundesrat vorausgegangen. Die erste Beratung im Plenum steht noch aus.",
     "1. Durchgang im Bundesrat abgeschlossen": "Ein Regierungsentwurf geht zuerst zur Stellungnahme an den "
         "Bundesrat, der dafür sechs, bei umfangreichen Vorhaben neun Wochen Zeit hat (Art. 76 Abs. 2 GG). Dieser "
-        "„erste Durchgang“ ist beendet; die Bundesregierung leitet den Entwurf jetzt mit ihrer Gegenäußerung an "
+        "„erste Durchgang“ ist beendet. Die Bundesregierung leitet den Entwurf jetzt mit ihrer Gegenäußerung an "
         "den Bundestag weiter.",
     "In der Beratung (Einzelheiten siehe Vorgangsablauf)": "Ein Sammelstand des DIP für einen laufenden "
-        "Verfahrensschritt, der sich keinem der anderen Stände zuordnen lässt; die Einzelheiten stehen im Ablauf "
+        "Verfahrensschritt, der sich keinem der anderen Stände zuordnen lässt. Die Einzelheiten stehen im Ablauf "
         "auf dieser Seite oder im Vorgang im DIP.",
     "Überwiesen": "Nach der ersten Beratung hat der Bundestag den Entwurf zur weiteren Beratung an einen oder "
         "mehrere Ausschüsse überwiesen. Dort wird er im Detail beraten, oft mit einer öffentlichen Anhörung von "
@@ -64,7 +64,7 @@ STATUS_GLOSSARY = {
         "stimmt der Bundestag über diese – gegebenenfalls geänderte – Fassung ab, nicht mehr über den "
         "ursprünglichen Entwurf.",
     "Verabschiedet": "Der Bundestag hat den Entwurf in der Schlussabstimmung der dritten Beratung beschlossen. "
-        "Er ist noch kein Gesetz: Er geht jetzt zum Bundesrat (der „zweite Durchgang“) und muss danach noch "
+        "Er ist damit noch kein Gesetz. Der Entwurf geht jetzt zum Bundesrat („zweiter Durchgang“) und muss danach "
         "ausgefertigt und verkündet werden.",
     "Abgelehnt": "Der Bundestag hat den Entwurf in der Schlussabstimmung abgelehnt. Das Verfahren ist damit "
         "beendet.",
@@ -74,28 +74,28 @@ STATUS_GLOSSARY = {
         "dann und müssten im neuen Bundestag neu eingebracht werden.",
     "Bundesrat hat Vermittlungsausschuss nicht angerufen": "Nach der Verabschiedung im Bundestag konnte der "
         "Bundesrat den Vermittlungsausschuss anrufen, hat das aber nicht getan. Bei einem Zustimmungsgesetz muss "
-        "er trotzdem noch ausdrücklich zustimmen; bei einem Einspruchsgesetz kann er jetzt keinen Einspruch mehr "
-        "einlegen, denn dafür müsste zuvor ein Vermittlungsverfahren stattgefunden haben.",
+        "er trotzdem noch ausdrücklich zustimmen. Bei einem Einspruchsgesetz kann er keinen Einspruch mehr "
+        "einlegen, weil dafür ein Vermittlungsverfahren nötig gewesen wäre.",
     "Bundesrat hat zugestimmt": "Ein Zustimmungsgesetz braucht die ausdrückliche Zustimmung des Bundesrates, "
-        "sonst kommt es nicht zustande. Der Bundesrat hat zugestimmt; das Gesetz kann jetzt vom Bundespräsidenten "
+        "sonst kommt es nicht zustande. Der Bundesrat hat zugestimmt. Das Gesetz kann jetzt vom Bundespräsidenten "
         "ausgefertigt und verkündet werden.",
     "Bundesrat hat Zustimmung versagt": "Der Bundesrat hat die für ein Zustimmungsgesetz nötige Zustimmung "
-        "verweigert. Ohne sie kommt ein Zustimmungsgesetz nicht zustande – anders als bei einem Einspruchsgesetz "
-        "kann der Bundestag das nicht überstimmen. Das Verfahren ist gescheitert.",
+        "verweigert. Ohne sie kommt das Gesetz nicht zustande. Anders als bei einem Einspruchsgesetz "
+        "kann der Bundestag die Ablehnung nicht überstimmen. Das Verfahren ist gescheitert.",
     "Vermittlungsvorschlag liegt vor": "Der Vermittlungsausschuss – mit gleich vielen Mitgliedern aus Bundestag "
         "und Bundesrat – hat einen Einigungsvorschlag erarbeitet. Darüber muss der Bundestag erneut abstimmen, "
         "bei einem Zustimmungsgesetz danach auch der Bundesrat.",
     "Verkündet": "Der Bundespräsident hat das Gesetz nach Gegenzeichnung ausgefertigt, es ist im "
-        "Bundesgesetzblatt verkündet (Art. 82 GG). Das Verfahren ist abgeschlossen; ohne ein anderes Datum im "
+        "Bundesgesetzblatt verkündet (Art. 82 GG). Das Verfahren ist abgeschlossen. Ohne ein anderes Datum im "
         "Gesetz tritt es 14 Tage nach der Ausgabe des Bundesgesetzblatts in Kraft.",
     "unbekannt": "Für diesen Vorgang nennt das DIP keinen Beratungsstand.",
 }  # fmt: skip
 GLOSSARY_STEPS = (
-    ("Einbringung", "Ein Gesetzentwurf kommt von der Bundesregierung, aus der Mitte des Bundestages (einer "
-        "Fraktion oder mindestens 5 % der Abgeordneten) oder vom Bundesrat (Art. 76 GG)."),
-    ("1. Beratung", "Erste Lesung im Plenum, meist ohne Sachdebatte; entscheidend ist die Überweisung an die "
+    ("Einbringung", "Ein Gesetzentwurf kommt von der Bundesregierung, aus der Mitte des Bundestages (von "
+        "einer Fraktion oder von mindestens 5 % der Abgeordneten) oder vom Bundesrat (Art. 76 GG)."),
+    ("1. Beratung", "Erste Lesung im Plenum, meist ohne Sachdebatte. Entscheidend ist die Überweisung an die "
         "Ausschüsse."),
-    ("Ausschuss", "Beratung im Detail, oft mit einer Anhörung von Sachverständigen; endet mit der "
+    ("Ausschuss", "Beratung im Detail, oft mit einer Anhörung von Sachverständigen. Sie endet mit der "
         "Beschlussempfehlung an das Plenum."),
     ("2./3. Beratung", "Aussprache und Abstimmung über die Beschlussempfehlung, zuletzt die Schlussabstimmung."),
     ("Bundesrat", "Zweiter Durchgang: Zustimmung, Anrufung des Vermittlungsausschusses oder – bei einem "
@@ -377,8 +377,8 @@ def missing_step(s: dict) -> str:
     return (
         f' <a href="{e(m["pdf"])}">Plenarprotokoll {e(m["sitting"])}, S. {e(m["pages"])} (PDF)</a>'
         + (f'<div class="dip"><span class="k">Beschlüsse laut DIP</span><ul>{decs}</ul></div>' if decs else "")
-        + '<p class="gap">Der Protokolltext dieser Beratung ist nicht im Datenbestand: kein Tagesordnungspunkt nennt '
-        "eine Drucksache dieses Vorgangs, deshalb fehlen hier die Reden und die aus dem Protokoll gelesenen "
+        + '<p class="gap">Der Protokolltext dieser Beratung ist nicht im Datenbestand, weil kein Tagesordnungspunkt '
+        "eine Drucksache dieses Vorgangs nennt. Deshalb fehlen hier die Reden und die aus dem Protokoll gelesenen "
         "Abstimmungen. Sie stehen im Plenarprotokoll (PDF)"
         + ("; die Beschlüsse oben sind die Angaben des DIP, nicht aus dem Protokoll gelesen." if decs else ".")
         + "</p>"
@@ -412,7 +412,7 @@ def _how(b: dict) -> str:
                "Datenbestand, dazu die Verkündung. Schritte im Bundesrat fehlen hier, sie stehen im DIP.")  # fmt: skip
     else:
         how = ("Zusammengestellt aus den Daten der Drucksachen, den Tagesordnungspunkten und den Beschlüssen im "
-               "Datenbestand; Schritte im Bundesrat und die Verkündung fehlen hier, sie stehen im DIP.")  # fmt: skip
+               "Datenbestand. Schritte im Bundesrat und die Verkündung fehlen hier, sie stehen im DIP.")  # fmt: skip
     return (how + " Jede Abstimmung steht mit ihrem Ergebnis im Ablauf, eine namentliche mit der Stimme jedes "
             "Mitglieds.")  # fmt: skip
 
@@ -476,7 +476,7 @@ def procedure_page(b: dict, have: set[str], members: dict[str, list[list]], rela
     n_speeches = sum(len(a["speeches"]) for a in b["debates"])
     missing = any(s["missing"] for s in b["timeline"])
     none = (
-        "Laut DIP im Plenum beraten, aber der Protokolltext dieser Beratungen ist nicht im Datenbestand; sie "
+        "Laut DIP im Plenum beraten, aber der Protokolltext dieser Beratungen ist nicht im Datenbestand. Sie "
         "stehen im Ablauf oben mit dem Plenarprotokoll."
         if missing
         else "Noch nicht im Plenum beraten."
@@ -536,7 +536,7 @@ def index_page(procs: list[dict]) -> str:
         for b in procs
     )
     body = f"""<div class="bills"><h1>Vorgänge</h1>
-<p class="lead">Ein Vorgang ist im Dokumentationssystem DIP alles, was zu einer Vorlage gehört: ein Gesetzentwurf mit seinen Beratungen, Beschlussempfehlungen und Abstimmungen, ein Antrag, ein Entschließungsantrag. Hier stehen alle {n(types[GESETZ])} Gesetzgebungsvorgänge des 21. Bundestages und alle weiteren Vorgänge, die im Plenum beraten oder abgestimmt wurden ({n(len(procs) - types[GESETZ])}), der zuletzt bewegte zuerst. Ein Gesetz beginnt als Gesetzentwurf – von der Bundesregierung, aus der Mitte des Bundestages (meist von Fraktionen) oder vom Bundesrat. Der Bundestag berät es in der Regel dreimal im Plenum und dazwischen in den Ausschüssen, dann stimmt er ab. Danach ist der Bundesrat dran; zuletzt wird das Gesetz ausgefertigt und im Bundesgesetzblatt verkündet.</p>
+<p class="lead">Ein Vorgang ist im Dokumentationssystem DIP alles, was zu einer Vorlage gehört: ein Gesetzentwurf mit seinen Beratungen, Beschlussempfehlungen und Abstimmungen, ein Antrag, ein Entschließungsantrag. Hier stehen alle {n(types[GESETZ])} Gesetzgebungsvorgänge des 21. Bundestages und alle weiteren Vorgänge, die im Plenum beraten oder abgestimmt wurden ({n(len(procs) - types[GESETZ])}), der zuletzt bewegte zuerst. Ein Gesetz beginnt als Gesetzentwurf von der Bundesregierung, aus der Mitte des Bundestages, meist von Fraktionen, oder vom Bundesrat. Der Bundestag berät es in der Regel dreimal im Plenum und dazwischen in den Ausschüssen, dann stimmt er ab. Danach folgt der Bundesrat. Zuletzt wird das Gesetz ausgefertigt und im Bundesgesetzblatt verkündet.</p>
 <details class="open"><summary>Wie viele Gesetzesvorhaben in welchem Stand sind</summary><div class="rows"><table class="plenum"><thead><tr><th>Stand im DIP</th><th>Vorgänge</th></tr></thead><tbody>{table}</tbody></table></div></details>
 <div class="filters"><input type="search" id="bq" placeholder="Titel oder Einbringer …" autocomplete="off"><select id="bty"><option value="">jede Art</option>{type_options}</select><select id="bst"><option value="">jeder Stand</option>{options}</select></div>
 <div class="count" id="bcount"></div>

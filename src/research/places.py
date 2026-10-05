@@ -168,13 +168,13 @@ def why_no_direct(w: dict) -> str:
     o = w.get("official")
     if w["direct"]:
         x = w["direct"][0]
-        return (f"Das direkt gewählte Mitglied ist am {short_date(x['left'])} ausgeschieden. Ein Direktmandat hat "
-                "keine Nachwahl: Der Sitz ging an die Landesliste der Partei, wer nachgerückt ist, steht "
+        return (f"Das direkt gewählte Mitglied ist am {short_date(x['left'])} ausgeschieden. Für ein Direktmandat gibt "
+                "es keine Nachwahl. Der Sitz ging an die Landesliste der Partei. Wer nachgerückt ist, steht "
                 "unten.")  # fmt: skip
     if o and not o.get("seat_party") and o.get("first_party"):
         return (
-            f"Kein direkt gewähltes Mitglied: Die meisten Erststimmen hatte {e(o['first_party'])} "
-            f"({pct(o.get('first_percent'))}), aber sie waren nicht durch Zweitstimmen gedeckt. {ZSD}"
+            f"Kein direkt gewähltes Mitglied. Die meisten Erststimmen hatte {e(o['first_party'])} "
+            f"({pct(o.get('first_percent'))}), sie waren aber nicht durch Zweitstimmen gedeckt. {ZSD}"
         )
     return "Kein direkt gewähltes Mitglied in den Daten."
 
@@ -185,7 +185,7 @@ def _facets(people: list[dict], speeches: list[dict], authored: dict[str, list[d
     ids = {x["card"]["id"] for x in people}
     sps = [s for s in speeches if s["person"] in ids and s["kind"] in ("rede", "kurz")]
     shown = sorted(sps, key=lambda s: (s["date"], s["id"]), reverse=True)[:FACET]
-    more = (f'<p class="explain">Die neuesten {n(len(shown))} von {n(len(sps))}; alle stehen auf den Karten.</p>'
+    more = (f'<p class="explain">Die neuesten {n(len(shown))} von {n(len(sps))}. Alle stehen in den Steckbriefen.</p>'
             if len(sps) > len(shown) else "")  # fmt: skip
     out = [facet("reden", "Reden", facts.speech_list(shown, "../", "reden", limit=None, note=more), len(sps),
                  f"Reden {who}.")]  # fmt: skip
@@ -196,17 +196,17 @@ def _facets(people: list[dict], speeches: list[dict], authored: dict[str, list[d
         facts.decision_list(rc[:VOTES], "../", "dec", limit=None,
                             subset=lambda d: [m for m in rcm.get(d["id"], []) if m[0] in ids]),
         len(rc), f"Wie die Mitglieder {who} namentlich abgestimmt haben, die neuesten {VOTES} Abstimmungen. "
-        "Per Handzeichen hält das Protokoll nur Fraktionen fest, keine Personen.",
+        "Bei Abstimmungen per Handzeichen hält das Protokoll nur die Fraktionen fest.",
     ))  # fmt: skip
     docs = {d["number"]: d for x in people for d in authored.get(x["card"]["id"], [])}
     ds = sorted(docs.values(), key=lambda d: (d["date"], d["number"]), reverse=True)
     out.append(facet("drucksachen", "Drucksachen", facts.drucksache_list(ds[:FACET], "../", "drs", compact=False,
                                                                          limit=None), len(ds),
-                     f"Drucksachen, die Mitglieder {who} laut DIP als Urheber führen, die neuesten {FACET}; "
+                     f"Drucksachen, die Mitglieder {who} laut DIP als Urheber führen, die neuesten {FACET}. "
                      "Fraktionsanträge tragen oft die Namen der ganzen Fraktion."))  # fmt: skip
-    out.append(facet("erwaehnungen", "Erwähnungen", "", explain="Wo dieser Ort in Reden genannt wird, ist noch nicht "
-                     "erfasst: Ortsnamen sind oft mehrdeutig (Halle, Neustadt, Essen) und brauchen ein Ortsverzeichnis "
-                     "mit Auflösung, das in der Datengrundlage noch fehlt."))  # fmt: skip
+    out.append(facet("erwaehnungen", "Erwähnungen", "", explain="Nennungen dieses Ortes in Reden sind noch nicht "
+                     "erfasst. Ortsnamen sind oft mehrdeutig (Halle, Neustadt, Essen), und für ihre Zuordnung fehlt "
+                     "noch ein Ortsverzeichnis."))  # fmt: skip
     return out
 
 
@@ -235,7 +235,7 @@ def wahlkreis_page(w: dict, lst: list[dict], ctx: dict) -> str:
     members = (f"<h3>Direkt gewählt</h3>{direct}"
                f'<h3>Über die Landesliste {e(STATES.get(land, land))} <span class="n">{n(len(lst))}</span></h3>'
                '<p class="explain">Wer über die Landesliste in den Bundestag kam, vertritt das ganze Land, also auch '
-               "diesen Wahlkreis. Zuerst, wer hier kandidiert hat.</p>"
+               "diesen Wahlkreis. Zuerst die Abgeordneten, die hier kandidiert haben.</p>"
                f"{_members(stood + others, nr, 'Keine Listenmandate in den Daten.')}")  # fmt: skip
     body.append(facet("mitglieder", "Mitglieder", members, len(w["direct"]) + len(lst)))
     near = w["direct"] + stood
@@ -244,8 +244,8 @@ def wahlkreis_page(w: dict, lst: list[dict], ctx: dict) -> str:
     body.append(f"<footer>{FOOTER} Wahlergebnisse: Die Bundeswahlleiterin, Bundestagswahl 2025 "
                 '(<a href="https://www.govdata.de/dl-de/by-2-0">dl-de/by-2-0</a>).</footer>')  # fmt: skip
     return shell(root="../", kind="p-place", active="places", title=f"Wahlkreis {nr}: {w['name']}",
-                 desc=f"Wahlkreis {nr} {w['name']}: wer ihn im 21. Bundestag vertritt, direkt und über die "
-                      "Landesliste, mit Reden, Abstimmungen und Drucksachen.", body="".join(body),
+                 desc=f"Wahlkreis {nr} {w['name']}: die direkt und über die Landesliste gewählten Abgeordneten im "
+                      "21. Bundestag mit Reden, Abstimmungen und Drucksachen.", body="".join(body),
                  data={"kind": "place", "wahlkreis": nr})  # fmt: skip
 
 
@@ -281,7 +281,7 @@ def land_page(land: str, wks: list[dict], lst: list[dict], ctx: dict) -> str:
 
 def plenum_href(key: str) -> str:
     """The Abgeordnete page filtered by a place (its plenum and list show exactly `people(rep, key)`)."""
-    return f"index.html#ort={key}"
+    return f"abgeordnete.html#ort={key}"
 
 
 HUB_STYLE = """<style>
@@ -339,7 +339,8 @@ HUB_JS = """<script>
 // the place hub (places.py `bund_page`): the place search over orte/orte.json (places.js), the map (wkmap.js);
 // every result, map click and list row leads to the canonical place page
 document.addEventListener('DOMContentLoaded', () => {
-  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', '
+                                                                                                                   '"'": '&#39;' })[c]);
   const $ = id => document.getElementById(id);
   const q = $('pq'), out = $('presults');
   const KIND = { land: 'Land', wk: 'Wahlkreis', gemeinde: 'Gemeinde' };
@@ -423,9 +424,9 @@ def bund_page(rep: dict, lookup: list[str]) -> str:
     )
     body = (crumbs((None, "Bund"))
             + entity_header("Bund, Länder und Wahlkreise", [
-                f"16 Länder, {n(len(rep['wahlkreise']))} Wahlkreise. Jede Seite zeigt, wer den Ort im 21. Bundestag "
-                "vertritt: direkt gewählt im Wahlkreis und über die Landesliste des Landes. Die Abgeordneten eines "
-                f'Ortes zeigt auch das <a href="../index.html">Plenum</a>, gefiltert nach dem Ort.'], lookup,
+                f"16 Länder, {n(len(rep['wahlkreise']))} Wahlkreise. Jede Seite zeigt die Abgeordneten des Ortes im "
+                "21. Bundestag, direkt im Wahlkreis gewählt und über die Landesliste. Nach dem Ort gefiltert zeigt sie "
+                'auch das <a href="../abgeordnete.html">Plenum</a>.'], lookup,
                 when="Orte")
             + f'<div class="hub">{search}<div class="cols">{mapbox}<div>'
             + facet("laender", "Länder und Wahlkreise", "".join(lands) + unplaced)

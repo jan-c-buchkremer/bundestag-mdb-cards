@@ -96,4 +96,4 @@ def test_roles_section(conn):
 def test_write_leaves_a_stub(tmp_path):
     assert careers.write(tmp_path) == {"karrieren": 1}
     html = (tmp_path / "karrieren" / "index.html").read_text()
-    assert 'http-equiv="refresh"' in html and 'href="../index.html#rollen"' in html
+    assert 'http-equiv="refresh"' in html and 'href="../abgeordnete.html#rollen"' in html

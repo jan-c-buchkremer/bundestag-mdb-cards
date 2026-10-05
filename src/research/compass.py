@@ -25,11 +25,16 @@ from pathlib import Path
 
 from research import urls
 from research.data import VOTE_CHOICES, majority
-from research.ui import FOOTER, ORDER, SHORT, SITTING_TABS, TOKEN, fraction_order, shell, subtabs
+from research.ui import FOOTER, ORDER, SHORT, TOKEN, fraction_order, method_note, shell
 
 HERE = Path(__file__).parent
 CANDIDATES_PATH = HERE / "compass_candidates.json"
 MIN_QUESTIONS = 10  # nothing is written below this
+# the Radar method note (docs/architecture.md): the selection is the interpretation here
+METHOD = ("Die Fragen sind eine Auswahl von Hand: Abstimmungen aus vielen Themen, jede als neutrale Frage "
+          "formuliert. Übereinstimmung heißt, wie oft deine Antwort der Linie einer Fraktion entspricht. Eine andere "
+          "Auswahl könnte ein anderes Ergebnis geben. Über Positionen jenseits dieser Abstimmungen sagt das Quiz "
+          "nichts.")  # fmt: skip
 
 
 def candidates() -> list[dict]:
@@ -122,7 +127,7 @@ STYLE = """<style>
 .cps details.method dt { font-weight: 600; margin-top: 8px; }
 .cps details.method dd { margin: 2px 0 0; }
 .cps #start { margin: 16px 0; }
-.cps button.primary { font: inherit; font-weight: 600; padding: 10px 20px; border-radius: 10px; border: 0; background: var(--accent); color: #fff; cursor: pointer; }
+.cps button.primary { font: inherit; font-weight: 600; padding: 10px 20px; border-radius: 10px; border: 0; background: var(--mode); color: #fff; cursor: pointer; }
 .cps button.primary:hover { filter: brightness(1.08); }
 .cps #quiz, .cps #results { display: none; }
 .cps.q-active #intro { display: none; } .cps.q-active #quiz { display: block; }
@@ -134,7 +139,7 @@ STYLE = """<style>
 .cps .important { display: flex; align-items: center; gap: 6px; font-size: 13.5px; color: var(--muted); margin-bottom: 14px; }
 .cps .answers { display: flex; flex-wrap: wrap; gap: 8px; }
 .cps .answers button { font: inherit; font-size: 14.5px; padding: 9px 16px; border-radius: 9px; border: 1px solid var(--line); background: var(--card); cursor: pointer; }
-.cps .answers button:hover { border-color: var(--accent); }
+.cps .answers button:hover { border-color: var(--mode); }
 .cps .answers button.skip { margin-left: auto; color: var(--muted); border-style: dashed; }
 .cps .nav { margin-top: 14px; font-size: 13px; }
 .cps .nav button { font: inherit; background: none; border: 0; color: var(--muted); cursor: pointer; padding: 0; }
@@ -337,7 +342,7 @@ document.addEventListener("DOMContentLoaded", () => {  // PAGE (the data script)
 
 def page(questions: list[dict], members: list[dict], places: dict | None = None) -> str:
     n_roll_call = sum(1 for q in questions if q["kind"] == "namentlich")
-    body = f"""{subtabs("", SITTING_TABS, "votes")}<div class="cps">
+    body = f"""<p class="crumbs"><a href="abstimmungen/index.html">Abstimmungen</a> › <span>Wer stimmt wie ich?</span></p><div class="cps">
 <h1>Wer stimmt wie ich?</h1>
 <p class="lead">{len(questions)} Abstimmungen des 21. Deutschen Bundestages, aus vielen Themen, Gesetzentwürfe der Regierung genauso wie Anträge der Opposition. Beantworte jede Frage mit Ja, Nein, Enthaltung oder überspringe sie, und sieh am Ende, welcher Fraktion deine Antworten am nächsten kommen.</p>
 <div class="disclaimer">Deine Antworten bleiben in deinem Browser. Nichts wird gespeichert und nichts wird an einen Server geschickt. Schließt du die Seite, sind die Antworten weg. Die Fraktionslinie zeigt oft die Koalitionsdisziplin, nicht immer die persönliche Meinung jedes einzelnen Mitglieds. Dieser Kompass ist eine Übersicht, keine Wahlempfehlung.</div>
@@ -389,6 +394,7 @@ def page(questions: list[dict], members: list[dict], places: dict | None = None)
 </div>
 <p class="restart"><button type="button" id="restart">Von vorn beginnen</button></p>
 </div>
+{method_note(METHOD)}
 <footer>{FOOTER}</footer>
 </div>{SCRIPT}"""  # noqa: E501
     data = {
@@ -399,7 +405,7 @@ def page(questions: list[dict], members: list[dict], places: dict | None = None)
     desc = (f"{len(questions)} ausgewählte Abstimmungen des 21. Deutschen Bundestages als Quiz: Ja, Nein, "
             "Enthaltung oder überspringen, und sehen, welcher Fraktion man am nächsten kommt. Läuft vollständig "
             "im Browser, ohne Speicherung.")  # fmt: skip
-    return shell(root="", kind="p-compass", active="sittings", title="Wer stimmt wie ich?", desc=desc,
+    return shell(root="", kind="p-compass", active="radar", mode="radar", title="Wer stimmt wie ich?", desc=desc,
                  head=STYLE + '<script src="places.js"></script>', body=body, data=data)  # fmt: skip
 
 

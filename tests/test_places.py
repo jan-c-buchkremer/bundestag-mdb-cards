@@ -119,8 +119,8 @@ def test_list_member_without_land_is_on_the_bund_page_only(conn, tmp_path):
 
 def test_place_pages_link_the_filtered_plenum_and_the_hub(conn, tmp_path):
     page = site(conn, tmp_path)
-    assert 'href="../index.html#ort=242">Im Plenum zeigen</a>' in page("wahlkreis-242")
-    assert 'href="../index.html#ort=BY">Im Plenum zeigen</a>' in page("bayern")
+    assert 'href="../abgeordnete.html#ort=242">Im Plenum zeigen</a>' in page("wahlkreis-242")
+    assert 'href="../abgeordnete.html#ort=BY">Im Plenum zeigen</a>' in page("bayern")
     assert 'href="index.html#wk=242">Auf der Karte</a>' in page("wahlkreis-242")
     hub = page("index")
     for part in ('id="suche"', 'id="karte"', 'id="laender"', 'href="wahlkreis-242.html"', 'href="bayern.html"',

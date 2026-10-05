@@ -39,7 +39,7 @@ def test_speech_page(conn, tmp_path):
     # the question by Cohn stays in its place, with its anchor and her card
     assert '<div class="rp" id="ID1-2"><div class="rp-who"><a href="../3.html">Clara Cohn</a>' in page
     assert page.index('id="ID1-2"') < page.index('id="ID1-5"')
-    assert '#cluster=7">In dieser Woche: Mieten &amp; Wohnungsbau ↗</a>' in page
+    assert '#cluster=7">In dieser Woche: Mieten &amp; Wohnungsbau</a>' in page
     for f in ('"Art">Rede', '"Person">Dr. Bernd Berg', '"Fraktion">CDU/CSU', '"Monat">Juli 2026',
               '"Thema">Mieten &amp; Wohnungsbau'):  # fmt: skip
         assert f"data-pagefind-filter={f}</span>" in page
@@ -76,7 +76,7 @@ def test_links_to_speech_pages(conn, tmp_path):
     sitting = (tmp_path / "sitzungen" / "21-88.html").read_text()
     assert '<a href="../reden/ID1.html" title="Der ganze Text dieser Rede">Text</a>' in sitting
     assert "data-pagefind-body" not in sitting  # Pagefind indexes speeches only; sittings are found as entities
-    assert '<form class="nav-q" role="search" action="suche.html"' in (tmp_path / "index.html").read_text()
+    assert '<form class="nav-q" role="search" action="suche.html"' in (tmp_path / "abgeordnete.html").read_text()
     spec = importlib.util.spec_from_file_location("check_links", HERE.parent / "scripts" / "check_links.py")
     check_links = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(check_links)

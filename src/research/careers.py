@@ -212,8 +212,8 @@ def _tenure_section(rows: list[dict]) -> str:
     )  # fmt: skip
     return (
         "<h3>Wie lange schon im Bundestag</h3>"
-        '<p class="explain">Wahlperioden der heutigen Mitglieder, die 21. mitgezählt, nach Fraktion; Pausen zählen '
-        "nicht mit. „Erstmals“ heißt: nur in der 21. Wahlperiode. Grundlage: alle Mandate seit 1949 in den "
+        '<p class="explain">Wahlperioden der heutigen Mitglieder nach Fraktion ohne Berücksichtigung von Pausen. '
+        "„Erstmals“ heißt: nur in der 21. Wahlperiode. Grundlage: alle Mandate seit 1949 in den "
         "Stammdaten.</p>"
         '<div class="rows"><table class="plenum"><thead><tr><th class="l">Fraktion</th>'
         + "".join(f"<th>{b}</th>" for b in BUCKETS)
@@ -302,9 +302,9 @@ def section(r: dict, government_page: bool) -> str:
     src = f' Quelle: <a href="{e(stamm["url"])}">{e(stamm["doc"])}</a>.' if stamm else ""
     return (
         '<section class="facet roles" id="rollen"><h2>Rollen</h2>'
-        '<p class="explain">Wer im Bundestag welche Rolle hat: Präsidium, Fraktionsvorsitz, Vorsitz der Ausschüsse '
-        "und Gremien, Ämter in der Bundesregierung, und wie lange die Mitglieder schon dabei sind. Jede Rolle führt "
-        f"zur Seite ihres Gremiums, ihrer Fraktion oder der Bundesregierung, jeder Name zur Karte.{src}</p>"
+        '<p class="explain">Präsidium, Fraktionsvorsitz, Vorsitz der Ausschüsse und Gremien, Ämter in der '
+        "Bundesregierung und die Dauer der Mitgliedschaft. Jede Rolle führt "
+        f"zur Seite ihres Gremiums, ihrer Fraktion oder der Bundesregierung, jeder Name zum Steckbrief.{src}</p>"
         f"<h3>Präsidium</h3>{f'<ul>{pres}</ul>' if pres else none}{pres_link}"
         f"<h3>Fraktionsvorsitz</h3>{f'<ul>{fch}</ul>' if fch else none}"
         f"<h3>Vorsitz der Ausschüsse und Gremien</h3>{f'<ul>{chairs}</ul>' if chairs else none}"
@@ -339,5 +339,5 @@ def build_section(conn: sqlite3.Connection, cards: list[dict], bodies: list[dict
 
 def write(out: Path) -> dict[str, int]:
     """karrieren/index.html is the Rollen section of the Abgeordnete page now: a stub to index.html#rollen."""
-    redirects.write(out, "karrieren/index.html", "index.html#rollen", "Rollen", redirects.any_fragment("rollen"))
+    redirects.write(out, "karrieren/index.html", "abgeordnete.html#rollen", "Rollen", redirects.any_fragment("rollen"))
     return {"karrieren": 1}

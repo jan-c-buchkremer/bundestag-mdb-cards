@@ -12,9 +12,9 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 from research import facts, urls
-from research.ui import FOOTER, LANDSCAPE, SITTING_TABS, crumbs, e, long_date, n, shell, short_date, subtabs
+from research.ui import FOOTER, LANDSCAPE, RADAR_ICON, SITTING_TABS, crumbs, e, long_date, n, shell, short_date, subtabs
 
-TOPICS = 5  # clusters under "Worum ging es"
+TOPICS = 5  # clusters under "Themen"
 
 
 def week_label(week: str) -> str:
@@ -44,8 +44,8 @@ def vote_page(d: dict, members: list[list] | None) -> str:
         links = "".join(
             f'<li><a href="../{e(urls.vorgang(v))}">{e(d["vorgang_titles"].get(v, v))}</a></li>' for v in vs
         )
-        parts.append(f'<h2>Vorgänge</h2><p class="explain">Diese Abstimmung betrifft Drucksachen mehrerer Vorgänge; '
-                     f"jeder führt sie in seinem Ablauf.</p><ul>{links}</ul>")  # fmt: skip
+        parts.append(f'<h2>Vorgänge</h2><p class="explain">Diese Abstimmung betrifft Drucksachen mehrerer Vorgänge. '
+                     f"Jeder führt sie in seinem Ablauf.</p><ul>{links}</ul>")  # fmt: skip
     parts.append(f"<footer>{FOOTER}</footer>")
     desc = (f"{'Namentliche Abstimmung' if rc else 'Abstimmung per Handzeichen'} im Bundestag am "
             f"{long_date(d['date'])}: {d['title']} – {d['result'] or 'ohne Ergebnis'}.")  # fmt: skip
@@ -62,7 +62,7 @@ def compass_link(compass: bool) -> str:
         return ""
     return (
         " Ausgewählte Abstimmungen als Quiz, um die eigenen Antworten mit den Fraktionen zu vergleichen: "
-        '<a href="../kompass.html">Wer stimmt wie ich?</a>'
+        '<a class="rl" href="../kompass.html">Wer stimmt wie ich?</a>'
     )
 
 
@@ -124,7 +124,7 @@ def sitting_page(s: dict, clusters: dict[str, dict] | None = None) -> str:
   <div class="when">{e(long_date(s["date"], True))}{time}</div>
   <h1>{s["number"]}. Sitzung des 21. Bundestages</h1>
   <div class="lines">{" · ".join(summary)}</div>
-  <div class="links"><a href="{e(s["pdf"])}">Plenarprotokoll {e(s["cite"])} (PDF)</a><a href="../{e(urls.week(s["week"]))}">Die Woche im Bundestag</a><a href="{e(week)}">Diese Woche in der Themenlandschaft ↗</a></div>
+  <div class="links"><a href="{e(s["pdf"])}">Plenarprotokoll {e(s["cite"])} (PDF)</a><a href="../{e(urls.week(s["week"]))}">Die Woche im Bundestag</a><a class="rl" href="{e(week)}">Diese Woche in der Themenlandschaft</a></div>
   <nav class="prevnext">{"".join(nav)}</nav>
 </section>
 <h2>Tagesordnung</h2>
@@ -176,7 +176,7 @@ def agenda_item(i: dict, s: dict, clusters: dict[str, dict] | None = None) -> st
     parts.append(topics_block(i, clusters or {}))
     if i.get("fragestunde"):
         parts.append(f'<p class="explain">{n(i["fragestunde"])} Fragen, Antworten und Nachfragen in der Fragestunde. '
-                     "Sie stehen auf den Karten der Beteiligten und zählen nicht als Reden.</p>")  # fmt: skip
+                     "Sie stehen in den Steckbriefen der Beteiligten und zählen nicht als Reden.</p>")  # fmt: skip
     if subs:
         parts.append(subtop_pages.block_speeches(i, s))
     elif i["speeches"]:
@@ -200,7 +200,7 @@ def topics(i: dict, clusters: dict[str, dict]) -> list[dict]:
 
 
 def topics_block(i: dict, clusters: dict[str, dict]) -> str:
-    """ "Worum ging es": the item's top clusters in the Themenlandschaft; nothing without the landscape's data."""
+    """ "Themen": the item's top clusters in the Themenlandschaft; nothing without the landscape's data."""
     found = topics(i, clusters)
     if not found:
         return ""
@@ -213,8 +213,8 @@ def topics_block(i: dict, clusters: dict[str, dict]) -> str:
     )
     more = len(found) - TOPICS
     rest = f'<span class="faint">und {more} weitere</span>' if more > 0 else ""
-    return (f'<div class="topics"><div class="k">Worum ging es <span class="n">aus der Themenlandschaft'
-            "</span></div>"
+    return (f'<div class="topics"><div class="k">Themen <span class="rmark">{RADAR_ICON}Radar</span> '
+            '<span class="n">aus der Themenlandschaft</span></div>'
             f'<div class="chips">{links}{rest}</div></div>')  # fmt: skip
 
 

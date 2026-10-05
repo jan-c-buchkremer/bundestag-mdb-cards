@@ -15,6 +15,7 @@ from research.ui import VOTE, e, long_date, n
 HERE = Path(__file__).parent
 # wahlkreise.json: the map, fetched on demand
 ASSETS = (
+    "shell.css",
     "cards.css",
     "card.js",
     "pages.js",
@@ -25,6 +26,8 @@ ASSETS = (
     "places.js",
     "wkmap.js",
     "fragen.js",
+    "landing.css",
+    "landing.js",
 )
 
 
@@ -73,17 +76,18 @@ def reden_tab(c: dict) -> str:
     parts = [
         '<div class="tools"><input type="search" class="fq" placeholder="Reden durchsuchen: Tagesordnungspunkt, '
         'Datum …" aria-label="Reden durchsuchen"></div>'
-        '<p class="explain">Eine Rede ist ein Redebeitrag zu einem Tagesordnungspunkt, so wie ihn das Plenarprotokoll '
-        "führt, mit mindestens 500 Zeichen; Zwischenfragen anderer gehören zur Rede, in der sie gestellt wurden. Die "
-        "Länge ist in Wörtern angegeben, die Redezeit steht nicht im Protokoll. „Text“ öffnet die ganze Rede, "
+        '<p class="explain">Eine Rede ist ein Beitrag von mindestens 500 Zeichen zu einem Tagesordnungspunkt, wie ihn '
+        'das Plenarprotokoll '
+        "führt. Zwischenfragen anderer gehören zu der Rede, in der sie gestellt wurden. Die "
+        "Länge ist in Wörtern angegeben, da das Protokoll keine Redezeit enthält. „Text“ öffnet die ganze Rede, "
         "„Themenlandschaft“ die Rede in der Themenlandschaft ihrer Sitzungswoche.</p>",
         _h2("reden-reden", "Reden", len(c["reden"])) + lst("reden", c["reden"], "rede"),
     ]  # fmt: skip
     if c["kurz"]:
         parts.append(_h2("reden-kurz", "Kurze Wortbeiträge", len(c["kurz"]))
                      + '<p class="explain">Beiträge unter 500 Zeichen, etwa ein Amtseid, eine Erklärung zur Abstimmung '
-                     "in einem Satz oder ein Hinweis zur Geschäftsordnung. Sie zählen nicht als Rede, so wie in der "
-                     "Themenlandschaft.</p>" + lst("kurz", c["kurz"], "kurz"))  # fmt: skip
+                     "in einem Satz oder ein Hinweis zur Geschäftsordnung. Sie zählen hier und in der "
+                     "Themenlandschaft nicht als Rede.</p>" + lst("kurz", c["kurz"], "kurz"))  # fmt: skip
     if c["fragen"]:
         parts.append(
             _h2("reden-fragen", "Zwischenfragen und Kurzinterventionen", len(c["fragen"]))
@@ -130,11 +134,11 @@ def votes_tab(c: dict, meta: dict, decisions: dict[str, dict]) -> str:
                 if c["fraction"] != "fraktionslos" and with_line else "") + "</div>")  # fmt: skip
     absent = sum(1 for v in votes if v["vote"] == "absent")
     body = (
-        f'<p class="explain">Namentlich abgestimmt wird nur, wenn eine Fraktion oder 5 % der Mitglieder es verlangen: '
-        f"{n(meta['votes'])}-mal seit {e(long_date(meta['sittings']['from']))}. Jede Zeile zeigt zuerst das Ergebnis "
-        "im ganzen Haus, rechts die eigene Stimme und daneben klein, ob sie der Mehrheit der eigenen Fraktion "
+        f'<p class="explain">Namentlich abgestimmt wird nur, wenn eine Fraktion oder 5 % der Mitglieder es verlangen, '
+        f"seit {e(long_date(meta['sittings']['from']))} {n(meta['votes'])}-mal. Jede Zeile zeigt das Ergebnis "
+        "im ganzen Haus und rechts die eigene Stimme mit dem Hinweis, ob sie der Mehrheit der eigenen Fraktion "
         "entsprach. Der Titel führt zur Abstimmung.</p>" + stats
-        + (f'<p class="explain">„Nicht abgestimmt“ ({n(absent)}-mal) sagt nichts über den Grund: Krankheit, '
+        + (f'<p class="explain">„Nicht abgestimmt“ ({n(absent)}-mal) nennt keinen Grund. Krankheit, '
            "Elternzeit, Dienstreisen und Pairing-Absprachen stehen nicht in den Listen.</p>" if absent else "")
         + f'<div class="tools"><label><input type="checkbox" class="fonly"> nur Abweichungen von der '
         f"Fraktionsmehrheit ({n(len(dev))})</label></div>"
@@ -158,11 +162,11 @@ def documents_tab(c: dict, meta: dict) -> str:
     parts = [
         f'<p class="explain">{e(span)}. Eine Drucksache zählt hier, wenn DIP diese Person als Urheber führt (Antrag, '
         "Kleine Anfrage, Entschließungs- und Änderungsantrag, Gesetzentwurf, schriftliche Frage). Fraktionsanträge "
-        "tragen oft die Namen der ganzen Fraktion; die Zahl der Namen zeigt, ob eine Drucksache von wenigen oder von "
+        "tragen oft die Namen der ganzen Fraktion. Die Zahl der Namen zeigt, ob eine Drucksache von wenigen oder von "
         "allen stammt.</p>",
-        "" if dip["complete"] else '<p class="explain"><b>Noch unvollständig:</b> Die Drucksachen aus DIP werden '
-        "gerade für die ganze Wahlperiode nachgeladen. Bis dahin fehlen Monate; deshalb nennt die Karte oben noch "
-        "keine Zahlen.</p>",
+        "" if dip["complete"] else '<p class="explain">Die Drucksachen aus DIP werden gerade für die '
+        "ganze Wahlperiode nachgeladen. Bis dahin fehlen einzelne Monate, deshalb nennt der Steckbrief oben noch keine "
+        "Zahlen.</p>",
         _h2("drucksachen-eigene", "Anträge, Anfragen, Gesetzentwürfe", len(docs)),
         (f'<div class="tools"><label><input type="checkbox" class="fonly"> nur Drucksachen mit höchstens '
          f"{SMALL_GROUP} Namen ({n(small)})</label></div>" if docs else ""),
@@ -170,13 +174,14 @@ def documents_tab(c: dict, meta: dict) -> str:
     ]  # fmt: skip
     if questions:
         parts.append(_h2("drucksachen-fragen", "Schriftliche Fragen", len(questions))
-                     + '<p class="explain">Schriftliche Fragen erscheinen gesammelt in einer Drucksache je Woche; der '
+                     + '<p class="explain">Schriftliche Fragen erscheinen gesammelt in einer Drucksache je Woche. Der '
                      "Link führt zu dieser Sammlung.</p>"
                      + facts.drucksache_list(rows(questions), "", "l-fragen", compact=False, own=True))  # fmt: skip
     if c["reported"]:
         parts.append(_h2("drucksachen-berichte", "Berichterstattung", len(c["reported"]))
                      + '<p class="explain">Als Berichterstatterin oder Berichterstatter eines Ausschusses auf einer '
-                     "Beschlussempfehlung genannt. Das ist eine Aufgabe im Ausschuss, keine Urheberschaft.</p>"
+                     "Beschlussempfehlung genannt. Berichterstattung ist eine Aufgabe im Ausschuss und zählt nicht "
+                     "als Urheberschaft.</p>"
                      + facts.drucksache_list(rows(c["reported"]), "", "l-berichte", compact=False))  # fmt: skip
     return _tab("drucksachen", "".join(parts))
 
@@ -261,7 +266,7 @@ def write_site(
         (out / f"{c['id']}.html").write_text(render_card(c, meta, by_id), encoding="utf-8")
         (out / f"{c['id']}.json").write_text(json.dumps(c, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     index = render_index(cards, meta, government, last_sitting, places, roles)
-    (out / "index.html").write_text(index, encoding="utf-8")
+    (out / "abgeordnete.html").write_text(index, encoding="utf-8")
     for name in ASSETS:
         shutil.copyfile(HERE / name, out / name)
     shutil.copytree(HERE / "fonts", out / "fonts", dirs_exist_ok=True)

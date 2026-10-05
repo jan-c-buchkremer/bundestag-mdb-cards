@@ -2,9 +2,26 @@
 
 ## Current goal
 
-*(Jan: two weeks, from the reader's side – "By <date>, a reader can …".)*
+Goals in the order they are worked on, each from the reader's side. No dates: how much time there is varies, so the
+order is the plan. The first unfinished goal is the current one; every change is reviewed against it. Ideas that
+don't serve it go on "Not now", not into code.
 
-Every change is reviewed against this goal. Ideas that don't serve it go on "Not now", not into code.
+1. **Front page and the two parts of the site** (in review: research #55, radar #16). A reader who arrives at
+   plenar-radar.de lands on a front page that shows what the site offers and takes them there in one click, and on
+   every page can tell by its look whether they are in Research (checkable facts, blue) or on the Radar (selection
+   and interpretation, violet; docs/architecture.md, "Telling Radar apart").
+   - The front page at `/`, the Abgeordnete list at `abgeordnete.html` (old `/#…` links forward there).
+   - One shell with a mode (`shell.css`): Recherche or Radar in the header; Kompass and Themen are Radar pages with
+     a method note; Radar links inside Research pages are Radar elements; the Themenlandschaft takes the same header.
+2. **Sachgebiete as an entity.** A reader can open any of DIP's 28 Sachgebiete and see what the Bundestag did in
+   it: the Vorgänge by kind, the Drucksachen, the debates with their speeches, the decisions and roll-call votes,
+   and which fractions were active, each with its source. A Sachgebiet is the Bundestag's own classification, so it
+   is Research, not Radar.
+   - EU-Vorlagen get their own page as a kind of Vorgang (not beside the Sachgebiete: a Sachgebiet says what
+     something is about, an EU-Vorlage where it comes from), with the committee each went to, linked with the
+     Sachgebiet "Europapolitik und Europäische Union".
+   - Vorgänge without a Sachgebiet (Fragen, EU-Vorlagen, petitions) and plenary business without a Vorgang
+     (Aktuelle Stunden, Regierungsbefragung, Fragestunde) are named as such, not hidden.
 
 ## Not now
 

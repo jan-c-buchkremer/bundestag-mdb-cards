@@ -168,11 +168,14 @@ def test_old_urls_resolve(site, old, page, frag):
 
 
 def test_old_index_view_states_reach_the_place_pages(site):
-    """index.html#ansicht=wahlkreise… is view state the index's script turns into the place page (places.js
-    legacyTarget, run here in Node), and the page it names exists; other hashes stay on the index."""
+    """index.html#ansicht=wahlkreise… was view state of the old Abgeordnete index. The front page forwards any
+    fragment to abgeordnete.html, whose script turns it into the place page (places.js legacyTarget, run here in
+    Node); the page it names exists, and other hashes stay on the Abgeordnete list."""
+    front = (site / "index.html").read_text()
+    assert "location.replace('abgeordnete.html' + location.search + location.hash)" in front
     if not shutil.which("node"):
         pytest.skip("node is not installed")
-    page = (site / "index.html").read_text()
+    page = (site / "abgeordnete.html").read_text()
     assert '<script src="places.js"></script>' in page and "Places.legacyTarget(location.hash" in page
     slugs = json.loads(re.search(r"Places\.legacyTarget\(location\.hash, (\{.*?\})\)", page).group(1))
     hashes = ["#ansicht=wahlkreise", "#ansicht=wahlkreise&wk=14", "#ansicht=wahlkreise&q=x&state=BY&wk=58",

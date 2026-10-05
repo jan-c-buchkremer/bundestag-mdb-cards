@@ -84,6 +84,7 @@ def test_tiles():
     big, small = controls.tile_basis([90, 1])
     assert big > small == controls.TILE_MIN  # by count, and never narrower than a readable name
     assert 'style="--g:90;--b:' in html
+    assert controls.tile_basis([40, 1], per=10) == [400, controls.TILE_MIN]  # a fixed width per unit (Gremien)
 
 
 def test_strip():

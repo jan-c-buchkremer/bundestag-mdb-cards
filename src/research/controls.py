@@ -127,8 +127,17 @@ def rows(rows_html: Iterable[str], key: str, empty: str, row: str = "", cls: str
     )
 
 
-def view(key: str, title: str, chart: str, alt: str, alt_label: str = "Als Tabelle") -> str:
-    """A chart with its list or table one click away; without JavaScript both are shown."""
+def view(key: str, title: str, chart: str, alt: str | None, alt_label: str = "Als Tabelle") -> str:
+    """A chart with its list or table one click away; without JavaScript both are shown. `alt` None: the chart's
+    own elements are the list, laid out as one (the tile field of the Gremien, `.cv.alt .tiles`)."""
+    if alt is None:
+        return (
+            f'<figure class="cv relayout" data-view="{e(key)}"><figcaption class="cv-cap"><span class="cv-t">{e(title)}'
+            '</span><span class="cv-sw" role="group" aria-label="Darstellung">'
+            '<button type="button" data-show="chart" aria-pressed="true">Diagramm</button>'
+            f'<button type="button" data-show="alt" aria-pressed="false">{e(alt_label)}</button></span></figcaption>'
+            f"{chart}</figure>"
+        )
     return (
         f'<figure class="cv" data-view="{e(key)}"><figcaption class="cv-cap"><span class="cv-t">{e(title)}</span>'
         '<span class="cv-sw" role="group" aria-label="Darstellung">'
@@ -159,19 +168,22 @@ def kind_class(i: int) -> str:
     return f"k{min(i, KIND_CLASSES - 1) + 1}"
 
 
-def segmented(key: str, items: list[tuple[str, str, int]], title: str, noun: str, also: str = "") -> str:
-    """One bar, a segment per kind (value, label, count), width by share, in the order given (largest first); a key
-    below names each kind with its count and share. A segment and its key entry toggle the same value; the key is
-    the keyboard's way (a narrow segment is hard to hit)."""
-    total = sum(k for _, _, k in items)
+def segmented(key: str, items: list[tuple], title: str, noun: str, also: str = "") -> str:
+    """One bar, a segment per kind (value, label, count, and a colour token for a fraction), width by share, in the
+    order given (largest first); a key below names each kind with its count and share. A segment and its key entry
+    toggle the same value; the key is the keyboard's way (a narrow segment is hard to hit). A pressed segment is the
+    accent, or, in a fraction's colour, outlined."""
+    total = sum(x[2] for x in items)
     segs, keys = [], []
-    for i, (value, label, k) in enumerate(items):
+    for i, (value, label, k, *colour) in enumerate(items):
         if not k:
             continue
-        cls = kind_class(i)
-        segs.append(toggle(key, value, "", cls=f"seg-s {cls}", style=f"flex-grow:{k}", tab=False, label=label,
+        cls = "own" if colour else kind_class(i)
+        bg = f";--c:var(--{colour[0]})" if colour else ""
+        segs.append(toggle(key, value, "", cls=f"seg-s {cls}", style=f"flex-grow:{k}{bg}", tab=False, label=label,
                            name=f"{label}: {n(k)} {noun}, {share(k, total)}", also=also))  # fmt: skip
-        inner = f'<i class="sw {cls}"></i>{e(label)} {_count(k)} <span class="p">{share(k, total)}</span>'
+        inner = (f'<i class="sw {cls}"{f' style="{bg[1:]}"' if bg else ""}></i>{e(label)} {_count(k)} '
+                 f'<span class="p">{share(k, total)}</span>')  # fmt: skip
         keys.append(toggle(key, value, inner, cls="key", label=label, also=also))
     return (
         f'<div class="seg" role="group" aria-label="{e(title)}"><div class="seg-bar">{"".join(segs)}</div>'
@@ -179,9 +191,9 @@ def segmented(key: str, items: list[tuple[str, str, int]], title: str, noun: str
     )
 
 
-def segmented_table(items: list[tuple[str, str, int]], head: str, noun: str) -> str:
-    total = sum(k for _, _, k in items)
-    return table([e(head), e(noun), "Anteil"], [[e(label), n(k), share(k, total)] for _, label, k in items if k])
+def segmented_table(items: list[tuple], head: str, noun: str) -> str:
+    total = sum(x[2] for x in items)
+    return table([e(head), e(noun), "Anteil"], [[e(x[1]), n(x[2]), share(x[2], total)] for x in items if x[2]])
 
 
 def pipeline(key: str, stages: list[tuple[str, str, int]], ended: list[tuple[str, str, int]], title: str,
@@ -272,34 +284,44 @@ TILE_ROWS = 6  # about this many rows of tiles on a wide screen
 TILE_MIN = 150  # px, the narrowest tile: every name stays readable
 
 
-def tile_basis(counts: list[int]) -> list[int]:
+def tile_basis(counts: list[int], per: float | None = None) -> list[int]:
     """The base width of each tile in px, by count: the tiles fill about TILE_ROWS rows of ROW_WIDTH, at least
-    TILE_MIN. The tiles sit in wrapping flex rows and grow by their count to fill each row, so no row has a gap."""
+    TILE_MIN. The tiles sit in wrapping flex rows and grow by their count to fill each row, so no row has a gap.
+    `per`: px per unit of count instead (members of a Gremium: one member stays small however few the Gremien are)."""
     total = sum(counts) or 1
-    return [max(TILE_MIN, round(k / total * ROW_WIDTH * TILE_ROWS)) for k in counts]
+    scale = per if per else ROW_WIDTH * TILE_ROWS / total
+    return [max(TILE_MIN, round(k * scale)) for k in counts]
 
 
-def tiles(items: list[tuple[str, str, int, Counter]], kinds: list[tuple[str, str]], noun: str, one: str,
-          title: str) -> str:  # fmt: skip
+def tiles(items: list[tuple[str, str, int, Counter]], kinds: list[tuple], noun: str, one: str, title: str,
+          attrs: list[str] | None = None, listing: bool = False, per: float | None = None) -> str:  # fmt: skip
     """The tile field: one tile per item (href, label, count, counts by kind), largest first, its width by count
-    (`tile_basis`, the rows always full), a thin bar inside with the composition by kind. A tile is a link to the
-    item's page."""
+    (`tile_basis`, the rows always full), a thin bar inside with the composition by kind (`kinds`: (kind, label) in
+    the neutral shades, or (kind, label, colour token), e.g. the fractions). A tile is a link to the item's page.
+    `attrs`: each tile's values for the controls; `listing`: the tiles are the list a scope filters; `per`: px per
+    unit of count (tile_basis)."""
     counts = [k for _, _, k, _ in items]
     out = []
-    for (href, label, k, c), basis in zip(items, tile_basis(counts), strict=True):
+    for i, ((href, label, k, c), basis) in enumerate(zip(items, tile_basis(counts, per), strict=True)):
         total = sum(c.values()) or 1
-        bar = "".join(f'<i class="{kind_class(i)}" style="width:{_pct(c[kk], total)}%"></i>'
-                      for i, (kk, _) in enumerate(kinds) if c[kk])  # fmt: skip
-        parts = ", ".join(f"{n(c[kk])} {kl}" for kk, kl in kinds if c[kk])
+        bar = "".join(f'<i {_shade(j, kind)} style="width:{_pct(c[kind[0]], total)}%{_bg(kind)}"></i>'
+                      for j, kind in enumerate(kinds) if c[kind[0]])  # fmt: skip
+        parts = ", ".join(f"{n(c[kk[0]])} {kk[1]}" for kk in kinds if c[kk[0]])
         unit = one if k == 1 else noun
+        extra = f" {attrs[i]}" if attrs else ""
         out.append(
-            f'<a class="tile" href="{e(href)}" style="--g:{max(k, 1)};--b:{basis}px" '
+            f'<a class="tile" href="{e(href)}" style="--g:{max(k, 1)};--b:{basis}px"{extra} '
             f'title="{e(label)}: {n(k)} {e(unit)} ({e(parts)})"><span class="tn">{e(label)}</span>'
             f'<span class="tc">{n(k)} <span class="tu">{e(unit)}</span></span><span class="tbar">{bar}</span></a>'
         )
-    legend = "".join(f'<span><i class="sw {kind_class(i)}"></i>{e(kl)}</span>' for i, (_, kl) in enumerate(kinds))
-    return (f'<div class="tiles-wrap"><div class="legend">{legend}</div>'
-            f'<nav class="tiles" aria-label="{e(title)}">{"".join(out)}</nav></div>')  # fmt: skip
+    legend = "".join(f'<span><i {_shade(i, k, "sw")} style="{_bg(k)[1:]}"></i>{e(k[1])}</span>'
+                     for i, k in enumerate(kinds))  # fmt: skip
+    field = f'<nav class="tiles" aria-label="{e(title)}">{"".join(out)}</nav>'
+    if listing:
+        field = (f'<div class="count" data-count></div><div data-rows data-row="a.tile" data-limit="9999">{field}'
+                 '<div class="rows"><div class="empty" data-none hidden>Keine Treffer für diese Auswahl.</div></div>'
+                 "</div>")  # fmt: skip
+    return f'<div class="tiles-wrap"><div class="legend">{legend}</div>{field}</div>'
 
 
 def month_label(month: str, year: bool = True) -> str:

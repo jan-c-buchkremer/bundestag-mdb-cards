@@ -14,6 +14,7 @@ research = "research.cli:main"
 
 [dependency-groups]
 dev = [
+    "playwright==1.55.0",  # scripts/ui_check.py; pinned to the version of the Playwright image in ui_check.sh
     "pyshp>=3.1.6",
     "pytest>=8",
     "ruff>=0.6",

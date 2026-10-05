@@ -422,7 +422,7 @@ def strip(weeks: list[str], counts: Counter, sittings: set[str], noun: str, one:
         s = w in sittings
         name = f"{week_label(w)}{', Sitzungswoche' if s else ''}"
         bars.append(
-            f'<button type="button" class="wk{" s" if s else ""}" data-w="{w}" data-label="{e(name)}" '
+            f'<button type="button" class="swk{" s" if s else ""}" data-w="{w}" data-label="{e(name)}" '
             f'aria-pressed="false" aria-label="{e(name)}: {n(k)} {e(one if k == 1 else noun)}"'
             f' tabindex="{0 if i == 0 else -1}"><i style="height:{_pct(k, most)}%"></i></button>'
         )

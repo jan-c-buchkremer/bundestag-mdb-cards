@@ -91,8 +91,8 @@ def test_strip():
     weeks = controls.weeks_between("2025-12-24", "2026-01-12")
     assert weeks == ["2025-W52", "2026-W01", "2026-W02", "2026-W03"]
     html = controls.strip(weeks, Counter({"2026-W01": 4, "2026-W02": 1}), {"2026-W02"}, "Vorgänge", "Vorgang")
-    assert html.count('class="wk') == 4 and html.count('tabindex="-1"') == 3  # one tab stop, arrow keys move
-    assert 'aria-label="KW 2/2026, Sitzungswoche: 1 Vorgang"' in html and 'class="wk s"' in html
+    assert html.count('class="swk') == 4 and html.count('tabindex="-1"') == 3  # one tab stop, arrow keys move
+    assert 'aria-label="KW 2/2026, Sitzungswoche: 1 Vorgang"' in html and 'class="swk s"' in html
     assert 'data-w="2026-W01"' in html and 'style="height:100%"' in html and 'style="height:25%"' in html
     assert "Jan 2026" in html and "data-zeit-clear hidden" in html
 

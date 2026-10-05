@@ -3,10 +3,16 @@
 // with toggle buttons (data-f = the key, data-v = the value), a search field (data-q), "zurücksetzen" (data-reset),
 // an activity strip (.strip, buttons per week with data-w) and the list (data-rows), whose rows carry their values as
 // data attributes. Values of one key are alternatives, keys combine. The state lives in the URL fragment
-// (#art=antrag&von=cdu,spd&zeit=2026-W10..2026-W20&q=miete&liste=stufe), so a view can be shared and the back button
-// works; a fragment without "=" is an anchor and stays one. Each chart (figure.cv[data-view]) has a switch to its
-// table, remembered as liste=<chart>. Without this script the page shows every chart, its table and the full list.
-// German UI, see docs/plan.md. parse, serialize and matches are pure and run in Node (tests/test_controls.py).
+// (#art=antrag&von=cdu,spd&zeit=2026-W10..2026-W20&q=miete&ansicht=stufe), so a view can be shared and the back
+// button works; a fragment without "=" is an anchor and stays one. Each chart (figure.cv[data-view]) has a switch to
+// its table, remembered as ansicht=<chart>. Without this script the page shows every chart, its table and the full
+// list. German UI, see docs/plan.md. parse, serialize and matches are pure and run in Node (tests/test_controls.py).
+//
+// Also: a key whose buttons carry data-single holds one value and chooses what the list is (Fragen: the kind), it
+// filters nothing and "zurücksetzen" keeps it; data-set="key=value" on a button also chooses that value when the
+// button is switched on; the counts of buttons inside [data-static] stay as Python wrote them (a chart of another
+// list). A page script whose list is loaded later (fragen.js) gets the scope's API from the "controls:change" event
+// and hands it its rows with setRows(rows, render).
 'use strict';
 
 (function () {
@@ -15,7 +21,7 @@
   const enc = s => encodeURIComponent(s);
 
   function empty() {
-    return { f: {}, zeit: null, q: '', liste: [] };
+    return { f: {}, zeit: null, q: '', ansicht: [] };
   }
 
   // the state of a URL fragment; a plain anchor (#glossar) is no state
@@ -33,7 +39,7 @@
         if (WEEK.test(a) && WEEK.test(b)) state.zeit = a <= b ? [a, b] : [b, a];
       } else {
         const vals = [...new Set(raw.split(',').map(dec).filter(Boolean))];
-        if (k === 'liste') state.liste = vals;
+        if (k === 'ansicht') state.ansicht = vals;
         else if (vals.length) state.f[k] = vals;
       }
     }
@@ -48,14 +54,15 @@
     }
     if (state.zeit) parts.push(`zeit=${state.zeit[0] === state.zeit[1] ? state.zeit[0] : state.zeit.join('..')}`);
     if (state.q) parts.push(`q=${enc(state.q)}`);
-    if (state.liste.length) parts.push(`liste=${state.liste.map(enc).join(',')}`);
+    if (state.ansicht.length) parts.push(`ansicht=${state.ansicht.map(enc).join(',')}`);
     return parts.join('&');
   }
 
-  // whether a row ({tok: {key: [values]}, w: ISO week, text: lower-case text}) passes every filter but `skip`
-  function matches(row, state, skip) {
+  // whether a row ({tok: {key: [values]}, w: ISO week, text: lower-case text}) passes every filter but `skip`;
+  // `singles`: the keys that choose the list rather than filter it
+  function matches(row, state, skip, singles) {
     for (const [k, vals] of Object.entries(state.f)) {
-      if (k === skip || !vals.length) continue;
+      if (k === skip || !vals.length || singles?.has(k)) continue;
       const have = row.tok[k] || [];
       if (!vals.some(v => have.includes(v))) return false;
     }
@@ -67,8 +74,8 @@
     return true;
   }
 
-  function active(state) {
-    return Object.values(state.f).some(v => v.length) || !!state.zeit || !!state.q;
+  function active(state, singles) {
+    return Object.entries(state.f).some(([k, v]) => v.length && !singles?.has(k)) || !!state.zeit || !!state.q;
   }
 
   // ---------------------------------------------------------------- the page
@@ -79,22 +86,25 @@
     const views = [...document.querySelectorAll('figure.cv[data-view]')];
     const toggles = scope ? [...scope.querySelectorAll('[data-f][data-v]')] : [];
     const keys = [...new Set(toggles.map(b => b.dataset.f))];
+    const singles = new Set(toggles.filter(b => 'single' in b.dataset).map(b => b.dataset.f));
     const values = Object.fromEntries(keys.map(k => [k, new Set(toggles.filter(b => b.dataset.f === k).map(b => b.dataset.v))]));
     const list = scope?.querySelector('[data-rows]');
     const attr = k => scope.getAttribute(`data-attr-${k}`) || k;
-    const rows = list ? [...list.querySelectorAll(list.dataset.row || ':scope > .row')].map(el => ({
+    let rows = list && !('external' in list.dataset) ? [...list.querySelectorAll(list.dataset.row || ':scope > .row')].map(el => ({
       el,
       tok: Object.fromEntries(keys.map(k => [k, (el.getAttribute(`data-${attr(k)}`) || '').split(' ').filter(Boolean)])),
       w: el.dataset.w || '',
       text: el.textContent.toLowerCase(),
     })) : [];
+    let render = null;  // a page script's list (setRows); null: the rows are elements in the page
+    let loaded = !list || !('external' in list.dataset);
     const groups = list ? [...list.querySelectorAll('[data-group]')] : [];
     const q = scope?.querySelector('[data-q]');
     const reset = scope?.querySelector('[data-reset]');
     const summary = scope?.querySelector('[data-summary]');
     const count = scope?.querySelector('[data-count]');
-    const more = list?.querySelector('[data-more]');
-    const none = list?.querySelector('[data-none]');
+    const more = scope?.querySelector('[data-more]');
+    const none = scope?.querySelector('[data-none]');
     const strip = scope?.querySelector('.strip');
     const bars = strip ? [...strip.querySelectorAll('.wk')] : [];
     const step = +(list?.dataset.limit || 30);
@@ -107,10 +117,20 @@
     function clean(s) {
       for (const k of Object.keys(s.f)) {
         s.f[k] = s.f[k].filter(v => values[k]?.has(v));
+        if (singles.has(k)) s.f[k] = s.f[k].slice(0, 1);
         if (!s.f[k].length) delete s.f[k];
       }
       if (s.zeit && !bars.length) s.zeit = null;
       return s;
+    }
+
+    // drop the values whose buttons are all in a hidden part of the page (another kind's filters)
+    function prune() {
+      for (const k of Object.keys(state.f)) {
+        if (singles.has(k)) continue;
+        state.f[k] = state.f[k].filter(v => toggles.some(b => b.dataset.f === k && b.dataset.v === v && !b.closest('[hidden]')));
+        if (!state.f[k].length) delete state.f[k];
+      }
     }
 
     function label(k, v) {
@@ -137,33 +157,38 @@
 
     function counts(z) {
       // per key and value: the rows that pass every other filter and carry the value
-      for (const k of keys) {
-        const c = {};
-        for (const r of rows) if (matches(r, state, k)) for (const v of r.tok[k] || []) c[v] = (c[v] || 0) + 1;
-        for (const b of toggles) {
-          if (b.dataset.f !== k) continue;
-          const span = b.querySelector('.c');
-          if (!span) continue;
-          const all = +span.dataset.n, got = c[b.dataset.v] || 0;
-          span.textContent = got === all ? n(all) : `${n(got)} von ${n(all)}`;
-          b.classList.toggle('none', !got && !b.disabled);
+      if (loaded) {
+        for (const k of keys) {
+          if (singles.has(k)) continue;
+          const c = {};
+          for (const r of rows) if (matches(r, state, k, singles)) for (const v of r.tok[k] || []) c[v] = (c[v] || 0) + 1;
+          for (const b of toggles) {
+            if (b.dataset.f !== k || b.closest('[data-static]')) continue;
+            const span = b.querySelector('.c');
+            if (!span) continue;
+            const all = +span.dataset.n, got = c[b.dataset.v] || 0;
+            span.textContent = got === all ? n(all) : `${n(got)} von ${n(all)}`;
+            b.classList.toggle('none', !got && !b.disabled);
+          }
         }
       }
       if (!bars.length) return;
       const per = {};
-      for (const r of rows) if (r.w && matches(r, state, 'zeit')) per[r.w] = (per[r.w] || 0) + 1;
+      for (const r of rows) if (r.w && matches(r, state, 'zeit', singles)) per[r.w] = (per[r.w] || 0) + 1;
       const most = Math.max(1, ...bars.map(b => per[b.dataset.w] || 0));
       for (const b of bars) {
         const k = per[b.dataset.w] || 0, w = b.dataset.w;
-        b.firstElementChild.style.height = `${(100 * k / most).toFixed(1)}%`;
-        b.setAttribute('aria-label', `${b.dataset.label}: ${n(k)} ${k === 1 ? one : noun}`);
+        if (loaded) {
+          b.firstElementChild.style.height = `${(100 * k / most).toFixed(1)}%`;
+          b.setAttribute('aria-label', `${b.dataset.label}: ${n(k)} ${k === 1 ? one : noun}`);
+        }
         b.setAttribute('aria-pressed', String(!!z && w >= z[0] && w <= z[1]));
       }
     }
 
     function apply() {
       for (const v of views) {
-        const alt = state.liste.includes(v.dataset.view);
+        const alt = state.ansicht.includes(v.dataset.view);
         v.classList.toggle('alt', alt);
         for (const b of v.querySelectorAll('[data-show]')) b.setAttribute('aria-pressed', String((b.dataset.show === 'alt') === alt));
       }
@@ -171,21 +196,24 @@
       for (const b of toggles) b.setAttribute('aria-pressed', String(!!state.f[b.dataset.f]?.includes(b.dataset.v)));
       if (q && q.value !== state.q) q.value = state.q;
       let hits = 0;
+      const shownRows = [];
       for (const r of rows) {
-        const ok = matches(r, state);
-        r.el.hidden = !ok || hits >= limit;
+        const ok = matches(r, state, undefined, singles);
+        if (ok && hits < limit) shownRows.push(r);
+        if (r.el) r.el.hidden = !ok || hits >= limit;
         if (ok) hits++;
       }
+      if (render) render(shownRows);
       for (const g of groups) g.hidden = !g.querySelector(`${list.dataset.row || '.row'}:not([hidden])`);
       const shown = Math.min(hits, limit);
       if (more) {
-        more.hidden = hits <= limit;
+        more.hidden = !loaded || hits <= limit;
         more.textContent = `mehr anzeigen (noch ${n(hits - limit)})`;
       }
-      if (none) none.hidden = hits > 0;
+      if (none) none.hidden = !loaded || hits > 0;
       if (count) {
         const base = hits === rows.length ? `${n(rows.length)} ${rows.length === 1 ? one : noun}` : `${n(hits)} von ${n(rows.length)} ${dat}`;
-        count.textContent = hits > shown ? `${base}, die neuesten ${n(shown)} hier` : base;
+        count.textContent = !loaded ? '' : hits > shown ? `${base}, die neuesten ${n(shown)} hier` : base;
       }
       counts(drag ? [drag[0], drag[1]].sort() : state.zeit);
       const out = strip?.querySelector('[data-range]');
@@ -193,11 +221,12 @@
       const zx = strip?.querySelector('[data-zeit-clear]');
       if (zx) zx.hidden = !state.zeit;
       const parts = [];
-      for (const k of keys) if (state.f[k]) parts.push(state.f[k].map(v => label(k, v)).join(' oder '));
+      for (const k of keys) if (state.f[k] && !singles.has(k)) parts.push(state.f[k].map(v => label(k, v)).join(' oder '));
       if (state.zeit) parts.push(range(state.zeit));
       if (state.q) parts.push(`„${state.q}“`);
       if (summary) summary.textContent = parts.length ? `Auswahl: ${parts.join(' · ')}` : '';
-      if (reset) reset.disabled = !active(state);
+      if (reset) reset.disabled = !active(state, singles);
+      scope.dispatchEvent(new CustomEvent('controls:change', { detail: { state, api } }));
     }
 
     function change(fn, push = true) {
@@ -206,6 +235,27 @@
       apply();
       commit(push);
     }
+
+    const api = {
+      // the rows of a list a page script loaded: [{tok, w, text, ...}], drawn by render(rows shown)
+      setRows(list_, draw) {
+        rows = list_;
+        render = draw;
+        loaded = true;
+        limit = step;
+        prune();
+        apply();
+        commit(false);
+      },
+      // a list is being loaded: nothing to count yet
+      unload() {
+        rows = [];
+        loaded = false;
+        apply();
+      },
+      state: () => state,
+    };
+    if (scope) scope.controls = api;
 
     function setZeit(a, b) {
       const z = [a, b].sort();
@@ -221,7 +271,7 @@
       if (t.matches('[data-show]')) {
         const key = t.closest('figure.cv').dataset.view;
         change(() => {
-          state.liste = state.liste.filter(x => x !== key).concat(t.dataset.show === 'alt' ? [key] : []);
+          state.ansicht = state.ansicht.filter(x => x !== key).concat(t.dataset.show === 'alt' ? [key] : []);
         });
       } else if (!scope || !scope.contains(t)) {
         return;
@@ -229,11 +279,22 @@
         const { f, v } = t.dataset;
         change(() => {
           const cur = state.f[f] || [];
-          state.f[f] = cur.includes(v) ? cur.filter(x => x !== v) : cur.concat(v);
+          const on = !cur.includes(v);
+          if (singles.has(f)) state.f[f] = [v];
+          else state.f[f] = on ? cur.concat(v) : cur.filter(x => x !== v);
           if (!state.f[f].length) delete state.f[f];
+          if (on && t.dataset.set) {
+            for (const pair of t.dataset.set.split(';')) {
+              const [k, val] = pair.split('=');
+              if (k && val) state.f[k] = [val];
+            }
+          }
         });
       } else if (t.matches('[data-reset]')) {
-        change(() => { state = { ...empty(), liste: state.liste }; });
+        change(() => {
+          const kept = Object.fromEntries(Object.entries(state.f).filter(([k]) => singles.has(k)));
+          state = { ...empty(), f: kept, ansicht: state.ansicht };
+        });
         q?.focus();
       } else if (t.matches('[data-zeit-clear]')) {
         change(() => { state.zeit = null; });

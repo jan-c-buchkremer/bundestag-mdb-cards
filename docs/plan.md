@@ -32,15 +32,28 @@ don't serve it go on "Not now", not into code.
    - The components (`controls.py`, drawn in Python at build time as HTML with inline sizes, one button per
      clickable part; `controls.js`, the one shared script): tile field, fraction chips, pipeline, segmented bar,
      stacked bar rows, activity strip (a bar per calendar week, the sitting weeks marked; long lists show the newest
-     30 of the filter result and "mehr anzeigen").
+     30 of the filter result and "mehr anzeigen"), month columns, small multiples. The chart/table switch is
+     `ansicht=<chart>` in the fragment.
    - The pipeline's stages and which DIP Beratungsstand belongs to each: one table, `procedures.STAGE`. The exact
      DIP Stand stays on every row and in the pipeline's table.
    - A Vorgang's date in lists is its latest step that has happened by the build date; a later Inkrafttreten is
      named on the row.
-   - This round: `vorgaenge/index.html`, `sachgebiete/index.html`, `sachgebiete/<slug>.html`,
-     `vorgaenge/eu-vorlagen.html`, `abstimmungen/index.html`.
-   - Next rounds, in this order: Fragen (`questions.py`: the three selects and five tables), Geschlossenheit
-     (`cohesion.py`), Debattenkultur (`debate.py`: small multiples per fraction instead of tables), Gremien.
+   - Built in this order. Merged (research #57): `vorgaenge/index.html`, `sachgebiete/index.html`,
+     `sachgebiete/<slug>.html`, `vorgaenge/eu-vorlagen.html`, `abstimmungen/index.html`. In review, the second round:
+     - Fragen (`questions.py`): the statistics are charts that choose a list and filter it (a click on a fraction's
+       row of the Kleine Anfragen opens their list for that fraction); each kind's list has chips for Fraktion,
+       Ressort and Stand, the answer time as a segmented bar and a column per month instead of the selects. The
+       lists still load from `regierung/<kind>.json`; `questions.facets` and `fragen.js` derive the same filter
+       values from it (checked in Node), and `#liste=<kind>` still opens a kind.
+     - Geschlossenheit (`cohesion.py`): each fraction's row of the small multiples filters the dissents; chips for
+       Fraktion and own vote, the strip.
+     - Debattenkultur (`debate.py`): small multiples per fraction (Ordnungsmaßnahmen, Zwischenfragen, interruptions
+       per month on one scale) instead of the three tables of "Ton und Ordnung", each card a filter of the
+       Ordnungsmaßnahmen below.
+     - Gremien (`bodies.py`): a tile per Gremium by current members with its fractions, filtered by kind and name;
+       on a Gremium's page the composition, role chips and name filter the members.
+   - Not yet: the Fraktion pages (`fraktionen/<token>.html`) and the Redeanteile of Debattenkultur, which are bar
+     charts in tables already.
 
 ## Not now
 

@@ -28,7 +28,7 @@ import statistics
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from research import urls
+from research import controls, urls
 from research.data import NO_FRACTION, PARTY_TO_FRACTION, WP, drucksache_pdf, excerpt, has_table, kind_filter
 from research.ui import FOOTER, MONTHS, SHORT, TOKEN, dot, e, fraction_order, n, shell, short_date
 
@@ -297,7 +297,61 @@ class Packer:
 
     def payload(self, kind: str, fields: list[str], rows: list[list]) -> dict:
         return {"kind": kind, "fields": fields, "persons": self.persons, "ressorts": self.ressorts,
-                "statuses": self.statuses, "docs": self.docs, "rows": rows}  # fmt: skip
+                "statuses": self.statuses, "docs": self.docs, "rows": rows,
+                "slugs": {"ressorts": [urls.slug(x) for x in self.ressorts],
+                          "statuses": [urls.slug(x) for x in self.statuses]}, "tokens": TOKEN}  # fmt: skip
+
+
+# the answer time of a Kleine Anfrage as a filter (value, label), in the order of the segmented bar
+FRIST = (("bis-14-tage", f"bis {DEADLINE} Tage"), ("15-bis-28-tage", "15 bis 28 Tage"),
+         ("mehr-als-28-tage", "mehr als 28 Tage"), ("offen", "offen"))  # fmt: skip
+
+
+def frist(days: int | None) -> str:
+    if days is None:
+        return "offen"
+    return "bis-14-tage" if days <= DEADLINE else "15-bis-28-tage" if days <= 28 else "mehr-als-28-tage"
+
+
+def facets(d: dict) -> list[dict]:
+    """What the filters of the research view see in each row of a kind's JSON: {fraktion: [tokens], ressort, stand,
+    frist, monat, tag} (slugs; "" for none), in the order of the rows. fragen.js derives the same from the JSON
+    (tests/test_questions.py runs both); the chips' counts come from here."""
+    out = []
+    kind, persons, docs = d["kind"], d["persons"], d["docs"]
+    ressort = d["slugs"]["ressorts"]
+    for r in d["rows"]:
+        if kind == "kleine-anfragen":
+            doc, _, fractions, _, rs, answer, _ = r[:7]
+            date = docs[doc][2]
+            f = {
+                "fraktion": [TOKEN[x] for x in fractions if x in TOKEN],
+                "ressort": ressort[rs] if rs is not None else "",
+                "stand": "beantwortet" if answer else "offen",
+                "frist": frist(answer[1] if answer else None),
+            }
+        elif kind in ("schriftliche-fragen", "muendliche-fragen"):
+            _, own, _, status, rs, doc, asker = r[:7]
+            date = own or (docs[doc][2] if doc is not None else "")
+            fr = persons[asker][2] if asker is not None else None
+            f = {
+                "fraktion": [TOKEN[fr]] if fr in TOKEN else [],
+                "ressort": ressort[rs] if rs is not None else "",
+                "stand": d["slugs"]["statuses"][status] if status is not None else "ohne-stand",
+                "frist": "",
+            }
+        else:
+            _, date, who, role = r[:4]
+            fr = persons[who][2] if who is not None and not role else None
+            f = {
+                "fraktion": [TOKEN[fr]] if fr in TOKEN else [],
+                "ressort": urls.slug(role) if role else "",
+                "stand": "antwort-der-bundesregierung" if role else "frage",
+                "frist": "",
+            }
+        date = date or ""
+        out.append({**f, "monat": date[:7], "tag": date[:10]})
+    return out
 
 
 def _ressorts(conn: sqlite3.Connection) -> dict[str, str]:
@@ -497,6 +551,11 @@ def _median(x: float | None) -> str:
     return "–" if x is None else f"{x:g}".replace(".", ",")
 
 
+def _fractions(fs) -> list[str]:
+    """The fractions of a chart that have a colour and a token, in the seat order."""
+    return [f for f in sorted(fs, key=fraction_order) if f in TOKEN]
+
+
 def _ka_section(ka: dict) -> str:
     summary = ka_summary(ka)
     if not summary:
@@ -511,6 +570,17 @@ def _ka_section(ka: dict) -> str:
         f"<th>offen</th><th>Median Tage</th><th>in {DEADLINE} Tagen</th></tr></thead>"
         f"<tbody>{body}</tbody></table></div>"
     )
+    per: dict[str, Counter] = defaultdict(Counter)
+    for r in ka["rows"]:
+        k = "open" if not r["answer"] else "in_time" if r["answer"]["days"] <= DEADLINE else "later"
+        for f in r["fractions"]:
+            per[f][k] += 1
+    kinds = [("in_time", f"in {DEADLINE} Tagen beantwortet"), ("later", "später beantwortet"), ("open", "offen")]
+    median = {s["fraction"]: s["median"] for s in summary}
+    chart = controls.stacked(
+        "fraktion", [(TOKEN[f], SHORT.get(f, f), TOKEN[f], per[f]) for f in _fractions(per)], kinds,
+        "Kleine Anfragen nach Fraktion und Antwortzeit", "Kleine Anfragen", also="liste=kleine-anfragen")  # fmt: skip
+    medians = " · ".join(f"{e(SHORT.get(f, f))} {_median(median.get(f))}" for f in _fractions(per))
     opens = "".join(
         f'<details class="open"><summary>{dot(s["fraction"])} {e(s["fraction"])}: {n(len(s["open"]))} offene '
         "Anfragen, älteste zuerst</summary><ol>"
@@ -525,23 +595,14 @@ def _ka_section(ka: dict) -> str:
     )
     span, counts = months({s["fraction"]: [r["date"] for r in ka["rows"] if s["fraction"] in r["fractions"]]
                            for s in summary})  # fmt: skip
-    fr = [s["fraction"] for s in summary]
-    peak = max((c for f in fr for c in counts[f].values()), default=1) or 1
-    month_rows = "".join(
-        f"<tr><td>{_month_label(m)}</td>"
-        + "".join(
-            f'<td title="{e(f)}: {counts[f][m]}">{counts[f][m] or ""} <span class="mb" style="width:'
-            f'{40 * counts[f][m] / peak:.0f}px;background:var(--{TOKEN.get(f, "reg")})"></span></td>'
-            for f in fr
-        )
-        + "</tr>"
-        for m in span
-    )
-    month_table = (
-        '<h3>Gestellte Kleine Anfragen je Monat</h3><div class="rows month"><table class="plenum"><thead><tr>'
-        "<th>Monat</th>" + "".join(f"<th>{dot(f)} {e(SHORT.get(f, f))}</th>" for f in fr) + "</tr></thead><tbody>"
-        + month_rows + "</tbody></table></div>"
-    )  # fmt: skip
+    fr = _fractions(s["fraction"] for s in summary)
+    groups = [(f, SHORT.get(f, f), TOKEN[f]) for f in fr]
+    by_month = {m: Counter({f: counts[f][m] for f in fr}) for m in span}
+    month_chart = controls.view(
+        "ka-monate", "Gestellte Kleine Anfragen je Monat",
+        controls.columns("monat", span, by_month, groups, "Kleine Anfragen je Monat", "Kleine Anfragen",
+                         "Kleine Anfrage", also="liste=kleine-anfragen"),
+        controls.months_table(span, by_month, groups, "Kleine Anfragen"))  # fmt: skip
     return (
         "<h2>Kleine Anfragen</h2>"
         '<p class="explain">Eine Kleine Anfrage stellt eine Fraktion oder eine Gruppe von mindestens 5 % der '
@@ -551,9 +612,11 @@ def _ka_section(ka: dict) -> str:
         "verlängert werden. Gezählt werden Kalendertage "
         "zwischen dem Datum der Anfrage-Drucksache und dem der Antwort-Drucksache (Quelle: DIP). Offen heißt: im "
         f"Datenbestand noch keine Antwort, Stand {short_date(ka['as_of'])}. Fraktionen ohne Kleine Anfrage "
-        "fehlen in der Tabelle.</p>"
-        f"{table}{opens}{month_table}"
-    )
+        "fehlen. Ein Klick auf eine Fraktion oder einen Monat zeigt unten ihre Kleinen Anfragen.</p>"
+        + controls.view("ka", "Kleine Anfragen nach Fraktion und Antwortzeit",
+                        chart + f'<p class="note">Median der Antwortzeit in Tagen: {medians}.</p>', table)
+        + opens + month_chart
+    )  # fmt: skip
 
 
 def _questions_section(wq: dict) -> str:
@@ -564,30 +627,36 @@ def _questions_section(wq: dict) -> str:
         "Fragestunde. Die Antworten auf schriftliche Fragen erscheinen wöchentlich gesammelt als Drucksache. DIP "
         "führt jede Frage als eigenen Vorgang, der Monat ist der der Sammeldrucksache.</p>"
     )
-    for kind, label in (("Schriftliche Frage", "Schriftliche Fragen"), ("Mündliche Frage", "Mündliche Fragen")):
+    for kind, label, slug in (("Schriftliche Frage", "Schriftliche Fragen", "schriftliche-fragen"),
+                              ("Mündliche Frage", "Mündliche Fragen", "muendliche-fragen")):  # fmt: skip
         w = wq.get(kind)
         if not w or not w["total"]:
             continue
         span, c = months({"all": [f"{m}-01" for m, k in w["months"].items() for _ in range(k)]})
-        rows = "".join(f"<tr><td>{_month_label(m)}</td><td>{n(c['all'][m])}</td></tr>" for m in span)
+        by_month = {m: Counter({"all": c["all"][m]}) for m in span}
+        groups = [("all", label, "k2")]
         undated = f", {n(w['undated'])} ohne Sammeldrucksache" if w["undated"] else ""
-        parts.append(
-            f"<h3>{label}: {n(w['total'])}{undated}</h3>"
-            '<details class="open"><summary>je Monat</summary><div class="rows"><table class="plenum"><thead><tr>'
-            f"<th>Monat</th><th>Fragen</th></tr></thead><tbody>{rows}</tbody></table></div></details>"
-        )
+        parts.append(f"<h3>{label}: {n(w['total'])}{undated}</h3>" + controls.view(
+            f"{slug}-monate", f"{label} je Monat",
+            controls.columns("monat", span, by_month, groups, f"{label} je Monat", label, kind, also=f"liste={slug}"),
+            controls.months_table(span, by_month, groups, label)))  # fmt: skip
         if w["askers"] and w["docs_with_authors"] >= 0.9 * w["docs"]:
             total = sum(w["askers"].values())
             body = "".join(
                 f"<tr><td>{dot(f)} {e(f)}</td><td>{n(k)}</td><td>{_pct(k / total)}</td></tr>"
                 for f, k in sorted(w["askers"].items(), key=lambda x: fraction_order(x[0]))
             )
+            table = ('<div class="rows"><table class="plenum"><thead><tr><th>Fraktion</th><th>Nennungen</th>'
+                     f"<th>Anteil</th></tr></thead><tbody>{body}</tbody></table></div>")  # fmt: skip
+            chart = controls.stacked(
+                "fraktion", [(TOKEN[f], SHORT.get(f, f), TOKEN[f], Counter({"n": w["askers"][f]}))
+                             for f in _fractions(w["askers"])], [("n", "Nennungen")],
+                f"Fragesteller:innen der {label} nach Fraktion", "Nennungen", also=f"liste={slug}")  # fmt: skip
             parts.append(
-                '<div class="rows"><table class="plenum"><thead><tr><th>Fraktion</th><th>Nennungen</th><th>Anteil</th>'
-                f"</tr></thead><tbody>{body}</tbody></table></div>"
-                '<p class="explain">DIP nennt die Fragesteller:innen je Sammeldrucksache, nicht je Frage. Eine Nennung '
-                "heißt: mindestens eine Frage in dieser Drucksache. Die Zahl der Nennungen ist deshalb kleiner als die "
-                f"der Fragen. Fragesteller:innen genannt in {w['docs_with_authors']} von {w['docs']} "
+                controls.view(f"{slug}-fraktionen", "Nennungen nach Fraktion", chart, table)
+                + '<p class="explain">DIP nennt die Fragesteller:innen je Sammeldrucksache, nicht je Frage. Eine '
+                "Nennung heißt: mindestens eine Frage in dieser Drucksache. Die Zahl der Nennungen ist deshalb kleiner "
+                f"als die der Fragen. Fragesteller:innen genannt in {w['docs_with_authors']} von {w['docs']} "
                 "Sammeldrucksachen.</p>"
             )
         else:
@@ -631,80 +700,128 @@ def _befragung_section(bf: list[dict], fs: tuple[int, int]) -> str:
         for b in reversed(bf)
     )
     sums = "".join(f"<td><b>{n(total[f])}</b></td>" for f in fr)
-    return (
-        "<h2>Regierungsbefragung</h2>"
-        '<p class="explain">In der Regierungsbefragung stellen sich Mitglieder der Bundesregierung den Fragen der '
-        "Abgeordneten. Gezählt sind Wortmeldungen mit Fraktion, also Fragen und Nachfragen; das Datum führt zum "
-        "Tagesordnungspunkt im Protokoll.</p>"
+    table = (
         '<div class="rows"><table class="plenum"><thead><tr><th>Datum</th><th>Befragt</th>'
         + "".join(f"<th>{dot(f)} {e(SHORT.get(f, f))}</th>" for f in fr)
         + f'</tr></thead><tbody><tr><td class="l">zusammen</td><td></td>{sums}</tr>{rows}</tbody></table></div>'
-        + gap
     )
+    kinds = [(f, SHORT.get(f, f), TOKEN[f]) for f in _fractions(total)]
+    chart = controls.stacked(
+        "tag", [(b["date"], f"{short_date(b['date'])} · {', '.join(g['name'] for g in b['government'])}", "reg",
+                 Counter({f: b["questions"][f] for f, *_ in kinds})) for b in reversed(bf)],
+        kinds, "Fragen je Regierungsbefragung nach Fraktion", "Fragen", also="liste=regierungsbefragung")  # fmt: skip
+    return (
+        "<h2>Regierungsbefragung</h2>"
+        '<p class="explain">In der Regierungsbefragung stellen sich Mitglieder der Bundesregierung den Fragen der '
+        "Abgeordneten. Gezählt sind Wortmeldungen mit Fraktion, also Fragen und Nachfragen. Ein Klick auf eine "
+        "Befragung zeigt unten ihre Beiträge, die Tabelle führt zum Tagesordnungspunkt im Protokoll.</p>"
+        + controls.view("befragung", "Fragen je Regierungsbefragung nach Fraktion", chart, table)
+        + gap
+    )  # fmt: skip
 
 
 RESEARCH_STYLE = """<style>
 .fr .qtabs { display: flex; flex-wrap: wrap; gap: 4px; margin: 10px 0 12px; }
-.fr .qtabs button { border: 1px solid var(--line); background: var(--card); color: var(--muted); border-radius: 8px;
-  padding: 5px 11px; font-size: 13px; cursor: pointer; }
-.fr .qtabs button[aria-selected="true"] { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
-.fr .qtabs .n { color: var(--faint); font-size: 12px; margin-left: 3px; }
-.fr .filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 8px; }
-.fr .filters input, .fr .filters select { background: var(--card); color: var(--text); border: 1px solid var(--line);
-  border-radius: 8px; padding: 6px 9px; font-size: 13px; min-width: 0; max-width: 100%; }
-.fr .filters input { flex: 1 1 200px; }
-.fr .filters select[hidden] { display: none; }
+.fr .qtabs .tg { border: 1px solid var(--line); background: var(--card); color: var(--muted); border-radius: 8px;
+  padding: 5px 11px; font-size: 13px; }
+.fr .qtabs .tg[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+.fr .qtabs .c { color: var(--faint); font-size: 12px; margin-left: 3px; }
 .fr .row.q { grid-template-columns: 84px minmax(0, 1fr); }
 .fr .row.q .go { font-size: 12.5px; margin-top: 3px; }
-.fr .count { color: var(--muted); font-size: 12.5px; margin: 4px 0 8px; }
+.fr .qpanel .cv { margin-bottom: 10px; }
 @media (max-width: 640px) { .fr .row.q { grid-template-columns: 1fr; } }
 </style>"""  # noqa: E501
+STANDS = {"beantwortet": "beantwortet", "offen": "offen", "frage": "Frage",
+          "antwort-der-bundesregierung": "Antwort der Bundesregierung", "ohne-stand": "ohne Stand"}  # fmt: skip
 
 
-def research_section(counts: dict[str, int]) -> str:
-    """The research view's frame: one tab per kind (with its number of entries), the filters and the list, which
-    fragen.js fills from the kind's JSON once its tab is opened."""
-    tabs = "".join(f'<button type="button" data-k="{slug}" aria-selected="false">{label}<span class="n">'
-                   f"{n(counts[slug])}</span></button>" for slug, label, _ in KINDS if slug in counts)  # fmt: skip
+def research_panel(d: dict) -> str:
+    """The filters of one kind's list, drawn from its JSON (`facets`): the fractions as chips, the ministries (or
+    the government roles) as chips sized by count, the Stand, the answer time of a Kleine Anfrage, and a column per
+    month. Shown by fragen.js while the kind is chosen."""
+    kind = d["kind"]
+    fs = facets(d)
+    noun, one = "Einträge", "Eintrag"
+    fr = Counter(t for f in fs for t in f["fraktion"])
+    names = {t: f for f, t in TOKEN.items()}
+    chips = controls.chips("fraktion", [(t, SHORT.get(names[t], names[t]), fr[t], t) for t in TOKEN.values()
+                                        if fr[t] or t != "frl"], "Fraktion")  # fmt: skip
+    turns = kind in ("fragestunde", "regierungsbefragung")
+    ressort_label = dict(zip(d["slugs"]["ressorts"], d["ressorts"], strict=True))
+    if turns:
+        ressort_label = {urls.slug(r[3]): r[3] for r in d["rows"] if r[3]}
+    rs = Counter(f["ressort"] for f in fs if f["ressort"])
+    stand_label = {**STANDS, **dict(zip(d["slugs"]["statuses"], d["statuses"], strict=True))}
+    st = Counter(f["stand"] for f in fs)
+    parts = [controls.block("Fraktion", chips)]
+    if rs:
+        title = "Rolle in der Bundesregierung" if turns else "Ressort"
+        parts.append(controls.block(title, controls.sized_chips(
+            "ressort", [(r, ressort_label.get(r, r), k) for r, k in rs.most_common()], title)))  # fmt: skip
+    parts.append(controls.block("Stand", controls.chips(
+        "stand", [(x, stand_label.get(x, x), k, "accent") for x, k in st.most_common()], "Stand")))  # fmt: skip
+    if kind == "kleine-anfragen":
+        ft = Counter(f["frist"] for f in fs)
+        items = [(v, label, ft[v]) for v, label in FRIST]
+        parts.append(controls.view(f"{kind}-frist", "Antwortzeit", controls.segmented("frist", items, "Antwortzeit",
+                                   "Kleine Anfragen"), controls.segmented_table(items, "Antwortzeit",
+                                   "Kleine Anfragen")))  # fmt: skip
+    dated = [f["monat"] for f in fs if f["monat"]]
+    if dated:
+        span = controls.months_between(min(dated), max(dated))
+        by_month = {m: Counter({"all": k}) for m, k in Counter(dated).items()}
+        groups = [("all", noun, "k2")]
+        parts.append(controls.view(f"{kind}-monate", "Monat", controls.columns(
+            "monat", span, by_month, groups, "Monat", noun, one), controls.months_table(span, by_month, groups,
+                                                                                         noun)))  # fmt: skip
+    return f'<div class="qpanel" data-kind="{e(kind)}" hidden>{"".join(parts)}</div>'
+
+
+def research_section(lists: dict[str, dict]) -> str:
+    """The research view: one button per kind (with its number of entries), the filters of the chosen kind and the
+    list, which fragen.js fills from the kind's JSON once it is chosen."""
+    tabs = "".join(controls.toggle("liste", slug, f"{label}<span class=\"c\">{n(len(lists[slug]['rows']))}</span>",
+                                   single=True, label=label)
+                   for slug, label, _ in KINDS if slug in lists)  # fmt: skip
+    panels = "".join(research_panel(lists[slug]) for slug, _, _ in KINDS if slug in lists)
     return (
         '<section class="facet fr" id="liste"><h2>Die einzelnen Fragen</h2>'
         '<p class="explain">Jede Kleine Anfrage, jede Schriftliche und Mündliche Frage und jeder Beitrag in der '
         "Fragestunde und der Regierungsbefragung, mit Link zur Quelle: der Drucksache oder dem Vorgang im DIP, dem "
         "PDF, dem Steckbrief der Fragenden und bei mündlichen Fragen dem Protokoll. <b>Nur Titel:</b> Der Datenbestand "
-        "enthält von Kleinen Anfragen und Schriftlichen Fragen nur den Titel, nicht den Wortlaut der Frage; der "
+        "enthält von Kleinen Anfragen und Schriftlichen Fragen nur den Titel, nicht den Wortlaut der Frage. Er "
         "steht in der verlinkten Drucksache. Die Fragenden einer Schriftlichen oder Mündlichen Frage nennt DIP je "
-        "Sammeldrucksache, nicht je Frage; genannt ist hier nur, wer allein in seiner Sammeldrucksache steht. "
+        "Sammeldrucksache, nicht je Frage. Genannt ist hier nur, wer allein in seiner Sammeldrucksache steht. "
         "Wer geantwortet hat, ergibt sich aus dem Ressort der Frage: genannt sind, wer für dieses Ressort in der "
         "Sammeldrucksache oder in der Fragestunde geantwortet hat, meist eine Person, manchmal die beiden "
         "Parlamentarischen Staatssekretäre eines Ministeriums.</p>"
-        f'<div id="fragen"><div class="qtabs" role="tablist">{tabs}</div>'
-        '<div class="filters"><input type="search" id="fq" placeholder="Wörter im Titel …" autocomplete="off" '
-        'aria-label="Wörter im Titel"><input type="search" id="fm" placeholder="Abgeordnete …" autocomplete="off" '
-        'aria-label="Abgeordnete"><select id="ff" aria-label="Fraktion"></select><select id="fr" aria-label="Ressort">'
-        '</select><select id="fmo" aria-label="Monat"></select><select id="fs" aria-label="Stand"></select>'
-        '<select id="ft" aria-label="Antwortzeit" hidden><option value="">jede Antwortzeit</option>'
-        f"<option>bis {DEADLINE} Tage</option><option>15 bis 28 Tage</option><option>mehr als 28 Tage</option>"
-        '<option>offen</option></select></div><div class="count" id="fcount"></div><div class="rows" id="flist"></div>'
-        '<button type="button" class="more" id="fmore" style="display:none">Weitere zeigen</button></div></section>'
-    )
+        f'<div id="fragen"><div class="qtabs" role="group" aria-label="Art der Fragen">{tabs}</div>'
+        + controls.toolbar("Wörter im Titel oder Name …") + panels
+        + '<div class="count" data-count></div><div class="rows" id="flist" data-rows data-external data-limit="50">'
+        '<div class="empty">Eine Art oben wählen. Die Liste wird erst dann geladen.</div></div>'
+        '<div class="rows fx"><div class="empty" data-none hidden>Keine Treffer für diese Auswahl.</div>'
+        '<button type="button" class="more" data-more hidden>mehr anzeigen</button></div></div></section>'
+    )  # fmt: skip
 
 
-def page(ka: dict, wq: dict, bf: list[dict], fs: tuple[int, int], counts: dict[str, int] | None = None) -> str:
-    research = research_section(counts) if counts else ""
+def page(ka: dict, wq: dict, bf: list[dict], fs: tuple[int, int], lists: dict[str, dict] | None = None) -> str:
+    research = research_section(lists) if lists else ""
+    stats = f'<div class="qs" data-static>{_ka_section(ka)}{_questions_section(wq)}{_befragung_section(bf, fs)}</div>'
     body = (
         '<section class="card"><h1>Fragen an die Regierung</h1><div class="lines">Kleine Anfragen, Schriftliche '
         "und Mündliche Fragen, Fragestunde und Regierungsbefragung im 21. Bundestag: oben die Zahlen nach "
         "Fraktionen, darunter jede einzelne Frage zum Durchsuchen. Jede Zahl und jede Frage führt zu ihrer "
-        'Drucksache oder zum Plenarprotokoll. <a href="#liste">Zu den einzelnen Fragen ↓</a> · '
-        '<a href="../daten.html">Über die Daten</a></div></section>'
-        f'<div class="qs">{_ka_section(ka)}{_questions_section(wq)}{_befragung_section(bf, fs)}</div>{research}'
-        f"<footer>{FOOTER}</footer>" + ('<script src="../fragen.js"></script>' if research else "")
-    )
+        "Drucksache oder zum Plenarprotokoll. Ein Klick auf ein Diagramm zeigt unten die Fragen dazu. "
+        '<a href="#liste">Zu den einzelnen Fragen ↓</a> · <a href="../daten.html">Über die Daten</a></div></section>'
+        + controls.scope(stats + research, "Einträge", "Eintrag")
+        + f"<footer>{FOOTER}</footer>" + ('<script src="../fragen.js"></script>' if research else "")
+    )  # fmt: skip
     return shell(root="../", kind="p-questions", active="questions", title="Fragen an die Regierung",
                  desc="Alle Fragen der Abgeordneten an die Bundesregierung im 21. Bundestag, durchsuchbar und nach "
                       "Fraktion und Antwortzeit ausgewertet: Kleine Anfragen, "
                       "Schriftliche und Mündliche Fragen, Fragestunde, Regierungsbefragung.",
-                 body=body, data={"kind": "questions"}, head=STYLE + RESEARCH_STYLE)  # fmt: skip
+                 body=body, data={"kind": "questions"},
+                 head=STYLE + RESEARCH_STYLE + controls.head("../"))  # fmt: skip
 
 
 def write(conn: sqlite3.Connection, out: Path, cards: set[str] | None = None) -> dict[str, int]:
@@ -719,7 +836,6 @@ def write(conn: sqlite3.Connection, out: Path, cards: set[str] | None = None) ->
         text = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
         (d / f"{slug}.json").write_text(text, encoding="utf-8")
         print(f"regierung/{slug}.json: {len(payload['rows'])} rows, {len(text.encode()) / 1024:.0f} KB")
-    counts = {slug: len(p["rows"]) for slug, p in lists.items()}
-    html = page(kleine_anfragen(conn), written_questions(conn), befragungen(conn), fragestunden(conn), counts)
+    html = page(kleine_anfragen(conn), written_questions(conn), befragungen(conn), fragestunden(conn), lists)
     (d / "index.html").write_text(html, encoding="utf-8")
     return {"regierung": 1}

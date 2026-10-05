@@ -84,6 +84,7 @@ def test_tiles():
     big, small = controls.tile_basis([90, 1])
     assert big > small == controls.TILE_MIN  # by count, and never narrower than a readable name
     assert 'style="--g:90;--b:' in html
+    assert controls.tile_basis([40, 1], per=10) == [400, controls.TILE_MIN]  # a fixed width per unit (Gremien)
 
 
 def test_strip():
@@ -157,14 +158,14 @@ def node(script: str):
 
 def test_url_state_round_trip_in_node():
     need_node()
-    hashes = ["#von=spd,cdu&art=antrag&zeit=2026-W10..2026-W20&q=Miete%20und%20Pacht&liste=stufe",
+    hashes = ["#von=spd,cdu&art=antrag&zeit=2026-W10..2026-W20&q=Miete%20und%20Pacht&ansicht=stufe",
               "#art=namentlich&ergebnis=abgelehnt", "#zeit=2026-W20..2026-W10", "#glossar", "", "#q=a%26b"]  # fmt: skip
     got = node(f"""console.log(JSON.stringify({json.dumps(hashes)}.map(h => {{
         const s = C.parse(h); return [s, C.serialize(s), C.serialize(C.parse(C.serialize(s)))]; }})))""")
     full, votes, reversed_, anchor, none, amp = got
     assert full[0] == {"f": {"von": ["spd", "cdu"], "art": ["antrag"]}, "zeit": ["2026-W10", "2026-W20"],
-                       "q": "Miete und Pacht", "liste": ["stufe"]}  # fmt: skip
-    assert full[1] == "art=antrag&von=spd,cdu&zeit=2026-W10..2026-W20&q=Miete%20und%20Pacht&liste=stufe"
+                       "q": "Miete und Pacht", "ansicht": ["stufe"]}  # fmt: skip
+    assert full[1] == "art=antrag&von=spd,cdu&zeit=2026-W10..2026-W20&q=Miete%20und%20Pacht&ansicht=stufe"
     assert all(x[1] == x[2] for x in got)  # serialize ∘ parse is stable
     assert votes[1] == "art=namentlich&ergebnis=abgelehnt"  # the old URLs of the votes page keep working
     assert reversed_[0]["zeit"] == ["2026-W10", "2026-W20"]

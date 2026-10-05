@@ -40,8 +40,15 @@ def test_write(conn, tmp_path):
     assert 'href="gesundheit.html"' in index
     assert 'href="../fraktionen/spd.html"' in index
 
+    assert 'class="tile" href="gesundheit.html"' in index and 'data-art="ausschuss"' in index  # the tile field
+    assert 'data-f="art" data-v="gremium"' in index and 'data-show="alt" aria-pressed="false">Als Liste' in index
+    assert 'id="gq"' not in index
+
     gesundheit = (tmp_path / "gremien" / "gesundheit.html").read_text()
     assert 'href="../1.html"' in gesundheit and "Obfrau" in gesundheit
+    assert 'data-fraktion="spd" data-rolle="obleute"' in gesundheit  # a member row, filtered by the controls
+    assert 'data-f="fraktion" data-v="spd"' in gesundheit and 'data-f="rolle" data-v="obleute"' in gesundheit
+    assert "<th>Mitglieder</th>" in gesundheit  # the composition table behind "Als Tabelle"
 
     spd = (tmp_path / "fraktionen" / "spd.html").read_text()
     assert 'href="../1.html"' in spd  # Anna Adler is SPD

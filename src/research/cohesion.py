@@ -10,8 +10,8 @@ from __future__ import annotations
 from collections import Counter
 from pathlib import Path
 
-from research import urls
-from research.data import NO_FRACTION, VOTE_CHOICES, majority
+from research import controls, urls
+from research.data import NO_FRACTION, VOTE_CHOICES, iso_week, majority
 from research.ui import (
     FOOTER,
     SHORT,
@@ -165,7 +165,8 @@ STYLE = """<style>
 .coh table.dis td.o, .coh table.dis td.f { white-space: nowrap; }
 .coh dl.def + .explain { margin-top: 12px; }
 .coh table.dis .ti { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.coh .filters { margin: 10px 0; }
+.coh .fr .chip { margin-left: auto; font-size: 12px; padding: 1px 9px; }
+.coh table.dis tr[hidden] { display: none; }
 .coh dl.def { margin: 0; } .coh dl.def dt { font-weight: 600; margin-top: 10px; } .coh dl.def dd { margin: 2px 0 0; }
 /* phone: one block per dissent, date and vote on top, then the vote's title, then the member */
 @media (max-width: 600px) {
@@ -180,24 +181,11 @@ STYLE = """<style>
 }
 </style>"""  # noqa: E501
 
-FILTER = """<script>
-(function () {
-  const sel = document.getElementById('fr'), rows = document.querySelectorAll('#dis tbody tr'), count = document.getElementById('count');
-  function apply() {
-    let k = 0;
-    rows.forEach(r => { const on = !sel.value || r.dataset.f === sel.value; r.hidden = !on; if (on) k++; });
-    count.textContent = k.toLocaleString('de-DE') + ' Abweichungen';
-  }
-  sel.addEventListener('change', apply);
-  apply();
-})();
-</script>"""  # noqa: E501
 
-
-def page(decisions: list[dict], members: dict[str, list[list]]) -> str:
+def page(decisions: list[dict], members: dict[str, list[list]], sitting_dates: list[str] | None = None) -> str:
     c = cohesion(decisions, members)
     votes, series, dissents = c["votes"], c["series"], c["dissents"]
-    blocks = []
+    blocks, table_rows = [], []
     for f, points in series.items():
         values = [p["rice"] for p in points if p["rice"] is not None]
         split = sum(1 for p in points if p["line"] is None)
@@ -205,9 +193,12 @@ def page(decisions: list[dict], members: dict[str, list[list]]) -> str:
         facts = [f"Durchschnitt <b>{pct(mean(values), 3)}</b>", f"{n(len(points))} Abstimmungen"]
         if split:
             facts.append(f"{n(split)}-mal gespalten")
-        facts.append(f"{n(devs)} Abweichungen")
-        blocks.append(f'<div class="fr">{dot(f)} <b>{frac_link(f)}</b> <span class="m">{" · ".join(facts)}</span></div>'
-                      + timeline(f, points, len(votes)))  # fmt: skip
+        count = f"{n(devs)} {'Abweichung' if devs == 1 else 'Abweichungen'}"
+        show = (controls.toggle("fraktion", TOKEN[f], f"{count} zeigen", cls="chip", style=f"--c:var(--{TOKEN[f]})",
+                                label=SHORT.get(f, f), disabled=not devs) if f in TOKEN else count)  # fmt: skip
+        blocks.append(f'<div class="fr">{dot(f)} <b>{frac_link(f)}</b> <span class="m">{" · ".join(facts)}</span> '
+                      f"{show}</div>" + timeline(f, points, len(votes)))  # fmt: skip
+        table_rows.append([f"{dot(f)} {frac_link(f)}", pct(mean(values), 3), n(len(points)), n(split), n(devs)])
     if votes:
         blocks.append(axis(votes))
     rows = []
@@ -215,19 +206,45 @@ def page(decisions: list[dict], members: dict[str, list[list]]) -> str:
         d = x["vote"]
         who = f'<a href="../{e(x["person"])}.html">{e(x["name"])}</a>' if x["person"] else e(x["name"])
         rows.append(
-            f'<tr data-f="{e(x["fraction"])}"><td class="d">{e(short_date(d["date"]))}</td>'
+            f'<tr data-fraktion="{e(TOKEN.get(x["fraction"], ""))}" data-stimme="{e(x["own"])}" '
+            f'data-w="{iso_week(d["date"])}"><td class="d">{e(short_date(d["date"]))}</td>'
             f'<td class="t"><a class="ti" href="../{e(urls.decision(d))}">{e(d["title"])}</a></td>'
             f'<td class="w">{who}</td>'
             f'<td class="f">{dot(x["fraction"])} {frac_link(x["fraction"])}</td>'
             f'<td class="o"><span class="vote {x["own"]}">{VOTE[x["own"]]}</span> '
             f'<span class="faint">statt {VOTE[x["line"]]}</span></td></tr>'
         )
-    options = "".join(f'<option value="{e(f)}">{e(f)}</option>' for f in series)
     first = long_date(votes[0]["date"]) if votes else ""
+    by_fraction = Counter(TOKEN.get(x["fraction"], "") for x in dissents)
+    by_vote = Counter(x["own"] for x in dissents)
+    chart = controls.view(
+        "geschlossenheit", "Geschlossenheit je Abstimmung, eine Zeile je Fraktion",
+        f'<div class="scroll">{"".join(blocks)}</div><p class="note">Gestrichelt: der Durchschnitt der Fraktion. '
+        "Hohler Punkt: Die Fraktion war gespalten. Punkt antippen oder anklicken öffnet die Abstimmung. "
+        "„Abweichungen zeigen“ filtert die Liste unten.</p>",
+        controls.table(["Fraktion", "Durchschnitt", "Abstimmungen", "gespalten", "Abweichungen"], table_rows),
+    )  # fmt: skip
+    filters = (
+        controls.toolbar("Abstimmung oder Mitglied …")
+        + controls.block("Fraktion", controls.chips(
+            "fraktion", [(TOKEN[f], SHORT.get(f, f), by_fraction[TOKEN[f]], TOKEN[f]) for f in series if f in TOKEN],
+            "Fraktion"))
+        + controls.block("Eigene Stimme", controls.chips(
+            "stimme", [(v, VOTE[v], by_vote[v], "accent") for v in VOTE_CHOICES], "Eigene Stimme"))
+        + controls.activity([x["vote"]["date"] for x in dissents], sitting_dates or [], "Abweichungen", "Abweichung",
+                            "Zeitraum")
+    )  # fmt: skip
+    listing = (
+        '<div class="count" data-count></div><div class="rows" data-rows data-row="tbody tr" '
+        f'data-limit="{controls.LIMIT}"><table class="dis" id="dis"><thead><tr><th>Datum</th><th>Abstimmung</th>'
+        f"<th>Mitglied</th><th>Fraktion</th><th>Stimme</th></tr></thead><tbody>{''.join(rows)}</tbody></table>"
+        '<div class="empty" data-none hidden>Keine Treffer für diese Auswahl.</div>'
+        '<button type="button" class="more" data-more hidden>mehr anzeigen</button></div>'
+    )
     body = f"""{subtabs("../", SITTING_TABS, "votes")}<div class="coh">
 <p class="crumbs"><a href="index.html">Abstimmungen</a></p>
 <h1>Geschlossenheit der Fraktionen</h1>
-<p class="lead">Wie einheitlich haben die Fraktionen in den {n(len(votes))} namentlichen Abstimmungen seit {e(first)} abgestimmt, und wer hat anders gestimmt als die eigene Fraktion? Hier stehen nur namentliche Abstimmungen: Nur bei ihnen ist die Stimme jedes Mitglieds bekannt.</p>
+<p class="lead">Wie einheitlich die Fraktionen in den {n(len(votes))} namentlichen Abstimmungen seit {e(first)} abgestimmt haben und wer anders gestimmt hat als die eigene Fraktion. Hier stehen nur namentliche Abstimmungen, denn nur bei ihnen ist die Stimme jedes Mitglieds bekannt.</p>
 <h2>So ist gerechnet</h2>
 <dl class="def">
 <dt>Fraktionslinie</dt><dd>Die Stimme, die in der Fraktion bei dieser Abstimmung am häufigsten abgegeben wurde: Ja, Nein oder Enthaltung. Liegen zwei davon gleichauf, hat die Fraktion keine Linie, sie war <b>gespalten</b>. Fraktionslose haben keine Linie.</dd>
@@ -235,27 +252,20 @@ def page(decisions: list[dict], members: dict[str, list[list]]) -> str:
 <dt>Geschlossenheit</dt><dd>Der Rice-Index: |Ja − Nein| geteilt durch (Ja + Nein) der Fraktion. 1 heißt: alle, die Ja oder Nein gestimmt haben, haben gleich gestimmt; 0 heißt: genau halb Ja, halb Nein. Enthaltungen zählen in diesem Wert nicht mit (sie gelten aber als Abweichung, wenn die Linie Ja oder Nein war). Hat niemand in der Fraktion Ja oder Nein gestimmt, gibt es keinen Wert.</dd>
 </dl>
 <p class="explain">Die Zahlen sagen nichts darüber, ob eine Abweichung abgesprochen war (etwa eine Gewissensentscheidung oder eine persönliche Erklärung im Protokoll). Jede Zeile führt zur Abstimmung mit der Abstimmungsliste als Quelle.</p>
-<h2>Je Abstimmung <span class="n">ein Punkt, von der ersten (links) zur neuesten (rechts)</span></h2>
-<div class="chart"><div class="scroll">{"".join(blocks)}</div>
-<p class="note">Gestrichelt: der Durchschnitt der Fraktion. Hohler Punkt: Die Fraktion war gespalten. Punkt antippen oder anklicken öffnet die Abstimmung.</p></div>
-<h2>Alle Abweichungen <span class="n">die neueste zuerst</span></h2>
-<div class="filters"><select id="fr" aria-label="Fraktion"><option value="">alle Fraktionen</option>{options}</select></div>
-<div class="count" id="count">{n(len(dissents))} Abweichungen</div>
-<div class="rows"><table class="dis" id="dis"><thead><tr><th>Datum</th><th>Abstimmung</th><th>Mitglied</th><th>Fraktion</th><th>Stimme</th></tr></thead><tbody>
-{"".join(rows)}
-</tbody></table></div>
+{controls.scope(f'<h2>Je Abstimmung <span class="n">ein Punkt, von der ersten (links) zur neuesten (rechts)</span></h2>{chart}<h2>Alle Abweichungen <span class="n">die neueste zuerst</span></h2>{filters}{listing}', "Abweichungen", "Abweichung")}
 </div>
-<footer>{FOOTER}</footer>{FILTER}"""  # noqa: E501
+<footer>{FOOTER}</footer>"""  # noqa: E501
     desc = (f"Wie geschlossen die Fraktionen des 21. Deutschen Bundestages in {len(votes)} namentlichen Abstimmungen "
             "gestimmt haben, und jede Abweichung von der Fraktionslinie, mit Quelle.")  # fmt: skip
     return shell(root="../", kind="p-cohesion", active="sittings", title="Geschlossenheit der Fraktionen", desc=desc,
-                 head=STYLE, body=body, data={"kind": "cohesion"})  # fmt: skip
+                 head=STYLE + controls.head("../"), body=body, data={"kind": "cohesion"})  # fmt: skip
 
 
-def write_page(out: Path, decisions: list[dict], members: dict[str, list[list]]) -> int:
+def write_page(out: Path, decisions: list[dict], members: dict[str, list[list]],
+               sitting_dates: list[str] | None = None) -> int:  # fmt: skip
     """Write abstimmungen/geschlossenheit.html; nothing without roll-call lists. Returns the number of pages."""
     if not any(members.get(d["id"]) for d in decisions if d["kind"] == "namentlich"):
         return 0
     (out / "abstimmungen").mkdir(parents=True, exist_ok=True)
-    (out / "abstimmungen" / f"{PAGE}.html").write_text(page(decisions, members), encoding="utf-8")
+    (out / "abstimmungen" / f"{PAGE}.html").write_text(page(decisions, members, sitting_dates), encoding="utf-8")
     return 1

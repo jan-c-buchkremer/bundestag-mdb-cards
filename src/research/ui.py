@@ -74,7 +74,7 @@ FOOTER = (
     'gesammelt mit <a href="https://github.com/jan-c-buchkremer/bundestag-data-foundation">bundestag-data-foundation'
     "</a>. Beschlüsse per Handzeichen sind regelbasiert aus dem Text der Sitzungsleitung gelesen. Code: "
     '<a href="https://github.com/jan-c-buchkremer/bundestag-research-platform">bundestag-research-platform</a> '
-    f'(MIT). Worüber debattiert wird, zeigt die <a class="rl" href="{LANDSCAPE}">Themenlandschaft</a>. {LEGAL}'
+    f'(MIT). Die Themen der Debatten zeigt die <a class="rl" href="{LANDSCAPE}">Themenlandschaft</a>. {LEGAL}'
 )
 
 

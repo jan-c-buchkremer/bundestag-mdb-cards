@@ -230,7 +230,7 @@ def _table_rc(members: list[list], root: str) -> str:
         "<th>Nein</th><th>Enth.</th><th>nicht abg.</th><th></th></tr></thead><tbody>"
         + "".join(rows)
         + "</tbody></table></div>"
-        '<p class="explain">„Nicht abgegeben“ sagt nichts über den Grund: Krankheit, Elternzeit, Dienstreisen und '
+        '<p class="explain">„Nicht abgegeben“ nennt keinen Grund. Krankheit, Elternzeit, Dienstreisen und '
         "Pairing-Absprachen stehen nicht in den Listen.</p>"
     )
 
@@ -263,8 +263,10 @@ def _chart(d: dict, members: list[list] | None) -> str:
         payload = {"mode": "rc", "members": members, "lines": lines(members)}
         extra = ('<label class="toggle"><input type="checkbox" class="dev"> Abweichungen von der Fraktionsmehrheit '
                  "hervorheben</label>"
-                 '<p class="note">Sitze nach Fraktionen wie in der Sitzverteilung; in jeder Fraktion nach Stimme, dann '
-                 "Name. Ein Schema, nicht die echte Sitzordnung. Punkt antippen oder anklicken öffnet den "
+                 '<p class="note">Sitze nach Fraktionen wie in der Sitzverteilung, innerhalb jeder Fraktion nach '
+                 'Stimme und '
+                 "Name sortiert. Im Plenarsaal haben die Abgeordneten keine festen Plätze. Punkt antippen oder "
+                 "anklicken öffnet den "
                  "Steckbrief.</p>")  # fmt: skip
     elif d["kind"] != "namentlich" and d.get("fractions") and d.get("house"):
         payload = {"mode": "hands", "house": d["house"], "positions": d["fractions"]}
@@ -329,7 +331,7 @@ def vote(d: dict, root: str = "../", *, detail: bool = False, members: list[list
     if rc and d.get("counts"):
         line, bar = _counts_line(d["counts"]), _count_bar(d["counts"], "bar big" if detail else "mini")
     elif rc:
-        line, bar = "Keine Stimmenzahlen: zu dieser Abstimmung fehlt die Abstimmungsliste.", ""
+        line, bar = "Keine Stimmenzahlen, da zu dieser Abstimmung die Abstimmungsliste fehlt.", ""
     elif d.get("fractions"):
         line = _positions_line(d["fractions"], root)
         bar = _hands_bar(d, "bar big" if detail else "mini") if d.get("house") else ""

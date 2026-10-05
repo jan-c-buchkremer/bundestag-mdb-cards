@@ -221,16 +221,16 @@ def body_page(b: dict, besch: list[dict]) -> str:
     )
     parts = [head, facet("mitglieder", "Mitglieder", _stats_section(b["members"]) + _members_section(b["members"]),
                          len({m["person"] for m in b["members"]}))]  # fmt: skip
-    parts.append(facet("reden", "Reden", "", explain="Ausschüsse und Gremien beraten nicht im Plenum; ihre Mitglieder "
-                       "reden dort für ihre Fraktion. Ihre Reden stehen in ihren Steckbriefen."))  # fmt: skip
+    parts.append(facet("reden", "Reden", "", explain="Ausschüsse und Gremien beraten nicht im Plenum. Ihre Mitglieder "
+                       "sprechen dort für ihre Fraktion. Ihre Reden stehen in ihren Steckbriefen."))  # fmt: skip
     parts.append(facet("abstimmungen", "Abstimmungen und Beschlüsse", "", explain="Ausschüsse stimmen nicht "
                        "öffentlich ab. Was sie dem Plenum empfehlen, steht in ihren Beschlussempfehlungen unter "
                        "Drucksachen."))  # fmt: skip
     if b["kind"] == "committee":
         docs = sorted(besch, key=lambda d: (d["date"], d["number"]), reverse=True)
         parts.append(facet("drucksachen", "Drucksachen", facts.drucksache_list(docs, "../", "besch", compact=False),
-                           len(docs), "Beschlussempfehlungen (und -berichte) dieses Ausschusses an das Plenum, laut "
-                           "DIP-Urheberangabe, die neueste zuerst. „Vorgang“ führt zum Ablauf, in dem die Empfehlung "
+                           len(docs), "Beschlussempfehlungen und Berichte dieses Ausschusses an das Plenum laut "
+                           "DIP, die neueste zuerst. „Vorgang“ führt zum Ablauf, in dem die Empfehlung "
                            "beraten und abgestimmt wurde."))  # fmt: skip
     else:
         parts.append(facet("drucksachen", "Drucksachen", "", explain="Keine Drucksachen dieses Gremiums im DIP."))
@@ -415,8 +415,9 @@ def fraction_page(
     token = TOKEN.get(f, "frl")
     shown = _newest(speeches)
     parts.append(facet("reden", "Reden", facts.speech_list(shown, "../", "reden", limit=None, note=_more(
-        len(shown), len(speeches), f'Alle Reden: <a href="../suche.html?Fraktion={e(f)}">Suche mit dem Filter '
-        f"Fraktion</a> und die Steckbriefe der Mitglieder. Redeanteile im Vergleich: "
+        len(shown), len(speeches), f'Alle Reden finden sich über die <a href="../suche.html?Fraktion={e(f)}">Suche '
+                                   f'mit dem '
+        f"Filter Fraktion</a> und in den Steckbriefen der Mitglieder. Redeanteile im Vergleich zeigt die "
         '<a href="../debatte/index.html">Debattenkultur</a>.')), len(speeches)))  # fmt: skip
     ds = [d for d in decided if d["kind"] == "handzeichen" and f in (d.get("fractions") or {})
           or d["kind"] == "namentlich" and any(m[2] == f for m in roll_call_members.get(d["id"], []))]  # fmt: skip
@@ -425,10 +426,10 @@ def fraction_page(
         "abstimmungen", "Abstimmungen und Beschlüsse",
         coh_text + facts.decision_list(newest, "../", "dec", limit=None, group=f,
                                        members=lambda d: roll_call_members.get(d["id"]),
-                                       note=_more(len(newest), len(ds), 'Alle Beschlüsse: <a href="../abstimmungen/'
-                                                  'index.html">Abstimmungen</a>.')),
-        len(ds), "Rechts die Position der Fraktion: bei namentlichen Abstimmungen die Mehrheit ihrer Stimmen (gleich "
-        "gezählt wie in den Steckbriefen), bei Handzeichen die Feststellung der Sitzungsleitung.",
+                                       note=_more(len(newest), len(ds), 'Alle Beschlüsse stehen unter <a href="../'
+                                                  'abstimmungen/index.html">Abstimmungen</a>.')),
+        len(ds), "Rechts die Position der Fraktion. Bei namentlichen Abstimmungen ist das die Mehrheit ihrer Stimmen, "
+        "gezählt wie in den Steckbriefen, bei Handzeichen die Feststellung der Sitzungsleitung.",
     ))  # fmt: skip
     own = [d for d in docs if f in d["groups"]]
     shown = _newest(own)
@@ -488,7 +489,7 @@ def government_page(roles: dict[str, list[dict]], names: dict[str, str], speeche
         "Reden und Antworten in einem Regierungsamt, wie das Protokoll die Rolle nennt."))  # fmt: skip
     parts.append(facet("abstimmungen", "Abstimmungen und Beschlüsse", "", explain="Die Bundesregierung stimmt im "
                        "Bundestag nicht ab. Regierungsmitglieder mit Mandat stimmen als Abgeordnete in ihrer "
-                       "Fraktion; ihre Stimmen stehen in ihren Steckbriefen. Deshalb gibt es hier auch keine "
+                       "Fraktion. Ihre Stimmen stehen in ihren Steckbriefen. Deshalb gibt es hier auch keine "
                        "Geschlossenheit."))  # fmt: skip
     own = [d for d in docs if GOVERNMENT_GROUP in d["groups"]]
     shown = _newest(own)

@@ -111,9 +111,9 @@ def page(
         ("abgeordnete.html", "Abgeordnete",
          "Ein Steckbrief pro Mitglied: Zugehörigkeiten, Reden, Ausschüsse und Herkunft.",
          f"{n(len(members))} Steckbriefe"),
-        ("orte/index.html", "Orte", "Wer vertritt mein Land, meinen Wahlkreis, meine Gemeinde?", "299 Wahlkreise"),
+        ("orte/index.html", "Orte", "Abgeordnete nach Land, Wahlkreis und Gemeinde.", "299 Wahlkreise"),
         ("vorgaenge/index.html", "Vorgänge", "Gesetze und Anträge vom Entwurf bis zum Beschluss.", n(procedures)),
-        ("sitzungen/index.html", "Sitzungen", "Jede Sitzungswoche, jede Tagesordnung, jede Rede.", n(len(sittings))),
+        ("sitzungen/index.html", "Sitzungen", "Sitzungswochen mit Tagesordnung und Reden.", n(len(sittings))),
         ("abstimmungen/index.html", "Abstimmungen", "Namentlich und per Handzeichen.",
          f"{n(n_rc)} namentlich"),
         ("regierung/index.html", "Fragen", "Was Abgeordnete die Bundesregierung fragen und wie sie antwortet."),
@@ -123,9 +123,9 @@ def page(
     )  # fmt: skip
     research = f"""<section class="world research" id="recherche">
 <span class="tagline">Recherche</span>
-<h2>Was ist passiert?</h2>
-<p>Nachprüfbare Fakten aus den amtlichen Quellen: Plenarprotokolle, Abstimmungen, Drucksachen. Jede Angabe führt
-zu ihrer Quelle.</p>
+<h2>Fakten</h2>
+<p>Die Arbeit des Bundestages aus den amtlichen Quellen: Plenarprotokolle, Abstimmungen, Drucksachen. Jede Angabe
+führt zu ihrer Quelle.</p>
 <div class="tiles">{"".join(_tile(*t) for t in tiles)}</div>
 </section>"""
 
@@ -134,11 +134,11 @@ zu ihrer Quelle.</p>
         radar_tiles.append(_tile(LANDSCAPE, "Themenlandschaft", "Zu jeder Sitzungswoche eine Landkarte ihrer Themen. "
                                  "Interaktiv und informativ.", "jede Sitzungswoche"))  # fmt: skip
     if themes:
-        radar_tiles.append(_tile(urls.THEMES, "Themen der Wahlperiode", "Die großen Themen über alle Wochen, mit "
+        radar_tiles.append(_tile(urls.THEMES, "Themen der Wahlperiode", "Die Themen der gesamten Wahlperiode mit "
                                  "Fraktionen und Vorgängen.", f"{n(themes)} Themen"))  # fmt: skip
     if compass:
-        radar_tiles.append(_tile("kompass.html", "Wer stimmt wie ich?", "Ausgewählte Abstimmungen als Quiz: welcher "
-                                 "Fraktion komme ich am nächsten?", "läuft nur im Browser"))  # fmt: skip
+        radar_tiles.append(_tile("kompass.html", "Wer stimmt wie ich?", "Ausgewählte Abstimmungen als Quiz, im "
+                                 "Vergleich mit den Fraktionen.", "läuft nur im Browser"))  # fmt: skip
     radar = (f"""<section class="world radar" id="radar">
 <span class="tagline">{RADAR_ICON}Radar</span>
 <h2>Analyse</h2>
@@ -158,11 +158,11 @@ befinden.</p>
         wk_dec = [d for d in decisions if d["sitting"] in ids]
         days = f"{long_date(week[0]['date'])} bis {long_date(week[-1]['date'])}" if len(week) > 1 \
             else long_date(week[0]["date"])  # fmt: skip
-        go = [f'<a href="{e(urls.week(last["week"]))}">Die Woche in Sätzen, Reden und Beschlüssen</a>',
+        go = [f'<a href="{e(urls.week(last["week"]))}">Die Sitzungswoche mit Reden und Beschlüssen</a>',
               f'<a href="{e(urls.sitting(last["id"]))}">Die letzte Sitzung: {last["number"]}. Sitzung, '
               f'{e(short_date(last["date"]))}</a>']  # fmt: skip
         if landscape:
-            go.append(f'<a class="rl" href="{e(LANDSCAPE)}{e(last["week"])}.html">Worüber debattiert wurde: die Woche '
+            go.append(f'<a class="rl" href="{e(LANDSCAPE)}{e(last["week"])}.html">Die Themen der Woche '
                       "in der Themenlandschaft</a>")  # fmt: skip
         rc = sorted((d for d in decisions if d["kind"] == "namentlich"), key=lambda d: (d["date"], d["order"]))
         votes = facts.decision_list(rc[-LATEST_VOTES:][::-1], "", limit=None, agenda=False)
@@ -179,12 +179,13 @@ befinden.</p>
 </div>
 </section>"""
 
-    body = (f'{hero}{numbers}<h2 class="worlds-h">Zwei Wege in den Bundestag</h2>'
+    body = (f'{hero}{numbers}<h2 class="worlds-h">Recherche und Analyse</h2>'
             f'<div class="worlds">{research}{radar}</div>{recent}<footer>{FOOTER}</footer>{SCRIPT}')  # fmt: skip
-    desc = ("Der 21. Deutsche Bundestag zum Nachschlagen: Abgeordnete, Reden, Abstimmungen, Vorgänge und Sitzungen, "
-            "jede Angabe mit Quelle; dazu ein Radar für die Themen der Debatten.")  # fmt: skip
+    desc = ("Den 21. Deutschen Bundestag recherchieren: Abgeordnete, Reden, Abstimmungen, Vorgänge und Sitzungen "
+            "mit den offiziellen Quellen. Dazu ein Radar für die erweiterte Analyse.")  # fmt: skip
     data = {"kind": "home", "seats": seats, "token": TOKEN}
-    return shell(root="", kind="p-home", active="home", title="plenar-radar.de – der Bundestag, nachprüfbar",
+    title = "plenar-radar.de – den Bundestag recherchieren und verstehen"
+    return shell(root="", kind="p-home", active="home", title=title,
                  desc=desc, body=body, data=data, head=HEAD, mode="home")  # fmt: skip
 
 

@@ -124,7 +124,7 @@ def test_write(conn, tmp_path, monkeypatch):
     monkeypatch.delenv("LANDSCAPE_THEMES", raising=False)
     assert debate.write(conn, tmp_path) == {"debatte": 1}
     page = (tmp_path / "debatte" / "index.html").read_text()
-    assert "Gemessen in Wörtern, nicht in Redezeit" in page
+    assert "Gemessen in Wörtern, da das Protokoll keine Redezeit festhält" in page
     assert 'href="../debatte/index.html"' in page and "<svg" in page
     assert "Nach Thema" not in page
 

@@ -302,8 +302,8 @@ def section(r: dict, government_page: bool) -> str:
     src = f' Quelle: <a href="{e(stamm["url"])}">{e(stamm["doc"])}</a>.' if stamm else ""
     return (
         '<section class="facet roles" id="rollen"><h2>Rollen</h2>'
-        '<p class="explain">Wer im Bundestag welche Rolle hat: Präsidium, Fraktionsvorsitz, Vorsitz der Ausschüsse '
-        "und Gremien, Ämter in der Bundesregierung, und wie lange die Mitglieder schon dabei sind. Jede Rolle führt "
+        '<p class="explain">Präsidium, Fraktionsvorsitz, Vorsitz der Ausschüsse und Gremien, Ämter in der '
+        "Bundesregierung und die Dauer der Mitgliedschaft. Jede Rolle führt "
         f"zur Seite ihres Gremiums, ihrer Fraktion oder der Bundesregierung, jeder Name zum Steckbrief.{src}</p>"
         f"<h3>Präsidium</h3>{f'<ul>{pres}</ul>' if pres else none}{pres_link}"
         f"<h3>Fraktionsvorsitz</h3>{f'<ul>{fch}</ul>' if fch else none}"

@@ -405,16 +405,16 @@ def section_shares(s: dict) -> str:
     parl = {g: s["words"][g] for g in fractions}
     out = [
         '<section id="redeanteile"><h2>Redeanteile</h2>',
-        '<p class="note"><b>Gemessen in Wörtern, nicht in Redezeit.</b> Das Protokoll hält keine Redezeit fest; '
-        "gezählt sind die Wörter jedes Beitrags im Plenarprotokoll, ohne die Worte der Sitzungsleitung. "
+        '<p class="note"><b>Gemessen in Wörtern, da das Protokoll keine Redezeit festhält.</b> '
+        "Gezählt sind die Wörter jedes Beitrags im Plenarprotokoll ohne die Worte der Sitzungsleitung. "
         f"{n(total)} Wörter in {n(s['speeches'])} Beiträgen vom {e(short_date(s['from'] or s['to']))} bis "
-        f"{e(short_date(s['to']))}, Reden, Zwischenfragen, Kurzinterventionen und Regierungsbefragung "
-        "eingeschlossen.</p>",
+        f"{e(short_date(s['to']))}, einschließlich Reden, Zwischenfragen, Kurzinterventionen und "
+        f"Regierungsbefragung.</p>",
         "<h3>Fraktionen: Anteil an den Wörtern und an den Sitzen</h3>",
         share_rows(parl, s["seats"], fractions, "Wörter", "Sitze"),
         '<p class="how">Wörter der Abgeordneten nach ihrer Fraktion im Protokoll, ohne Regierungsmitglieder. '
         "Der Strich zeigt den Sitzanteil laut der letzten namentlichen Abstimmung. Redezeit wird im Ältestenrat "
-        "nach Fraktionsstärke verteilt; Unterschiede entstehen etwa durch Zwischenfragen, Kurzinterventionen und "
+        "nach Fraktionsstärke verteilt. Unterschiede entstehen etwa durch Zwischenfragen, Kurzinterventionen und "
         "unterschiedlich schnelles Sprechen.</p>",
     ]
     gov, other = s["words"].get(GOVERNMENT, 0), s["words"].get(OTHER, 0)
@@ -559,9 +559,9 @@ def interruptions_block(ints: dict[str, dict[str, list[int]]]) -> str:
         f'<div class="scroll"><table class="plenum deb heat"><thead><tr><th>Monat</th>{head}</tr></thead>'
         f"<tbody>{rows}</tbody></table></div>"
         '<p class="how">Zurufe, Unruhe, Widerspruch und Lachen, die das Protokoll während eines Beitrags vermerkt, '
-        "je 1.000 Wörter der Beiträge dieser Fraktion im Monat; Zurufe aus der eigenen Fraktion und Zurufe an eine "
+        "je 1.000 Wörter der Beiträge dieser Fraktion im Monat. Zurufe aus der eigenen Fraktion und Zurufe an eine "
         "andere genannte Person nicht mitgezählt, ebenso Vermerke direkt nach Worten der Sitzungsleitung. "
-        "Das Protokoll hält fest, was die Stenografie hört: ein Zuruf kann "
+        "Das Protokoll hält fest, was die Stenografie hört. Ein Zuruf kann "
         "Kritik, Ergänzung oder Zustimmung sein. Monate mit weniger als 2.000 Wörtern einer Fraktion bleiben "
         "leer (–).</p>"
     )
@@ -697,9 +697,9 @@ ul.ms .q { color: var(--muted); margin-top: 3px; }
 
 def page(s: dict, ms: list[dict], qs: list[dict], ints: dict, net: dict | None = None) -> str:
     body = (
-        '<h1>Debattenkultur</h1><p class="lead">Wer im 21. Bundestag wie viel spricht und wie die Sitzungsleitung '
-        "für Ordnung sorgt, gezählt aus den Plenarprotokollen. Die Seite vergleicht Gruppen, keine einzelnen "
-        "Abgeordneten; jede Zahl beruht auf dem Protokolltext, die Ordnungsmaßnahmen sind mit ihrer Sitzung "
+        '<h1>Debattenkultur</h1><p class="lead">Redeanteile, Ordnungsmaßnahmen und Reaktionen im 21. Bundestag, '
+        "gezählt aus den Plenarprotokollen. Die Seite vergleicht Gruppen und keine einzelnen Abgeordneten. Jede Zahl "
+        "beruht auf dem Protokolltext, die Ordnungsmaßnahmen sind mit ihrer Sitzung "
         'verlinkt.</p><p class="toc"><a href="#redeanteile">Redeanteile</a> · <a href="#ordnung">Ton und '
         'Ordnung</a> · <a href="#netz">Beifall und Zurufe</a></p>'
         f"{section_shares(s)}{section_order(ms, qs, ints)}{section_network(net) if net else ''}"

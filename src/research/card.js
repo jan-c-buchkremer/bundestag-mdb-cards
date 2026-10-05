@@ -318,7 +318,7 @@ function renderCareer(el) {
     ${now.length ? `<div class="rows memb">${now.join('')}</div>` : ''}
     <p class="explain">Alle Mandate seit der ersten Wahlperiode laut Stammdaten des Bundestages (${esc(META.stammdaten.doc)}).</p>
     ${gaps.length ? `<p class="explain">Nicht im Bundestag ${gaps.join(', ')}.</p>` : ''}
-    ${C.in_stammdaten ? '' : `<p class="explain">Das aktuelle Mandat fehlt in diesem Stand der Stammdaten; Mitglied spätestens seit ${longDate(C.first_vote)}.</p>`}
+    ${C.in_stammdaten ? '' : `<p class="explain">Das aktuelle Mandat fehlt in diesem Stand der Stammdaten. Mitglied spätestens seit ${longDate(C.first_vote)}.</p>`}
     <div class="rows memb">${rows.join('') || '<div class="empty">Keine Mandate in den Stammdaten.</div>'}</div>`;
 }
 
@@ -441,4 +441,4 @@ window.addEventListener('hashchange', () => {
 
 renderCard();
 renderTabs();
-document.getElementById('foot').innerHTML = `Daten: Deutscher Bundestag${member && META.election.length ? ', Die Bundeswahlleiterin' : ''}${C.aw_id ? ', abgeordnetenwatch.de (CC0 1.0)' : ''}${C.government.length ? ', Wikidata (CC0 1.0)' : ''}. Code: <a href="${REPO}">bundestag-research-platform</a> (MIT). Keine Rangliste, keine Bewertung: Zahlen stehen immer mit ihrem Zusammenhang. <a href="impressum.html">Impressum</a> · <a href="datenschutz.html">Datenschutz</a>`;
+document.getElementById('foot').innerHTML = `Daten: Deutscher Bundestag${member && META.election.length ? ', Die Bundeswahlleiterin' : ''}${C.aw_id ? ', abgeordnetenwatch.de (CC0 1.0)' : ''}${C.government.length ? ', Wikidata (CC0 1.0)' : ''}. Code: <a href="${REPO}">bundestag-research-platform</a> (MIT). Die Seite enthält keine Rangliste und keine Bewertung. Zahlen stehen immer mit ihrem Zusammenhang. <a href="impressum.html">Impressum</a> · <a href="datenschutz.html">Datenschutz</a>`;

@@ -14,7 +14,7 @@ from pathlib import Path
 from research import facts, urls
 from research.ui import FOOTER, LANDSCAPE, RADAR_ICON, SITTING_TABS, crumbs, e, long_date, n, shell, short_date, subtabs
 
-TOPICS = 5  # clusters under "Worum ging es"
+TOPICS = 5  # clusters under "Themen"
 
 
 def week_label(week: str) -> str:
@@ -44,8 +44,8 @@ def vote_page(d: dict, members: list[list] | None) -> str:
         links = "".join(
             f'<li><a href="../{e(urls.vorgang(v))}">{e(d["vorgang_titles"].get(v, v))}</a></li>' for v in vs
         )
-        parts.append(f'<h2>Vorgänge</h2><p class="explain">Diese Abstimmung betrifft Drucksachen mehrerer Vorgänge; '
-                     f"jeder führt sie in seinem Ablauf.</p><ul>{links}</ul>")  # fmt: skip
+        parts.append(f'<h2>Vorgänge</h2><p class="explain">Diese Abstimmung betrifft Drucksachen mehrerer Vorgänge. '
+                     f"Jeder führt sie in seinem Ablauf.</p><ul>{links}</ul>")  # fmt: skip
     parts.append(f"<footer>{FOOTER}</footer>")
     desc = (f"{'Namentliche Abstimmung' if rc else 'Abstimmung per Handzeichen'} im Bundestag am "
             f"{long_date(d['date'])}: {d['title']} – {d['result'] or 'ohne Ergebnis'}.")  # fmt: skip
@@ -200,7 +200,7 @@ def topics(i: dict, clusters: dict[str, dict]) -> list[dict]:
 
 
 def topics_block(i: dict, clusters: dict[str, dict]) -> str:
-    """ "Worum ging es": the item's top clusters in the Themenlandschaft; nothing without the landscape's data."""
+    """ "Themen": the item's top clusters in the Themenlandschaft; nothing without the landscape's data."""
     found = topics(i, clusters)
     if not found:
         return ""
@@ -213,7 +213,7 @@ def topics_block(i: dict, clusters: dict[str, dict]) -> str:
     )
     more = len(found) - TOPICS
     rest = f'<span class="faint">und {more} weitere</span>' if more > 0 else ""
-    return (f'<div class="topics"><div class="k">Worum ging es <span class="rmark">{RADAR_ICON}Radar</span> '
+    return (f'<div class="topics"><div class="k">Themen <span class="rmark">{RADAR_ICON}Radar</span> '
             '<span class="n">aus der Themenlandschaft</span></div>'
             f'<div class="chips">{links}{rest}</div></div>')  # fmt: skip
 

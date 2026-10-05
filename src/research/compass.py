@@ -33,7 +33,7 @@ MIN_QUESTIONS = 10  # nothing is written below this
 # the Radar method note (docs/architecture.md): the selection is the interpretation here
 METHOD = ("Die Fragen sind eine Auswahl von Hand: Abstimmungen aus vielen Themen, jede als neutrale Frage "
           "formuliert. Übereinstimmung heißt, wie oft deine Antwort der Linie einer Fraktion entspricht. Eine andere "
-          "Auswahl könnte ein anderes Ergebnis geben; über Positionen jenseits dieser Abstimmungen sagt das Quiz "
+          "Auswahl könnte ein anderes Ergebnis geben. Über Positionen jenseits dieser Abstimmungen sagt das Quiz "
           "nichts.")  # fmt: skip
 
 

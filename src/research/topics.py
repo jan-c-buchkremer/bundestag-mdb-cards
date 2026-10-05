@@ -31,12 +31,13 @@ from research.ui import (
 
 SPEECHES = 100  # newest speeches of a theme in the page (a theme holds a few hundred)
 NOTE = ("Themen stammen aus der Themenlandschaft, die alle Reden der Wahlperiode nach Ähnlichkeit gruppiert. Die "
-        "Nummer eines Themas kann sich ändern, wenn neue Sitzungswochen hinzukommen; Links auf diese Seite sind "
+        "Nummer eines Themas kann sich ändern, wenn neue Sitzungswochen hinzukommen. Links auf diese Seite sind "
         "deshalb nicht dauerhaft.")  # fmt: skip
 # the Radar method note (docs/architecture.md): how the themes were made and what they can and cannot tell
 METHOD = ("Jede Rede der Wahlperiode als Embedding (multilingual-e5-base), gruppiert mit UMAP und HDBSCAN, benannt "
-          "nach typischen Wörtern (c-TF-IDF). Ein Thema zeigt, dass Reden ähnliche Wörter benutzen, nicht welche "
-          "Position sie vertreten; mit neuen Sitzungswochen können sich Themen und ihre Namen ändern.")  # fmt: skip
+          "nach typischen Wörtern (c-TF-IDF). Ein Thema zeigt, dass Reden ähnliche Wörter benutzen. Über die "
+          "vertretenen Positionen sagt es nichts. Mit neuen Sitzungswochen können sich Themen und ihre Namen "
+          "ändern.")  # fmt: skip
 
 
 def by_theme(themes: dict[str, dict], speeches: list[dict]) -> dict[int, dict]:
@@ -71,13 +72,13 @@ def topic_page(th: dict, procedures: dict[str, dict]) -> str:
                         when="Thema")
         + facet("fraktionen", "Fraktionen", '<div class="rows"><table class="plenum"><thead><tr><th>Fraktion</th>'
                 f"<th>Reden</th></tr></thead><tbody>{rows}</tbody></table></div>", explain="Wie viele Reden zu "
-                "diesem Thema aus jeder Fraktion kamen; größere Fraktionen reden mehr.")
+                "diesem Thema aus jeder Fraktion kamen. Größere Fraktionen haben mehr Redezeit.")
         + facet("reden", "Reden", facts.speech_list(newest, "../", "reden", note=more), len(sps))
         + facet("abstimmungen", "Abstimmungen und Beschlüsse",
                 f'<ul class="plain">{vlinks}</ul>' if vlinks else "", len(vs), "Ein Thema gilt für Reden, nicht für "
                 "Abstimmungen. Die Vorgänge, in deren Beratung die Reden gehalten wurden, führen zu ihren "
                 "Abstimmungen.")
-        + facet("drucksachen", "Drucksachen", "", explain="Drucksachen haben kein Thema der Themenlandschaft; das DIP "
+        + facet("drucksachen", "Drucksachen", "", explain="Drucksachen haben kein Thema der Themenlandschaft. Das DIP "
                 "ordnet sie nach Sachgebieten, die bei jedem Vorgang stehen.")
         + method_note(METHOD) + f"<footer>{FOOTER}</footer>"
     )  # fmt: skip

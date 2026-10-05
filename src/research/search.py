@@ -27,9 +27,9 @@ TYPES = ("Person", "Gruppe", "Ort", "Vorgang", "Thema", "Sitzungswoche")
 GEMEINDE = "Gemeinde"  # the sub line of a Gemeinde entry; the light index leaves them out
 
 BODY = f"""<h1>Suche</h1>
-<p class="lead">Findet zuerst, was der Bundestag ist: Abgeordnete, Fraktionen und Gremien, Länder, Wahlkreise und
-Gemeinden, Vorgänge, Themen und Sitzungswochen, jeweils mit ihrer Seite. Darunter die Volltextsuche in allen Reden
-der 21. Wahlperiode; die Filter grenzen sie nach Art, Fraktion, Person, Monat und Thema ein.</p>
+<p class="lead">Die Suche findet zuerst Abgeordnete, Fraktionen und Gremien, Länder, Wahlkreise und
+Gemeinden, Vorgänge, Themen und Sitzungswochen mit ihrer Seite. Darunter folgt die Volltextsuche in allen Reden
+der 21. Wahlperiode. Die Filter grenzen sie nach Art, Fraktion, Person, Monat und Thema ein.</p>
 <div class="search" id="search">
   <div class="s-bar">
     <input type="search" id="sq" placeholder="Name, Ort, Vorgang, Thema oder Wort aus einer Rede …"

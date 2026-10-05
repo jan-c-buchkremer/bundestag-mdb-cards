@@ -126,7 +126,10 @@ def page(meta: dict, stale: list[dict], fragestunden: tuple[int, int], files: li
         "Fragenden einer Schriftlichen oder Mündlichen Frage nennt DIP je Sammeldrucksache, nicht je "
         'Frage (<a href="regierung/index.html#liste">Fragen</a>).</li>'
     )
-    gaps.append("<li>Die Sitzordnung im Plenum ist ein Schema der Fraktionen, nicht der echte Sitzplan.</li>")
+    gaps.append(
+        "<li>Die Sitzordnung im Plenum ist ein Schema nach Fraktionen. Im Plenarsaal haben die Abgeordneten "
+        "keine festen Plätze.</li>"
+    )
     if files:
         downloads = (
             '<p class="explain">Der Datenbestand von bundestag-data-foundation als Tabellen (CSV, gzip) mit '

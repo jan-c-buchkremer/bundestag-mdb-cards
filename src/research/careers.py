@@ -14,7 +14,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 from research import redirects, urls
-from research.data import NO_FRACTION, WP, display_name, feminine, government_roles
+from research.data import NO_FRACTION, WP, display_name, doc_label, feminine, government_roles
 from research.ui import SHORT, TOKEN, dot, e, fraction_order, n, short_date
 
 BUCKETS = ("1", "2", "3", "4", "5 und mehr")
@@ -331,7 +331,7 @@ def build_section(conn: sqlite3.Connection, cards: list[dict], bodies: list[dict
     by_id = {c["id"]: c for c in cards}
     gov = [{**g, "card": by_id.get(g["id"])} for g in government]
     ms = members(conn)
-    stamm = {"url": ms[0]["url"], "doc": ms[0]["doc"]} if ms else None
+    stamm = {"url": ms[0]["url"], "doc": doc_label(ms[0]["doc"])} if ms else None
     r = roles(cards, bodies, gov, ms, changes(ms, constituted(conn)), stamm)
     return STYLE + section(r, bool(government))
 

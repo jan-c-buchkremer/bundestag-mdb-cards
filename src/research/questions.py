@@ -30,7 +30,7 @@ from pathlib import Path
 
 from research import controls, urls
 from research.data import NO_FRACTION, WP, drucksache_pdf, excerpt, has_table, kind_filter
-from research.ui import FOOTER, MONTHS, SHORT, TOKEN, dot, e, fraction_order, n, shell, short_date
+from research.ui import FOOTER, MONTHS, SHORT, TOKEN, dot, e, fraction_order, n, shell, short_date, subtabs
 
 DEADLINE = 14  # § 104 Abs. 2 GO-BT: the government is asked to answer within 14 days, extendable
 _ASKED = re.compile(r"Drucksache\s+(\d+)\s*/\s*(\d+)")
@@ -771,9 +771,19 @@ def research_panel(d: dict) -> str:
     return f'<div class="qpanel" data-kind="{e(kind)}" hidden>{"".join(parts)}</div>'
 
 
-def research_section(lists: dict[str, dict]) -> str:
+def research_section(lists: dict[str, dict], texts: bool = False) -> str:
     """The research view: one button per kind (with its number of entries), the filters of the chosen kind and the
-    list, which fragen.js fills from the kind's JSON once it is chosen."""
+    list, which fragen.js fills from the kind's JSON once it is chosen. `texts`: the subpages with the wording exist
+    (question_pages.py), so the note points there instead of saying the store has titles only."""
+    wording = (
+        "Den Wortlaut jeder Frage und Antwort zeigen die Seiten "
+        f'<a href="../{urls.ANFRAGEN}">Kleine und Große Anfragen</a>, '
+        f'<a href="../{urls.EINZELFRAGEN}">Einzelfragen</a> und '
+        f'<a href="../{urls.BEFRAGUNGEN}">Regierungsbefragung</a>. '
+        if texts
+        else "<b>Nur Titel:</b> Der Datenbestand enthält von Kleinen Anfragen und Schriftlichen Fragen nur den Titel, "
+        "nicht den Wortlaut der Frage. Er steht in der verlinkten Drucksache. "
+    )
     tabs = "".join(controls.toggle("liste", slug, f"{label}<span class=\"c\">{n(len(lists[slug]['rows']))}</span>",
                                    single=True, label=label)
                    for slug, label, _ in KINDS if slug in lists)  # fmt: skip
@@ -782,9 +792,9 @@ def research_section(lists: dict[str, dict]) -> str:
         '<section class="facet fr" id="liste"><h2>Die einzelnen Fragen</h2>'
         '<p class="explain">Jede Kleine Anfrage, jede Schriftliche und Mündliche Frage und jeder Beitrag in der '
         "Fragestunde und der Regierungsbefragung, mit Link zur Quelle: der Drucksache oder dem Vorgang im DIP, dem "
-        "PDF, dem Steckbrief der Fragenden und bei mündlichen Fragen dem Protokoll. <b>Nur Titel:</b> Der Datenbestand "
-        "enthält von Kleinen Anfragen und Schriftlichen Fragen nur den Titel, nicht den Wortlaut der Frage. Er "
-        "steht in der verlinkten Drucksache. Die Fragenden einer Schriftlichen oder Mündlichen Frage nennt DIP je "
+        "PDF, dem Steckbrief der Fragenden und bei mündlichen Fragen dem Protokoll. "
+        + wording
+        + "Die Fragenden einer Schriftlichen oder Mündlichen Frage nennt DIP je "
         "Sammeldrucksache, nicht je Frage. Genannt ist hier nur, wer allein in seiner Sammeldrucksache steht. "
         "Wer geantwortet hat, ergibt sich aus dem Ressort der Frage: genannt sind, wer für dieses Ressort in der "
         "Sammeldrucksache oder in der Fragestunde geantwortet hat, meist eine Person, manchmal die beiden "
@@ -798,11 +808,17 @@ def research_section(lists: dict[str, dict]) -> str:
     )  # fmt: skip
 
 
-def page(ka: dict, wq: dict, bf: list[dict], fs: tuple[int, int], lists: dict[str, dict] | None = None) -> str:
-    research = research_section(lists) if lists else ""
+def page(
+    ka: dict, wq: dict, bf: list[dict], fs: tuple[int, int], lists: dict[str, dict] | None = None, texts: bool = False
+) -> str:
+    """The Fragen overview; `texts`: the subpages with every question's text exist (question_pages.py) and get tabs."""
+    from research.question_pages import QUESTION_TABS
+
+    research = research_section(lists, texts) if lists else ""
+    tabs = subtabs("../", QUESTION_TABS, "questions") if texts else ""
     stats = f'<div class="qs" data-static>{_ka_section(ka)}{_questions_section(wq)}{_befragung_section(bf, fs)}</div>'
     body = (
-        '<section class="card"><h1>Fragen an die Regierung</h1><div class="lines">Kleine Anfragen, Schriftliche '
+        tabs + '<section class="card"><h1>Fragen an die Regierung</h1><div class="lines">Kleine Anfragen, Schriftliche '
         "und Mündliche Fragen, Fragestunde und Regierungsbefragung im 21. Bundestag: oben die Zahlen nach "
         "Fraktionen, darunter jede einzelne Frage zum Durchsuchen. Jede Zahl und jede Frage führt zu ihrer "
         "Drucksache oder zum Plenarprotokoll. Ein Klick auf ein Diagramm zeigt unten die Fragen dazu. "
@@ -830,6 +846,9 @@ def write(conn: sqlite3.Connection, out: Path, cards: set[str] | None = None) ->
         text = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
         (d / f"{slug}.json").write_text(text, encoding="utf-8")
         print(f"regierung/{slug}.json: {len(payload['rows'])} rows, {len(text.encode()) / 1024:.0f} KB")
-    html = page(kleine_anfragen(conn), written_questions(conn), befragungen(conn), fragestunden(conn), lists)
+    from research.question_pages import available
+
+    html = page(kleine_anfragen(conn), written_questions(conn), befragungen(conn), fragestunden(conn), lists,
+                available(conn))  # fmt: skip
     (d / "index.html").write_text(html, encoding="utf-8")
     return {"regierung": 1}

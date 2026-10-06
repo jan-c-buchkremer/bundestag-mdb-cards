@@ -201,6 +201,54 @@ CREATE TABLE IF NOT EXISTS question_activity (
     source_url TEXT NOT NULL, source_document_id TEXT NOT NULL, retrieved_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS question_turn (
+    speech_id TEXT PRIMARY KEY REFERENCES speech(id),
+    role TEXT NOT NULL,                 -- einleitung | frage | antwort | nachfrage (the asker's) | zusatzfrage
+                                        -- (another member's), as the presidency calls the turn (docs/design.md
+                                        -- "Question turns")
+    thread_id TEXT REFERENCES speech(id),  -- the question the turn belongs to: Befragung: its frage (a frage's own
+                                        -- id), NULL for an einleitung; Fragestunde: the first turn after the call
+    vorgang_id TEXT REFERENCES vorgang(id)  -- Fragestunde: the DIP Mündliche Frage (NULL until matched); NULL in the
+                                        -- Befragung
+);
+
+CREATE TABLE IF NOT EXISTS question_text (
+    id TEXT PRIMARY KEY,                -- "<drucksache_number>/<number>/<part>", "21/1949/6/frage"
+    vorgang_id TEXT REFERENCES vorgang(id),  -- the DIP Vorgang of the question (NULL until matched)
+    drucksache_number TEXT NOT NULL,    -- the Drucksache listing the question: Mündliche Fragen: the Fragen-Drucksache
+    drucksache_id TEXT REFERENCES drucksache(id),  -- its DIP id (NULL when not fetched)
+    position INTEGER NOT NULL,          -- order within the source document
+    part TEXT NOT NULL,                 -- vorbemerkung_fragesteller | frage | vorbemerkung_bundesregierung | antwort |
+                                        -- anlage (docs/design.md "Question texts")
+    number TEXT,                        -- the question's number in the Drucksache, "6", "3a"; an annex's; NULL for a
+                                        -- preliminary remark
+    text TEXT NOT NULL,                 -- paragraphs joined by blank lines; tables are in question_table
+    name TEXT,                          -- as printed: the asker (frage), the answerer with office (antwort); the
+                                        -- ministry (answers to Anfragen)
+    answerer_person_id TEXT REFERENCES person(id),  -- antwort: the answerer (from DIP; NULL until matched)
+    answer_date TEXT,                   -- antwort: the date of the document printing the answer
+    thread_id TEXT REFERENCES speech(id),  -- a question answered in the Fragestunde: its first turn (question_turn)
+    source_url TEXT NOT NULL, source_document_id TEXT NOT NULL, retrieved_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS question_table (
+    id TEXT PRIMARY KEY,                -- "<question_text_id>/<k>"
+    question_text_id TEXT NOT NULL REFERENCES question_text(id),
+    position INTEGER NOT NULL,          -- k: order among the text's tables
+    after_paragraph INTEGER NOT NULL,   -- how many of the text's paragraphs come before the table
+    cells TEXT NOT NULL                 -- JSON {"caption", "head", "body", "foot"}: rows of cells, a cell its text
+                                        -- or {"text", "colspan", "rowspan"}; a table without ruling, whose cells are
+                                        -- not read: {"extracted": false, "page": <page of the PDF>}
+);
+
+CREATE TABLE IF NOT EXISTS question_parse (
+    vorgang_id TEXT PRIMARY KEY REFERENCES vorgang(id),
+    status TEXT NOT NULL,               -- complete | partial | unanswered | failed (docs/design.md "Question texts")
+    questions INTEGER NOT NULL,         -- the questions read
+    answered INTEGER NOT NULL,          -- … of them with an answer (written or spoken)
+    source_document_id TEXT             -- the document read: "BT-Drs. 21/1095", "BT-PlPr. 21/30"; NULL: none yet
+);
+
 CREATE TABLE IF NOT EXISTS vorgang (
     id TEXT PRIMARY KEY,                -- DIP id
     wahlperiode INTEGER NOT NULL,
@@ -235,6 +283,17 @@ CREATE TABLE IF NOT EXISTS vorgang_position (
     ressort TEXT,                       -- JSON array of objects {titel, federfuehrend}, NULL if none
     decisions TEXT,                     -- JSON array of beschlussfassung objects as in DIP, NULL if none
     source_url TEXT NOT NULL, source_document_id TEXT NOT NULL, retrieved_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS vorgang_referral (
+    position_id TEXT NOT NULL REFERENCES vorgang_position(id),
+    vorgang_id TEXT NOT NULL,           -- DIP id of the Vorgang (as vorgang_position.vorgang_id)
+    committee TEXT NOT NULL,            -- ueberweisung.ausschuss as DIP names it, not matched to membership names
+    committee_short TEXT,               -- ueberweisung.ausschuss_kuerzel, e.g. "EU"; NULL if DIP gives none
+    lead INTEGER NOT NULL,              -- 1 = federführend (ueberweisung.federfuehrung), 0 = mitberatend
+    kind TEXT,                          -- ueberweisung.ueberweisungsart, NULL if DIP gives none
+    source_url TEXT NOT NULL, source_document_id TEXT NOT NULL, retrieved_at TEXT NOT NULL,
+    PRIMARY KEY (position_id, committee)
 );
 
 CREATE TABLE IF NOT EXISTS roll_call_vote (
@@ -443,7 +502,9 @@ CREATE TABLE IF NOT EXISTS decision_vorgang (
     vorgang_id TEXT NOT NULL REFERENCES vorgang(id),
     via TEXT NOT NULL,                  -- roll_call: the roll call's Vorgang (DIP's Namentliche Abstimmung) |
                                         -- dip_step: DIP's step in this sitting deciding the Drucksache |
-                                        -- drucksache: a Vorgang of the decision's or roll call's Drucksache
+                                        -- drucksache: a Vorgang of the decision's or roll call's Drucksache |
+                                        -- agenda_item: the single Vorgang of its (sub-)item's Vorlagen, for a
+                                        -- decision whose Drucksache the chair does not name
     PRIMARY KEY (decision_id, vorgang_id)
 );
 
@@ -471,11 +532,16 @@ CREATE INDEX IF NOT EXISTS author_person ON drucksache_author(person_id);
 CREATE INDEX IF NOT EXISTS author_dip_person ON drucksache_author(dip_person_id);
 CREATE INDEX IF NOT EXISTS question_vorgang ON question_activity(vorgang_id);
 CREATE INDEX IF NOT EXISTS question_person ON question_activity(person_id);
+CREATE INDEX IF NOT EXISTS question_turn_thread ON question_turn(thread_id);
+CREATE INDEX IF NOT EXISTS question_text_vorgang ON question_text(vorgang_id);
+CREATE INDEX IF NOT EXISTS question_text_document ON question_text(source_document_id);
+CREATE INDEX IF NOT EXISTS question_table_text ON question_table(question_text_id);
 CREATE INDEX IF NOT EXISTS drucksache_date ON drucksache(date);
 CREATE INDEX IF NOT EXISTS person_dip ON person(dip_person_id);
 CREATE INDEX IF NOT EXISTS vorgang_position_vorgang ON vorgang_position(vorgang_id);
 CREATE INDEX IF NOT EXISTS decision_vorgang_vorgang ON decision_vorgang(vorgang_id);
 CREATE INDEX IF NOT EXISTS vorgang_position_date ON vorgang_position(date);
+CREATE INDEX IF NOT EXISTS vorgang_referral_vorgang ON vorgang_referral(vorgang_id);
 CREATE INDEX IF NOT EXISTS candidacy_person ON election_candidacy(person_id);
 CREATE INDEX IF NOT EXISTS municipality_constituency ON constituency_municipality(election, constituency_number);
 CREATE INDEX IF NOT EXISTS government_role_person ON government_role(person_id);

@@ -1,4 +1,4 @@
-from research import data, questions, sources
+from research import data, questions, sources, urls
 
 DIP = ("https://search.dip.bundestag.de/api/v1/drucksache/9", "BT-Drs. 21/9", "2026-09-27")
 
@@ -200,7 +200,10 @@ def test_research_page_frame(conn, tmp_path):
     add_research(conn)
     questions.write(conn, tmp_path, {c["id"] for c in data.cards(conn)[0]})
     page = (tmp_path / "regierung" / "index.html").read_text()
-    assert 'id="liste"' in page and 'data-f="liste" data-v="schriftliche-fragen"' in page and "Nur Titel:" in page
+    assert 'id="liste"' in page and 'data-f="liste" data-v="schriftliche-fragen"' in page
+    # with the foundation's question tables the note points to the subpages with the wording, and tabs lead there
+    assert "Nur Titel:" not in page and f'href="../{urls.EINZELFRAGEN}">Einzelfragen</a>' in page
+    assert 'aria-current="page">Überblick</a>' in page
     assert '<script src="../fragen.js"></script>' in page and "Kleine Anfragen</h2>" in page  # statistics stay
     assert "<select" not in page and "data-single" in page and "data-external" in page
     for slug, _, _ in questions.KINDS:
@@ -303,3 +306,11 @@ def test_ministry_key_matches_ressort_activity_and_speaker_role():
         "Staatsministerin beim Bundesminister des Auswärtigen"
     )
     assert questions.ministry_key(None) is None
+
+
+def test_research_page_without_question_tables_says_titles_only(conn, tmp_path):
+    add_research(conn)
+    conn.execute("DROP TABLE question_turn")
+    questions.write(conn, tmp_path, {c["id"] for c in data.cards(conn)[0]})
+    page = (tmp_path / "regierung" / "index.html").read_text()
+    assert "Nur Titel:" in page and "Überblick</a>" not in page

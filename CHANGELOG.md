@@ -5,6 +5,27 @@ not before? If that sentence is hard to write, the release is not a finished ver
 
 ## Unreleased
 
+## v0.2.0 (2026-10-06)
+
+Readers can read every question to the government and its answer on the site: each Kleine and Große Anfrage with its
+questions, answers and tables, each Mündliche and Schriftliche Frage, and each Regierungsbefragung with every
+question, answer and follow-up.
+
+- `regierung/anfragen.html`, `regierung/einzelfragen.html`, `regierung/regierungsbefragung.html`
+  (`question_pages.py`, new), from the foundation's question tables (v0.2.0): lists newest first with charts as
+  filters, and a page per Anfrage, per Frage and per Befragung. An answer the foundation could not read says
+  "Antwort nicht lesbar" and links the PDF. The question pages are in the search; the answers are not. The Vorgang
+  pages of the Mündliche Fragen forward to their question page (#62).
+- `vorgaenge/index.html`: the Vorgänge in six groups by what the instrument does (Gesetzgebung, Anträge und
+  Beschlüsse, Wahlen und Besetzungen, Einzelfälle aus Ausschüssen, Unterrichtungen und Haushaltskontrolle, Fragen),
+  DIP's Art below; the 1,623 Mündliche Fragen leave the list and a note names every kind of Frage with its count. A
+  DIP "Petition" is called a Sammelübersicht. The activity strip leaves out a quarter label without room (#61).
+- From the foundation instead of the site's own rules: a decision's Vorgänge (`decision_vorgang`, a decision on
+  several Vorgänge in full only on its own page, #43), who a speech counts for and a member's fraction (a speech in a
+  government office counts for the Bundesregierung everywhere, #44), the parts of a speech and one address per speech
+  (#45); the Ausschuss filter of the Abgeordnete list follows the Gremium pages (#46); a retired placeholder person id
+  forwards to the card (#47). These need a store from foundation v0.1.0 or later.
+
 - UI check (`scripts/ui_check.py`, `scripts/ui_check.sh`, `tests/test_ui.py`, in CI): every kind of page at desktop
   and phone width, errors and screenshot comparison. Its first run found and this release fixes:
   - the Orte page's script did not run: a line was split inside its JavaScript, so no place search and no map;

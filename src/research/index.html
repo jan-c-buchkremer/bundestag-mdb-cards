@@ -61,10 +61,10 @@ h1 { font-size: 26px; font-weight: 600; letter-spacing: -.02em; margin: 8px 0 6p
 .ortpick .sug button:hover, .ortpick .sug button.hi { background: var(--bg); }
 .ortpick .sug .d { color: var(--muted); font-size: 12px; }
 .placehint button { border: 1px solid var(--accent); background: var(--card); color: var(--accent); border-radius: 999px; padding: 2px 10px; font-size: 12.5px; cursor: pointer; }
-.ortbar { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 0 0 10px; padding: 8px 12px; background: var(--accent-soft); border-radius: 10px; font-size: 13.5px; }
-.ortbar[hidden] { display: none; }
-.ortbar .x { border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 15px; padding: 0 4px; }
-.ortbar a.go { font-weight: 500; }
+.ortbar, .bodybar { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 0 0 10px; padding: 8px 12px; background: var(--accent-soft); border-radius: 10px; font-size: 13.5px; }
+.ortbar[hidden], .bodybar[hidden] { display: none; }
+.ortbar .x, .bodybar .x { border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 15px; padding: 0 4px; }
+.ortbar a.go, .bodybar a.go { font-weight: 500; }
 .viewbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 0 0 14px; }
 .viewbar button { border: 1px solid var(--line); background: var(--card); color: var(--text); border-radius: 8px; padding: 5px 12px; font-size: 13px; cursor: pointer; }
 .viewbar button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
@@ -83,6 +83,7 @@ __HEADER__
     <select id="committee" aria-label="Ausschuss"><option value="">alle Ausschüsse</option></select>
   </div>
   <div class="ortbar" id="ortbar" hidden></div>
+  <div class="bodybar" id="bodybar" hidden></div>
   <div class="placehint" id="places" hidden></div>
   <div class="chips" id="chips"></div>
   <div class="viewbar"><button type="button" id="aslist" aria-pressed="false">Als Liste</button><div class="toggles" id="toggles"></div></div>
@@ -141,10 +142,14 @@ const FLAGS = {
 };
 const PLENUM_FLAGS = new Set(['first', 'office', 'gov']);  // former members and non-members have no seat
 
-for (const c of [...new Set(CARDS.flatMap(c => c.committees))].sort((a, b) => a.localeCompare(b, 'de'))) $('committee').insertAdjacentHTML('beforeend', `<option>${esc(c)}</option>`);
+// the Ausschüsse with their current members, as their pages list them (bodies.index_payload, D25)
+const COMMITTEES = DATA.committees || {};
+const COMMITTEES_OF = new Map();
+for (const [name, [, ids]] of Object.entries(COMMITTEES)) for (const id of ids) COMMITTEES_OF.set(id, [...(COMMITTEES_OF.get(id) || []), name]);
+for (const c of Object.keys(COMMITTEES).sort((a, b) => a.localeCompare(b, 'de'))) $('committee').insertAdjacentHTML('beforeend', `<option>${esc(c)}</option>`);
 
 // names, offices and committees; a place typed here offers the place filter instead (placeHints, D25)
-function haystack(c) { return norm([c.name, c.role, c.office, c.gov, ...(c.committees || [])].join(' ')); }
+function haystack(c) { return norm([c.name, c.role, c.office, c.gov, ...(COMMITTEES_OF.get(c.id) || [])].join(' ')); }
 const HAY = new Map(CARDS.map(c => [c.id, haystack(c)]));
 
 function setPlace(key) {
@@ -158,7 +163,7 @@ function matches(c, skip) {
   if (words.some(w => !hay.includes(w))) return false;
   if (PLACE && !PLACE.has(c.id)) return false;
   if (state.type && c.type !== state.type) return false;
-  if (state.committee && !(c.committees || []).includes(state.committee)) return false;
+  if (state.committee && !(COMMITTEES[state.committee]?.[1] || []).includes(c.id)) return false;
   if (skip !== 'fraction' && state.fractions.size && !state.fractions.has(c.fraction || 'fraktionslos')) return false;
   for (const f of state.flags) {
     if (state.view === 'plenum' && !PLENUM_FLAGS.has(f)) continue;  // kept for the list
@@ -209,6 +214,16 @@ function renderOrt() {
   $('ortx').onclick = () => { setPlace(''); $('ortq').value = ''; render(); };
 }
 
+// the picked Ausschuss: the link to its page (the Gremium owns its views, D25) and a way out
+function renderBody() {
+  const bar = $('bodybar');
+  const body = COMMITTEES[state.committee];
+  bar.hidden = !body;
+  if (!body) return;
+  bar.innerHTML = `<span><b>${esc(state.committee)}</b>: ${body[1].length} ${body[1].length === 1 ? 'Mitglied' : 'Mitglieder'}, wie auf der Seite des Ausschusses</span><a class="go" href="gremien/${esc(body[0])}.html">Zur Seite von ${esc(state.committee)} →</a><button type="button" class="x" id="bodyx" aria-label="Ausschuss entfernen" title="Ausschuss entfernen">×</button>`;
+  $('bodyx').onclick = () => { state.committee = ''; $('committee').value = ''; render(); };
+}
+
 // a Land or Wahlkreis typed into the name filter offers the place filter instead of matching text (D25)
 function placeHints() {
   const q = state.q.trim();
@@ -229,7 +244,7 @@ let chart = null;
 const PRESIDIUM = /^(Vize)?[Pp]räsident(in)? des Deutschen Bundestages/;
 function seatOf(c) { return { id: c.id, fraction: c.fraction || 'fraktionslos', name: c.name, group: STATES[c.state] || '', sort: `${c.last} ${c.name}`, lead: c.lead ?? null, row: c }; }
 // people on the Regierungsbank without a card (not MdB, never spoke) still match name and office searches
-const benchRow = g => BY_ID.get(g.id) || { id: g.id, name: g.name, last: g.name.split(' ').pop(), kind: 'member', fraction: g.fraction, gov: g.office, committees: [] };
+const benchRow = g => BY_ID.get(g.id) || { id: g.id, name: g.name, last: g.name.split(' ').pop(), kind: 'member', fraction: g.fraction, gov: g.office };
 const seatMatches = s => matches({ ...s.row, kind: 'member', left: null });
 
 function renderPlenum() {
@@ -337,6 +352,7 @@ function render() {
   $('aslist').textContent = v === 'personen' ? 'Als Plenum' : 'Als Liste';
   renderToggles();
   renderOrt();
+  renderBody();
   placeHints();
   renderChips();
   if (v === 'plenum') renderPlenum(); else renderPeople();

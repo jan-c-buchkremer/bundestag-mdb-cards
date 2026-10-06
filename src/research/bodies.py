@@ -127,6 +127,22 @@ def load_bodies(conn: sqlite3.Connection, cards: list[dict]) -> list[dict]:
     return sorted(out, key=lambda b: (0 if b["kind"] == "committee" else 1, b["short"]))
 
 
+def index_payload(groups: list[dict]) -> dict[str, list]:
+    """The Ausschüsse for the Abgeordnete page's filter (D25): {short name: [slug, [ids of current members]]}, the
+    members the Gremium's page lists as current, so the filter and the page agree and the filter can link the page."""
+    return {b["short"]: [b["slug"], sorted({m["person"] for m in b["members"] if m["to"] is None})]
+            for b in groups if b["kind"] == "committee"}  # fmt: skip
+
+
+def link_cards(cards: list[dict], groups: list[dict]) -> None:
+    """Point each card's Gremien at the page load_bodies made for them: a short name two Gremien share gets a
+    suffixed slug there, and an excluded Gremium (a ministry, the Bundestag itself) has no page and no link."""
+    slug = {b["name"]: b["slug"] for b in groups}
+    for c in cards:
+        for x in (c.get("committees") or []) + (c.get("other") or []):
+            x["slug"] = slug.get(x["name"])
+
+
 def besch_by_committee(docs: list[dict]) -> dict[str, list[dict]]:
     """Per committee (by name, DIP aliases resolved): its Beschlussempfehlungen (and -berichte), oldest first."""
     out: dict[str, list[dict]] = defaultdict(list)

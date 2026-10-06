@@ -426,10 +426,12 @@ def strip(weeks: list[str], counts: Counter, sittings: set[str], noun: str, one:
             f'aria-pressed="false" aria-label="{e(name)}: {n(k)} {e(one if k == 1 else noun)}"'
             f' tabindex="{0 if i == 0 else -1}"><i style="height:{_pct(k, most)}%"></i></button>'
         )
-    marks = []  # (column, date): the first week, then the first week of each quarter, at least 6 weeks apart
+    # (column, date): the first week, then the first week of each quarter, at least 6 weeks apart and 4 from the end
+    # (a quarter that has just begun has no room for its label on a phone)
+    marks = []
     for i, w in enumerate(weeks):
         m = week_monday(w)
-        if i and week_monday(weeks[i - 1]).month != m.month and m.month in (1, 4, 7, 10):
+        if i and week_monday(weeks[i - 1]).month != m.month and m.month in (1, 4, 7, 10) and len(weeks) - i >= 4:
             if marks and i - marks[-1][0] < 6:
                 marks.pop()
             marks.append((i, m))

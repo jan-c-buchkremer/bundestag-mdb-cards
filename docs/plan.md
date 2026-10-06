@@ -119,6 +119,11 @@ don't serve it go on "Not now", not into code.
      3. Kleine und Große Anfragen: `question_text`, `question_table`, `question_parse`. The hardest step (about 2,650
         answers, many with tables): first measure on 20 random Anfragen how DIP's text compares to the PDF.
      4. Schriftliche Einzelfragen: `question_text` split out of the Sammeldrucksachen; they join the Einzelfragen page.
+   - Status (2026-10-06): all four kinds built at once on foundation v0.2.0 (`question_pages.py`): the three
+     subpages, a page per Anfrage, Einzelfrage and Befragung, the Mündliche Frage pages in `vorgaenge/` forwarding.
+     Open: the plain list under the statistics of `regierung/index.html` still stands beside the subpages; the
+     Einzelfragen list carries all 10,662 rows in the file (644 KB gzipped), heavy on a phone; the timelines have
+     no Fraktion order within a day yet.
    - This goal replaces the requirements of 12.5 ("Foundation requirements found here"): the asker and Ressort per
      Frage are in the store (`question_activity`), the texts come with this contract.
 

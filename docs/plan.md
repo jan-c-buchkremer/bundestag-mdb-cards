@@ -54,6 +54,39 @@ don't serve it go on "Not now", not into code.
        on a Gremium's page the composition, role chips and name filter the members.
    - Not yet: the Fraktion pages (`fraktionen/<token>.html`) and the Redeanteile of Debattenkultur, which are bar
      charts in tables already.
+   - **Groups of Vorgänge** (next, decided 2026-10-06). A reader of the Vorgänge index first sees what kinds of
+     business the Bundestag handles, then DIP's Art within one. Today 1,623 of the index's 3,410 rows are Mündliche
+     Fragen: `procedures.load` lists every Vorgang with a debate or decision, and the Fragestunde's agenda item carries
+     the "Fragen" Drucksache, so each counts as debated, although none has a decision and 1,403 were answered in
+     writing. Their siblings (9,038 Schriftliche Fragen, 2,761 Kleine Anfragen) are not on the page.
+     - Six groups, by what the instrument does (GO-BT), one table in `procedures.py` like `STAGE`, DIP's Art kept on
+       every row. The grouping is ours and the page says so; it maps instruments and interprets nothing, so Research.
+
+       | Group | DIP types (WP 21 count in the store, 2026-10-06) |
+       |---|---|
+       | Gesetzgebung | Gesetzgebung 416, Rechtsverordnung 7, Rechtsverordnung (Außenwirtschaftsrecht) 1 |
+       | Anträge und Beschlüsse | Antrag 712, Entschließungsantrag BT 89, Geschäftsordnung 24, Untersuchungsausschuss 4, Enquete-Kommission 4, Parlamentarische Sonderkommission 1, Wahlperiodenwechsel 1 |
+       | Wahlen und Besetzungen | Besetzung externer Gremien durch BT 91, Besetzung interner Gremien des BT 39, Wahl im BT 5, Wahl der Richter des Bundesverfassungsgerichts 4 |
+       | Einzelfälle aus Ausschüssen | Petition 329, Immunitätsangelegenheit 18, Wahlprüfungsverfahren 10, Verfahren vor dem Bundesverfassungsgericht 8 |
+       | Unterrichtungen und Haushaltskontrolle | EU-Vorlage 1,856, Bericht, Gutachten, Programm 396, Unterrichtung durch das Europäische Parlament 142, Über- und außerplanmäßige Haushaltsausgaben 48, Entlastung der Bundesregierung 3, Entlastung des Bundesrechnungshofes 2 |
+       | Fragen an die Bundesregierung | Schriftliche Frage 9,038, Kleine Anfrage 2,761, Mündliche Frage 1,624, Große Anfrage 14 |
+
+       A type DIP adds later falls into "weitere" until it is mapped.
+     - Anträge vs. Einzelfälle: an Antrag is started by a Fraktion (or the Regierung: Bundeswehr mandates), is about
+       a subject (710 of 712 have a Sachgebiet), is debated (4,696 speeches on their items) and contested (178
+       Abgelehnt). An Einzelfall is started by a committee's Beschlussempfehlung on one case or a batch of them, mostly
+       has no Sachgebiet, is adopted without debate (11 speeches on all petition items) and nearly always as
+       recommended (Petition 303 of 303, Immunität 18 of 18). Geschäftsordnung, Untersuchungsausschuss and
+       Enquete-Kommission are Fraktion Anträge; Wahlprüfung stays an Einzelfall although sometimes debated.
+     - A DIP "Petition" is a Sammelübersicht of the Petitionsausschuss, not one petition: the page says
+       "Sammelübersichten", never "Petitionen".
+     - Index: the groups are the first chart (segmented bar, `data-gruppe` on each row; `controls.js` filters any
+       key), DIP's Art the second. The Fragen leave the list; a note names them with their count by kind and links the
+       Fragen overview (`regierung/index.html`), and names the Unterrichtungen that never reached the plenum with their
+       count (goal 2: named, not hidden). The 1,623 Mündliche Frage pages in `vorgaenge/` stay until the Einzelfragen
+       page of goal 4 replaces them, then forward there.
+     - `vorgaenge_controls` is shared with the Sachgebiet pages (`subjects.vorgaenge_list`), so they get the group
+       bar too; there the Fragen (4,656 Kleine Anfrage rows across all Sachgebiete) stay in the list, separable by it.
 4. **Fragen as text.** A reader reads every question to the government and its answer on the site, not in a PDF,
    can search them, and sees for each who asked and who answered.
    - Three subpages of Fragen, not new items in the top bar: Kleine und Große Anfragen (a Fraktion asks),

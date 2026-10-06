@@ -136,6 +136,66 @@ STAGE = {
 }
 
 
+# The groups of Vorgänge (the first chart on the Vorgänge index and the Sachgebiet pages): DIP's Arten by what the
+# instrument does under the GO-BT, the one table that maps them. The grouping is this site's, the page says so, and
+# DIP's Art stays on every row. An Art DIP adds later is "weitere" until it is mapped.
+VORGANG_GROUPS = (
+    ("gesetzgebung", "Gesetzgebung"),
+    ("antraege", "Anträge und Beschlüsse"),
+    ("wahlen", "Wahlen und Besetzungen"),
+    ("einzelfaelle", "Einzelfälle aus Ausschüssen"),
+    ("unterrichtungen", "Unterrichtungen und Haushaltskontrolle"),
+    ("fragen", "Fragen an die Bundesregierung"),
+)
+OTHER_GROUP = ("weitere", "weitere")
+VORGANG_GROUP = {
+    "Gesetzgebung": "gesetzgebung",
+    "Rechtsverordnung": "gesetzgebung",
+    "Rechtsverordnung (Außenwirtschaftsrecht)": "gesetzgebung",
+    "Antrag": "antraege",  # started by a Fraktion (or the Regierung), about a subject, debated and contested
+    "Entschließungsantrag BT": "antraege",
+    "Geschäftsordnung": "antraege",
+    "Untersuchungsausschuss": "antraege",
+    "Enquete-Kommission": "antraege",
+    "Parlamentarische Sonderkommission": "antraege",
+    "Wahlperiodenwechsel": "antraege",
+    "Besetzung externer Gremien durch BT": "wahlen",
+    "Besetzung interner Gremien des BT": "wahlen",
+    "Wahl im BT": "wahlen",
+    "Wahl der Richter des Bundesverfassungsgerichts": "wahlen",
+    "Petition": "einzelfaelle",  # a committee's Beschlussempfehlung on one case or a batch, adopted as recommended
+    "Immunitätsangelegenheit": "einzelfaelle",
+    "Wahlprüfungsverfahren": "einzelfaelle",
+    "Verfahren vor dem Bundesverfassungsgericht": "einzelfaelle",
+    "EU-Vorlage": "unterrichtungen",
+    "Bericht, Gutachten, Programm": "unterrichtungen",
+    "Unterrichtung durch das Europäische Parlament": "unterrichtungen",
+    "Über- und außerplanmäßige Haushaltsausgaben": "unterrichtungen",
+    "Entlastung der Bundesregierung": "unterrichtungen",
+    "Entlastung des Bundesrechnungshofes": "unterrichtungen",
+    "Schriftliche Frage": "fragen",
+    "Kleine Anfrage": "fragen",
+    "Mündliche Frage": "fragen",
+    "Große Anfrage": "fragen",
+}
+# a DIP "Petition" is a Sammelübersicht of the Petitionsausschuss over many petitions, not one petition
+ART_LABEL = {"Petition": "Sammelübersicht"}
+
+
+def vorgang_group(b: dict) -> str:
+    """The group of a Vorgang (VORGANG_GROUP), "weitere" for an Art not mapped yet."""
+    return VORGANG_GROUP.get(b["type"], OTHER_GROUP[0])
+
+
+def group_label(g: str) -> str:
+    return dict((*VORGANG_GROUPS, OTHER_GROUP))[g]
+
+
+def art(t: str) -> str:
+    """DIP's Art as the page names it."""
+    return ART_LABEL.get(t, t)
+
+
 def stage(b: dict) -> str:
     """The stage of a Gesetzgebung (STAGE; a Stand DIP adds later is "ohne" until it is mapped); "" for any other
     kind of Vorgang."""
@@ -469,14 +529,17 @@ def procedure_page(b: dict, have: set[str], members: dict[str, list[list]], rela
     status = e(b["status"])
     if b["type"] == GESETZ:
         status = f'<a class="st" href="index.html#status-{e(_status_slug(b["status"]))}">{status}</a>'
-    lines = [f'<span class="k">Art</span> {e(b["type"])}', f'<span class="k">Stand</span> {status}']
+    g = vorgang_group(b)
+    lines = [f'<span class="k">Art</span> {e(art(b["type"]))}',
+             f'<span class="k">Gruppe</span> <a href="index.html#gruppe={g}">{e(group_label(g))}</a>',
+             f'<span class="k">Stand</span> {status}']  # fmt: skip
     if b["initiators"]:
         lines.append(f'<span class="k">Eingebracht von</span> {", ".join(frac_link(x) for x in b["initiators"])}')
     if b["subjects"]:
         links = ", ".join(f'<a href="../{e(urls.subject(x))}">{e(x)}</a>' for x in b["subjects"])
         lines.append(f'<span class="k">Sachgebiete</span> {links}')
     parts = [
-        crumbs(("index.html", "Vorgänge"), (None, b["type"])),
+        crumbs(("index.html", "Vorgänge"), (None, art(b["type"]))),
         entity_header(b["title"], lines, [f'<a href="{DIP_VORGANG.format(e(b["id"]))}">Vorgang im DIP ↗</a>']),
     ]
     steps = []
@@ -573,17 +636,18 @@ def groups(b: dict) -> set[str]:
 
 def row(b: dict, href: str, external: bool = False) -> str:
     """One Vorgang in a list (the index, a Sachgebiet's Vorgänge): the date of its newest step, title, kind,
-    Einbringer, a later Inkrafttreten, and the DIP Stand; with its values for the controls (`data-art`, `data-stufe`,
-    `data-von`, `data-w`). `external`: the link goes to DIP, since the Vorgang has no page here, and is marked ↗."""
+    Einbringer, a later Inkrafttreten, and the DIP Stand; with its values for the controls (`data-gruppe`,
+    `data-art`, `data-stufe`, `data-von`, `data-w`). `external`: the link goes to DIP, since the Vorgang has no page
+    here, and is marked ↗."""
     mark = ' <span class="faint" title="Im DIP">↗</span>' if external else ""
     by = ", ".join(b["initiators"][:3]) + (" …" if len(b["initiators"]) > 3 else "")
     von = " ".join(sorted(GROUP_TOKENS[g] for g in groups(b) if g in GROUP_TOKENS))
     later = f" · tritt am {short_date(b['in_force'])} in Kraft" if b.get("in_force") else ""
     return (
-        f'<a class="row" href="{e(href)}" data-art="{urls.slug(b["type"])}" data-stufe="{stage(b)}" '
-        f'data-von="{von}" data-w="{iso_week(b["latest"]) if b["latest"] else ""}">'
+        f'<a class="row" href="{e(href)}" data-gruppe="{vorgang_group(b)}" data-art="{urls.slug(b["type"])}" '
+        f'data-stufe="{stage(b)}" data-von="{von}" data-w="{iso_week(b["latest"]) if b["latest"] else ""}">'
         f'<span class="d">{short_date(b["latest"]) if b["latest"] else ""}</span><span class="t"><span class="ti">'
-        f'{e(b["title"])}{mark}</span><span class="sub">{e(b["type"])}{f" · {e(by)}" if by else ""}{later}</span>'
+        f'{e(b["title"])}{mark}</span><span class="sub">{e(art(b["type"]))}{f" · {e(by)}" if by else ""}{later}</span>'
         f'</span><span class="l"><span class="st">{e(b["status"])}</span></span></a>'
     )
 
@@ -600,17 +664,23 @@ def stand_table(bills: list[dict], glossary: str = "") -> str:
 
 
 def vorgaenge_controls(vs: list[dict], href, sitting_dates: list[str], glossary: str = "", wrap: bool = True) -> str:
-    """The Vorgänge of a page as a list with its charts, each also a filter: the kinds as a segmented bar, the
-    Gesetzgebungsvorgänge as a pipeline of stages, the Einbringer as chips and the dates as an activity strip
-    (controls.py). `href(v)` gives a row's link and whether it leads to DIP; `glossary` the path of the Vorgänge
-    index for the Stand's glossary. `wrap`: in a scope of its own; without, the caller puts it into the scope with
-    its other controls."""
+    """The Vorgänge of a page as a list with its charts, each also a filter: the groups (VORGANG_GROUPS) and DIP's
+    kinds as segmented bars, the Gesetzgebungsvorgänge as a pipeline of stages, the Einbringer as chips and the dates
+    as an activity strip (controls.py). `href(v)` gives a row's link and whether it leads to DIP; `glossary` the
+    path of the Vorgänge index for the Stand's glossary. `wrap`: in a scope of its own; without, the caller puts it
+    into the scope with its other controls."""
     noun = "Vorgänge"
-    kinds = [(urls.slug(t), t, k) for t, k in Counter(v["type"] for v in vs).most_common()]
+    order = [g for g, _ in (*VORGANG_GROUPS, OTHER_GROUP)]
+    grouped = sorted(((g, group_label(g), k) for g, k in Counter(vorgang_group(v) for v in vs).items()),
+                     key=lambda x: (-x[2], order.index(x[0])))  # fmt: skip
+    kinds = [(urls.slug(t), art(t), k) for t, k in Counter(v["type"] for v in vs).most_common()]
     bills = [v for v in vs if v["type"] == GESETZ]
     at = Counter(stage(v) for v in bills)
-    parts = [controls.toolbar("Titel oder Einbringer …"),
-             controls.view("art", "Art", controls.segmented("art", kinds, "Art", noun),
+    parts = [controls.toolbar("Titel oder Einbringer …")]
+    if len(grouped) > 1:
+        parts.append(controls.view("gruppe", "Gruppe", controls.segmented("gruppe", grouped, "Gruppe", noun),
+                                   controls.segmented_table(grouped, "Gruppe", noun)))  # fmt: skip
+    parts += [controls.view("art", "Art im DIP", controls.segmented("art", kinds, "Art", noun),
                            controls.segmented_table(kinds, "Art", noun))]  # fmt: skip
     if bills:
         pipe = controls.pipeline("stufe", [(k, label, at[k]) for k, label in STAGES],
@@ -624,13 +694,46 @@ def vorgaenge_controls(vs: list[dict], href, sitting_dates: list[str], glossary:
     return controls.scope("".join(parts), noun, "Vorgang") if wrap else "".join(parts)
 
 
-def index_page(procs: list[dict], sitting_dates: list[str] | None = None) -> str:
-    bills = [b for b in procs if b["type"] == GESETZ]
-    types = Counter(b["type"] for b in procs)
-    lists = vorgaenge_controls(procs, lambda b: (f"{b['id']}.html", False), sitting_dates or [])
+QUESTION_PLURAL = {"Schriftliche Frage": "Schriftliche Fragen", "Kleine Anfrage": "Kleine Anfragen",
+                   "Mündliche Frage": "Mündliche Fragen", "Große Anfrage": "Große Anfragen"}  # fmt: skip
+
+
+def _not_listed(procs: list[dict], stored: Counter) -> str:
+    """What the index leaves out, named with its counts (docs/plan.md goal 2: named, not hidden): the Fragen, which
+    have their own pages, and the Unterrichtungen the plenum never took up. `stored`: every Vorgang of the
+    Wahlperiode in the store by Art."""
+    asked = [(t, k) for t, k in stored.most_common() if VORGANG_GROUP.get(t) == "fragen"]
+    out = []
+    if asked:
+        kinds = ", ".join(f"{n(k)} {e(QUESTION_PLURAL.get(t, t) if k > 1 else t)}" for t, k in asked)
+        out.append(f'Die Fragen an die Bundesregierung stehen nicht in dieser Liste ({kinds}). Sie haben eigene '
+                   f'Seiten unter <a href="../regierung/index.html">Fragen an die Regierung</a>.')  # fmt: skip
+    listed = Counter(b["type"] for b in procs)
+    told = Counter({t: k - listed[t] for t, k in stored.items() if VORGANG_GROUP.get(t) == "unterrichtungen"})
+    if sum(told.values()):
+        eu = (
+            f', darunter {n(told["EU-Vorlage"])} <a href="eu-vorlagen.html">EU-Vorlagen</a>'
+            if told["EU-Vorlage"]
+            else ""
+        )
+        out.append(
+            f"{n(sum(told.values()))} Vorgänge der Gruppe „Unterrichtungen und Haushaltskontrolle“ hat das "
+            f"Plenum weder beraten noch abgestimmt{eu}. Sie stehen ebenfalls nicht in der Liste."
+        )
+    return f'<p class="explain">{" ".join(out)}</p>' if out else ""
+
+
+def index_page(procs: list[dict], sitting_dates: list[str] | None = None, stored: Counter | None = None) -> str:
+    """The Vorgänge index: every Vorgang that reaches the plenum (`load`) except the Fragen, which have their own
+    pages; `stored` (every Vorgang in the store by Art) names what is left out."""
+    shown = [b for b in procs if vorgang_group(b) != "fragen"]
+    bills = [b for b in shown if b["type"] == GESETZ]
+    lists = vorgaenge_controls(shown, lambda b: (f"{b['id']}.html", False), sitting_dates or [])
     body = f"""{subtabs("../", PROCEDURE_TABS, "procedures")}<div class="bills"><h1>Vorgänge</h1>
-<p class="lead">Ein Vorgang ist im Dokumentationssystem DIP alles, was zu einer Vorlage gehört: ein Gesetzentwurf mit seinen Beratungen, Beschlussempfehlungen und Abstimmungen, ein Antrag, ein Entschließungsantrag. Hier stehen alle {n(types[GESETZ])} Gesetzgebungsvorgänge des 21. Bundestages und alle weiteren Vorgänge, die im Plenum beraten oder abgestimmt wurden ({n(len(procs) - types[GESETZ])}), der zuletzt bewegte zuerst. Ein Gesetz beginnt als Gesetzentwurf von der Bundesregierung, aus der Mitte des Bundestages, meist von Fraktionen, oder vom Bundesrat. Der Bundestag berät es in der Regel dreimal im Plenum und dazwischen in den Ausschüssen, dann stimmt er ab. Danach folgt der Bundesrat. Zuletzt wird das Gesetz ausgefertigt und im Bundesgesetzblatt verkündet.</p>
-<p class="explain">Jedes Diagramm ist auch ein Filter: Ein Klick auf eine Art, eine Stufe, einen Einbringer oder eine Woche zeigt unten nur diese Vorgänge. Mehrere Filter gelten zusammen. Das Datum eines Vorgangs ist sein letzter Schritt bis heute. Ein späteres Inkrafttreten steht in der Zeile.</p>
+<p class="lead">Ein Vorgang ist im Dokumentationssystem DIP alles, was zu einer Vorlage gehört: ein Gesetzentwurf mit seinen Beratungen, Beschlussempfehlungen und Abstimmungen, ein Antrag, ein Entschließungsantrag. Hier stehen alle {n(len(bills))} Gesetzgebungsvorgänge des 21. Bundestages und alle weiteren Vorgänge, die im Plenum beraten oder abgestimmt wurden ({n(len(shown) - len(bills))}), der zuletzt bewegte zuerst. Ein Gesetz beginnt als Gesetzentwurf von der Bundesregierung, aus der Mitte des Bundestages, meist von Fraktionen, oder vom Bundesrat. Der Bundestag berät es in der Regel dreimal im Plenum und dazwischen in den Ausschüssen, dann stimmt er ab. Danach folgt der Bundesrat. Zuletzt wird das Gesetz ausgefertigt und im Bundesgesetzblatt verkündet.</p>
+<p class="explain">Jedes Diagramm ist auch ein Filter: Ein Klick auf eine Gruppe, eine Art, eine Stufe, einen Einbringer oder eine Woche zeigt unten nur diese Vorgänge. Mehrere Filter gelten zusammen. Das Datum eines Vorgangs ist sein letzter Schritt bis heute. Ein späteres Inkrafttreten steht in der Zeile.</p>
+<p class="explain">Die Gruppen fassen die Arten des DIP danach zusammen, was das Instrument nach der Geschäftsordnung des Bundestages tut. Diese Einteilung stammt von dieser Website, nicht aus dem DIP. Die Art im DIP steht in jeder Zeile. Was das DIP „Petition“ nennt, ist eine Sammelübersicht des Petitionsausschusses über viele Eingaben, hier „Sammelübersicht“.</p>
+{_not_listed(procs, stored or Counter())}
 {lists}
 {_glossary({b["status"] for b in bills})}</div>
 <footer>{FOOTER}</footer>"""  # noqa: E501
@@ -659,7 +762,9 @@ def write(conn: sqlite3.Connection, out: Path, sittings: list[dict], decisions: 
         (d / f"{b['id']}.html").write_text(procedure_page(b, have, members, relation), encoding="utf-8")
         if b["type"] == GESETZ:
             redirects.write(out, f"gesetze/{b['id']}.html", urls.vorgang(b["id"]), b["title"])
-    (d / "index.html").write_text(index_page(procs, [s["date"] for s in sittings]), encoding="utf-8")
+    stored = (Counter(r[0] or "Vorgang" for r in conn.execute("SELECT type FROM vorgang WHERE wahlperiode = ?", (WP,)))
+              if has_table(conn, "vorgang") else Counter())  # fmt: skip
+    (d / "index.html").write_text(index_page(procs, [s["date"] for s in sittings], stored), encoding="utf-8")
     redirects.write(out, "gesetze/index.html", urls.PROCEDURES, "Vorgänge")
     written = {b["id"] for b in procs}
     for dec in decisions:

@@ -94,7 +94,10 @@ def test_strip():
     assert html.count('class="swk') == 4 and html.count('tabindex="-1"') == 3  # one tab stop, arrow keys move
     assert 'aria-label="KW 2/2026, Sitzungswoche: 1 Vorgang"' in html and 'class="swk s"' in html
     assert 'data-w="2026-W01"' in html and 'style="height:100%"' in html and 'style="height:25%"' in html
-    assert "Jan 2026" in html and "data-zeit-clear hidden" in html
+    assert "Dez 2025" in html and "data-zeit-clear hidden" in html
+    assert "Jan" not in html  # a quarter in the last 4 weeks has no room for its label
+    longer = controls.weeks_between("2025-12-24", "2026-02-02")
+    assert "Jan 2026" in controls.strip(longer, Counter(), set(), "Vorgänge", "Vorgang")
 
 
 def test_view_shows_chart_and_table_without_javascript():

@@ -57,23 +57,19 @@ main { max-width: 1120px; padding-top: 0; }
 .world.research .tile:hover .t { color: var(--accent); }
 .world.research .tile .d { color: var(--muted); }
 .world.research .tile .k { color: var(--accent); }
-/* Radar: the night screen, violet, rings swept from one corner */
-.world.radar { color: #fff; background:
-  radial-gradient(circle at 100% 0%, transparent 0 79px, rgba(255,255,255,.09) 80px 81px, transparent 82px 159px, rgba(255,255,255,.08) 160px 161px, transparent 162px 239px, rgba(255,255,255,.07) 240px 241px, transparent 242px 319px, rgba(255,255,255,.06) 320px 321px, transparent 322px 399px, rgba(255,255,255,.05) 400px 401px, transparent 402px),
-  conic-gradient(from 200deg at 100% 0%, transparent 0deg, rgba(196,170,255,.28) 40deg, transparent 41deg),
-  linear-gradient(155deg, #4c1d95 0%, #6d28d9 55%, #7c3aed 100%); }
-.world.radar .tagline { color: #fff; background: rgba(255,255,255,.14); }
+/* Radar: the same paper as Recherche, violet instead of blue; the colour alone tells the two apart */
+.world.radar { background: var(--card); border: 1px solid var(--line); box-shadow: inset 0 4px 0 var(--radar); }
+.world.radar .tagline { color: var(--radar-ink); background: var(--radar-soft); }
 .world.radar .tagline .ri { width: 13px; height: 13px; }
-.world.radar > p { color: #e4d9ff; }
+.world.radar > p { color: var(--muted); }
 .world.radar .tiles { grid-template-columns: 1fr; }
-.world.radar .tile { background: rgba(255,255,255,.08); color: #fff; border: 1px solid rgba(255,255,255,.16); backdrop-filter: blur(2px); }
-.world.radar .tile:hover { background: #fff; color: var(--radar-ink); box-shadow: 0 10px 24px -10px rgba(20, 0, 60, .6); }
-.world.radar .tile .d { color: #d9ccff; }
-.world.radar .tile:hover .d { color: #6b5a99; }
-.world.radar .tile .k { color: #c4b5fd; }
-.world.radar .tile:hover .k { color: var(--radar); }
-.world.radar .fine { margin: 16px 0 0; font-size: 12.5px; color: #cdbdfc; max-width: 460px; }
-.world.radar .fine a { color: #fff; text-decoration: underline; text-decoration-color: rgba(255,255,255,.4); }
+.world.radar .tile { background: var(--bg); color: var(--text); border: 1px solid transparent; }
+.world.radar .tile:hover { background: var(--card); border-color: var(--radar); box-shadow: 0 6px 18px -8px rgba(124, 58, 237, .35); }
+.world.radar .tile:hover .t { color: var(--radar-ink); }
+.world.radar .tile .d { color: var(--muted); }
+.world.radar .tile .k { color: var(--radar); }
+.world.radar .fine { margin: 16px 0 0; font-size: 12.5px; color: var(--muted); max-width: 460px; }
+.world.radar .fine a { color: var(--radar); }
 
 .recent { margin-top: 56px; }
 .recent > h2, .worlds-h { font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 14px; }

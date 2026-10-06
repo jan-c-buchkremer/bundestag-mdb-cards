@@ -54,6 +54,40 @@ don't serve it go on "Not now", not into code.
        on a Gremium's page the composition, role chips and name filter the members.
    - Not yet: the Fraktion pages (`fraktionen/<token>.html`) and the Redeanteile of Debattenkultur, which are bar
      charts in tables already.
+4. **Fragen as text.** A reader reads every question to the government and its answer on the site, not in a PDF,
+   can search them, and sees for each who asked and who answered.
+   - Three subpages of Fragen, not new items in the top bar: Kleine und Große Anfragen (a Fraktion asks),
+     Einzelfragen (an MdB asks, § 105 and Anlage 4 GO-BT), Regierungsbefragung (asked live, not submitted).
+     `regierung/index.html` stays their overview. Schriftliche and Mündliche Fragen are one instrument with two ways
+     of answering, so they share the Einzelfragen page with a chip "mündlich / schriftlich"; a Mündliche Frage the
+     Fragestunde did not reach, answered in writing, counts as mündlich and says so.
+   - Every question is shown with its answer, or marked as unanswered. A Kleine or Große Anfrage is split into its
+     numbered questions, each paired with its "Zu Frage n". A mündliche Einzelfrage shows the whole exchange in the
+     Fragestunde: the answer and every Zusatzfrage with its asker and answer, linked to the protocol.
+   - Who asks: for Kleine and Große Anfragen the Fraktion, in its colour on every question; for Einzelfragen and the
+     Regierungsbefragung the MdB, linked to their Steckbrief. Who answers: the ministry and the person, linked.
+   - Each subpage is a timeline, top to bottom. The Regierungsbefragung has one entry per sitting with who was
+     questioned (e.g. 23 September, Boris Pistorius), and the questions open below it. It replaces the plain list
+     under the statistics. Kleine und Große Anfragen are ordered by time and Fraktion.
+   - Search: titles and question texts across all kinds; the text of an answer on the page of its question.
+   - The split: the foundation turns protocols and Drucksachen into questions, answers and turns; this repo parses
+     nothing. It builds the subpages and timelines, the Fraktion colours, the links to askers and answerers, the
+     marking by parse status, the search index, and shows answer tables as tables. What is missing goes back to the
+     foundation as a requirement. The contract is in the foundation's `docs/plan.md` ("Next: Fragen as text"):
+     `question_turn` (spoken turns with their role and thread), `question_text` (written questions and answers in
+     parts), `question_table` (tables in answers, as cells), `question_parse` (per Vorgang: complete, partial,
+     unanswered, failed). A Vorgang marked `failed` or `partial` is shown as "Antwort nicht lesbar" with the PDF, never
+     as unanswered.
+   - Built in this order, one kind at a time, each a foundation release and then this repo:
+     1. Regierungsbefragung: `question_turn` for its turns (in the store as plain speeches, 3,047 in 26 sittings,
+        with no mark of who asks or answers).
+     2. Mündliche Einzelfragen: `question_turn` for the Fragestunde, linked to the DIP Frage; `question_text` from the
+        "Fragen" Drucksachen.
+     3. Kleine und Große Anfragen: `question_text`, `question_table`, `question_parse`. The hardest step (about 2,650
+        answers, many with tables): first measure on 20 random Anfragen how DIP's text compares to the PDF.
+     4. Schriftliche Einzelfragen: `question_text` split out of the Sammeldrucksachen; they join the Einzelfragen page.
+   - This goal replaces the requirements of 12.5 ("Foundation requirements found here"): the asker and Ressort per
+     Frage are in the store (`question_activity`), the texts come with this contract.
 
 ## Not now
 
@@ -63,6 +97,11 @@ Ideas that don't serve the current goal. Each names what it would give a reader.
   they gave on its Vorgänge. It would show a reader who to follow on a subject. Not now: a Fraktionsantrag names the
   whole fraction as Urheber, so a count per member mostly measures fraction size and misleads. It needs the
   signatories who actually drafted a document, which DIP does not separate.
+- Tables in the government's answers as charts: many answers to Kleine Anfragen are statistics in tables; drawn as
+  a chart, interactive where possible, a reader would see the numbers instead of reading them. Not now: tables in
+  the answer PDFs are hard to extract reliably, and goal 4 has to bring the texts first.
+- Fragen by topic (Radar): which subjects the Fraktionen ask the government about, over time. Not now: a grouping by
+  topic is interpretation, so it belongs on the Radar, and it needs the question texts of goal 4.
 - Building one card or one section alone (a fast path for `cards preview`): the build has no subset mode; a full
   preview build takes about 2 minutes.
 

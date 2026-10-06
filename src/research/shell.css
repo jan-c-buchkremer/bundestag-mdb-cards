@@ -91,9 +91,27 @@ nav.site a.quiet.on { color: var(--muted); }
   .nav-q input { display: none; }
   .nav-qi { position: static; transform: none; width: 34px; height: 34px; cursor: pointer; color: var(--muted); }
   header.q-open .nav-q { position: fixed; left: 0; right: 0; top: 0; height: 54px; padding: 0 12px; z-index: 40; }
-  header.q-open .nav-q input { display: block; flex: 1; width: auto; }
-  header.q-open .nav-qi { position: absolute; left: 14px; }
+  header.q-open .nav-q input { display: block; flex: 1; width: auto; padding-left: 40px; }
+  header.q-open .nav-qi { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); }  /* inside the field */
   header.q-open .nav-sug { left: 12px; top: 54px; }
+}
+/* phones: no sideways scrolling; the bar holds the search icon, the site's name and "Menü", which folds the sections
+   out below it as a list (nav.js). Only headers with the button (.has-menu, the research platform's): the Radar's own
+   bars keep the row above. Without JavaScript (.menu-js missing) the links wrap below the bar instead. */
+.nav-menu { display: none; }
+@media (max-width: 760px) {
+  header.has-menu { height: auto; }
+  header.has-menu nav.site { flex-wrap: wrap; overflow: visible; padding: 0 8px 0 4px; }
+  header.has-menu .nav-q, header.has-menu nav.site a.home { position: static; box-shadow: none; height: 54px; }
+  header.has-menu nav.site a.home { order: 1; margin: 0 auto; display: inline-flex; align-items: center; }
+  header.has-menu .nav-menu { display: inline-flex; align-items: center; order: 2; height: 34px; margin: 10px 0; padding: 0 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--text); font-size: 13.5px; font-weight: 600; cursor: pointer; }
+  header.has-menu .nav-menu[aria-expanded="true"] { background: var(--bg); }
+  header.has-menu nav.site a:not(.home) { order: 3; flex: 1 0 100%; margin: 0; padding: 11px 12px; border-radius: 0; border-top: 1px solid var(--line); font-size: 15px; }
+  header.has-menu nav.site a.to-radar { justify-content: flex-start; }
+  header.has-menu.menu-js:not(.menu-open) nav.site a:not(.home) { display: none; }
+  /* the open search field covers the bar, as on wider screens */
+  header.has-menu.q-open .nav-q { position: fixed; left: 0; right: 0; top: 0; height: 54px; padding: 0 12px; z-index: 40; }
+  header.has-menu:not(.menu-js) nav.site a:not(.home) { flex: none; border-top: 0; padding: 6px 10px; font-size: 13.5px; }
 }
 footer { color: var(--faint); font-size: 12.5px; margin-top: 40px; }
 footer a { color: var(--muted); }

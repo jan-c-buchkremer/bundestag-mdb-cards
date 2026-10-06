@@ -14,7 +14,8 @@
  *
  * options (all optional):
  *   colorOf(seat)        CSS colour of a seat; default: the fraction colour from the page's --cdu/--spd/… tokens
- *   onClick(seat, event) activation: mouse click, Enter/Space, or the second tap on the same seat on touch
+ *   onClick(seat, event) activation: mouse click, Enter/Space, or on touch a second tap on the seat (within finger
+ *                        reach of it: a seat is about 8 px on a phone) or on its tooltip
  *   tooltip(seat)        HTML of the tooltip (trusted, escape your own text); default: name, fraction
  *   label(seat)          aria-label text; default: name, fraction
  *   highlight            Set of ids, or a function seat => bool: drawn with a thin halo (pass dim for the rest)
@@ -86,6 +87,7 @@
   box-shadow: 0 4px 14px rgba(0,0,0,.12); white-space: normal; }
 .pm-tip[hidden] { display: none; }
 .pm-tip .pm-hint { color: var(--muted, #6b7280); font-size: 11.5px; margin-top: 2px; }
+.pm-tip.pm-open { pointer-events: auto; cursor: pointer; }
 .pm.pm-dark .pm-tip { box-shadow: 0 4px 14px rgba(0,0,0,.5); }
 @media (prefers-reduced-motion: reduce) { .pm .pm-seat .d, .pm .pm-seat .hl, .pm .pm-info .e { transition: none; } }`;
 
@@ -320,6 +322,7 @@
     let pointer = 'mouse';
     function show(p, pinned) {
       tip.innerHTML = p.kind ? tipOf[p.kind] : (opts.tooltip || defaultTip)(p.seat) + (pinned && pointer !== 'mouse' && opts.onClick ? `<div class="pm-hint">${esc(opts.tapHint || 'Nochmals tippen zum Öffnen')}</div>` : '');
+      tip.classList.toggle('pm-open', !!(pinned && pointer !== 'mouse' && opts.onClick && p.seat));
       tip.hidden = false;
       const hb = host.getBoundingClientRect(), sb = p.node.querySelector('.d, .e').getBoundingClientRect();
       const tw = tip.offsetWidth, th = tip.offsetHeight;
@@ -358,7 +361,19 @@
         if (active) show(active, true); else hide();
       }
     });
+    // a second tap counts for the seat whose tooltip is pinned when it lands within finger reach of it: the seats are
+    // about 8 px on a phone, so a finger rarely hits the same one twice and would show a neighbour instead
+    const REACH = 24;
+    function near(p, e) {
+      const b = p.node.getBoundingClientRect();
+      const dx = e.clientX - (b.left + b.width / 2), dy = e.clientY - (b.top + b.height / 2);
+      return dx * dx + dy * dy <= Math.max(REACH, b.width) ** 2;
+    }
     svg.addEventListener('click', e => {
+      if (pointer !== 'mouse' && active && active.seat && opts.onClick && near(active, e)) {
+        opts.onClick(active.seat, e);
+        return;
+      }
       const info = infoOf(e);
       if (info) { if (pointer !== 'mouse') { setActive(info._pm); show(info._pm, false); } return; }  // a tap shows what it is
       const g = seatOf(e);
@@ -372,6 +387,7 @@
       }
       if (opts.onClick) opts.onClick(p.seat, e);
     });
+    tip.addEventListener('click', e => { if (active && active.seat && opts.onClick) opts.onClick(active.seat, e); });
     const outside = e => { if (!host.contains(e.target)) { setActive(null); hide(); } };
     document.addEventListener('pointerdown', outside);
 

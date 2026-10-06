@@ -274,9 +274,9 @@ def gremien_index_page(bodies: list[dict], government: bool = False) -> str:
     items = [(f"{b['slug']}.html", b["short"], len(current(b)), Counter(TOKEN.get(m["fraction"], "frl")
               for m in current(b))) for b in shown]  # fmt: skip
     attrs = [f'data-art="{"ausschuss" if b["kind"] == "committee" else "gremium"}"' for b in shown]
-    # 10 px per member: a committee of 40 starts at 400 px before its row fills, a small Gremium at the minimum
+    # 4 px per member: the largest committees (about 95) two to a row, a committee of 40 four, a small Gremium six
     field = controls.tiles(items, fractions, "Mitglieder", "Mitglied", "Ausschüsse und Gremien", attrs, listing=True,
-                           per=10)  # fmt: skip
+                           per=4)  # fmt: skip
     kinds = [("ausschuss", "Ausschüsse und Unterausschüsse", len(committees), "accent"),
              ("gremium", "weitere Gremien", len(others), "accent")]  # fmt: skip
     lists = controls.scope(

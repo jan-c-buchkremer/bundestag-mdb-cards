@@ -128,7 +128,7 @@ def speech_page(r: dict, cards: set[str], clusters: dict[str, dict], similar: li
     body = f"""<p class="crumbs"><a href="../sitzungen/index.html">Sitzungen</a> › <a href="{sitting}">{r["number"]}. Sitzung</a>{f' › <a href="{item}">{e(r["label"])}</a>' if r["label"] else ""}</p>
 <article data-pagefind-body>
 {marks}
-<span hidden data-pagefind-meta="date">{e(r["date"])}</span>
+<span hidden data-pagefind-meta="date:{e(r["date"])}"></span>
 <section class="card sp-head" style="--c:var(--{TOKEN.get(main["fraction"] or "", "reg")})">
   <div class="when">{e(long_date(r["date"], True))} · {r["number"]}. Sitzung</div>
   <h1 data-pagefind-meta="title">{e(main["name"])}: {e(topic)}</h1>

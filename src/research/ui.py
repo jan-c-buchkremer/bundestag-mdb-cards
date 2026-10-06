@@ -154,9 +154,13 @@ def site_header(root: str, active: str | None, mode: str = "research") -> str:
     on = " on" if active == "home" else ""
     home = (f'<a href="{root}index.html" class="home brand{on}" aria-label="plenar-radar.de, Startseite">{LOGO}'
             f'<span class="wm">plenar<b>radar</b></span>{tag}</a>')  # fmt: skip
+    # on a phone the sections fold behind "Menü" (shell.css); the inline script marks the header at once, so the list
+    # does not flash open before nav.js runs, and without JavaScript the links stay visible below the bar
+    menu = '<button type="button" class="nav-menu" aria-expanded="false">Menü</button>'
     return (
-        f'<header class="m-{mode}"><nav class="site" aria-label="Bereiche"><div class="nav-l">{search}{left}</div>'
-        f'<div class="nav-c">{home}</div><div class="nav-r">{right}{radar}</div></nav>'
+        f'<header class="m-{mode} has-menu"><script>document.currentScript.parentElement.classList.add("menu-js")'
+        f'</script><nav class="site" aria-label="Bereiche"><div class="nav-l">{search}{left}</div>'
+        f'<div class="nav-c">{home}</div><div class="nav-r">{right}{radar}{menu}</div></nav>'
         f'<script src="{root}nav.js" defer></script></header>'
     )
 

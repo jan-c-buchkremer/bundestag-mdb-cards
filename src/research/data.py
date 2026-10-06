@@ -737,6 +737,15 @@ def cards(conn: sqlite3.Connection) -> tuple[list[dict], dict]:
     return out, meta(conn, n_votes)
 
 
+_ISO_DAY = re.compile(r"\b(\d{4})-(\d{2})-(\d{2})\b")
+
+
+def doc_label(doc: str | None) -> str | None:
+    """A source document's name as the pages show it: a date in it as dd.mm.yyyy ("MDB_STAMMDATEN 2026-04-29" ->
+    "MDB_STAMMDATEN 29.04.2026"), so no page shows a date in another numeric form."""
+    return _ISO_DAY.sub(r"\3.\2.\1", doc) if doc else doc
+
+
 def meta(conn: sqlite3.Connection, n_votes: int) -> dict:
     stamm = conn.execute(
         "SELECT source_url, source_document_id, max(retrieved_at) AS retrieved FROM mandate WHERE wahlperiode = ?",
@@ -746,7 +755,11 @@ def meta(conn: sqlite3.Connection, n_votes: int) -> dict:
     dip = conn.execute("SELECT min(date), max(date), count(*) FROM drucksache WHERE wahlperiode = ?", (WP,)).fetchone()
     return {
         "wp": WP,
-        "stammdaten": {"url": stamm["source_url"], "doc": stamm["source_document_id"], "retrieved": stamm["retrieved"]},
+        "stammdaten": {
+            "url": stamm["source_url"],
+            "doc": doc_label(stamm["source_document_id"]),
+            "retrieved": stamm["retrieved"],
+        },
         "sittings": {"from": span[0], "to": span[1], "n": span[2]},
         "votes": n_votes,
         "dip": {"from": dip[0], "to": dip[1], "n": dip[2], "complete": dip_complete(conn)},

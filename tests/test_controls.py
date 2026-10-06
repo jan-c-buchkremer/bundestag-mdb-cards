@@ -83,8 +83,18 @@ def test_tiles():
     assert '<a class="tile" href="a.html"' in html and "1 <span" in html and ">Vorgang</span>" in html
     big, small = controls.tile_basis([90, 1])
     assert big > small == controls.TILE_MIN  # by count, and never narrower than a readable name
-    assert 'style="--g:90;--b:' in html
+    assert '<div class="trow" data-c="1"><a class="tile" href="a.html"' in html  # the largest alone in its row
     assert controls.tile_basis([40, 1], per=10) == [400, controls.TILE_MIN]  # a fixed width per unit (Gremien)
+
+
+def test_tile_rows_fill_the_field_and_never_grow_downwards():
+    """Every row is split into equal tiles and full; rows hold no fewer tiles than the one above, so the field is one
+    rectangle and a smaller item never gets a bigger tile."""
+    for counts in ([400, 120, 90, 60, 50, 40, 30, 20, 10, 5, 3, 1], [5] * 7, [1], list(range(190, 0, -1))):
+        rows = controls.tile_rows(controls.tile_basis(counts))
+        assert sum(rows) == len(counts) and all(c in controls.ROW_SPLITS for c in rows)
+        assert rows == sorted(rows)
+    assert controls.tile_rows(controls.tile_basis([400, 120, 90, 60, 50, 40, 30, 20, 10, 5, 3, 1]))[0] < 3
 
 
 def test_strip():

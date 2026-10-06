@@ -6,6 +6,8 @@ import re
 
 from research import ui
 
+MENU = '<button type="button" class="nav-menu" aria-expanded="false">Menü</button>'  # last in the bar: the phone's menu
+
 
 def items(html: str) -> list[tuple[str, str]]:
     """(tag, what) in document order: the search form, then every link as (class, label)."""
@@ -29,18 +31,20 @@ def test_order_and_marks():
     centre = html.split('<div class="nav-c">', 1)[1].split("</div>", 1)[0]
     assert 'href="../index.html" class="home brand"' in centre and "plenar<b>radar</b>" in centre
     right = html.split('<div class="nav-r">', 1)[1].split("</div>", 1)[0]
-    assert right.rstrip().endswith("Radar</a>") and f'href="{ui.LANDSCAPE}" data-nav="radar" class="to-radar"' in right
+    assert right.rstrip().endswith("Radar</a>" + MENU)
+    assert f'href="{ui.LANDSCAPE}" data-nav="radar" class="to-radar"' in right
     assert ui.LANDSCAPE in ui.FOOTER and 'class="rl"' in ui.FOOTER
 
 
 def test_mode():
     """The header says which part of the site a page is in; the front page belongs to both."""
-    assert '<header class="m-research">' in ui.site_header("", None) and ">Recherche</span>" in ui.site_header("", None)
+    research = ui.site_header("", None)
+    assert '<header class="m-research has-menu">' in research and ">Recherche</span>" in research
     radar = ui.site_header("", "radar", "radar")
-    assert '<header class="m-radar">' in radar and 'class="to-radar on"' in radar
+    assert '<header class="m-radar has-menu">' in radar and 'class="to-radar on"' in radar
     assert '<span class="mode"><svg class="ri"' in radar
     home = ui.site_header("", "home", "home")
-    assert '<header class="m-home">' in home and 'class="mode"' not in home and 'class="home brand on"' in home
+    assert '<header class="m-home has-menu">' in home and 'class="mode"' not in home and 'class="home brand on"' in home
     page = ui.shell(root="", kind="p-x", active="radar", title="T", desc="D", body="", data={}, mode="radar")
     assert '<body class="p-x mode-radar">' in page
 

@@ -29,7 +29,6 @@ const period = (from, to) => to ? `${shortDate(from)} – ${shortDate(to)}` : fr
 const fractionLink = f => FRACTION_COLORS[f] ? `<a href="fraktionen/${FRACTION_COLORS[f].slice(2)}.html">${esc(f)}</a>` : esc(f);
 // a committee or other Gremium the card lists (data.py adds "slug"), linked to its gremien/<slug>.html page
 const bodyLink = x => x.slug ? `<a href="gremien/${esc(x.slug)}.html">${esc(x.name)}</a>` : esc(x.name);
-// the speech page is the rede's; a part of it (a Zwischenfrage, a turn in the Befragung) is an anchor there
 
 const C = CARD;
 const member = C.kind === 'member';

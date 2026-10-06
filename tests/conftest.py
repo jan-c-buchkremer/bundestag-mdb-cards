@@ -1,4 +1,5 @@
 import os
+import re
 import shutil
 import sqlite3
 from pathlib import Path
@@ -103,6 +104,23 @@ CREATE TRIGGER fraction_vote AFTER INSERT ON individual_vote BEGIN
   WHERE id = NEW.person_id;
 END;
 
+-- agenda_item.kind, speech.rede_id (bdf ingest_speech_parts); speech.interruption: derive_interruptions below
+CREATE TRIGGER agenda_kind AFTER INSERT ON agenda_item BEGIN
+  UPDATE agenda_item SET kind = CASE WHEN NEW.title LIKE 'Befragung der Bundesregierung%' THEN 'befragung'
+    WHEN NEW.title LIKE 'Fragestunde%' THEN 'fragestunde' WHEN NEW.title LIKE 'Aktuelle Stunde%' THEN 'aktuelle_stunde'
+    END WHERE id = NEW.id;
+END;
+CREATE TRIGGER agenda_kind_title AFTER UPDATE OF title ON agenda_item BEGIN
+  UPDATE agenda_item SET kind = CASE WHEN NEW.title LIKE 'Befragung der Bundesregierung%' THEN 'befragung'
+    WHEN NEW.title LIKE 'Fragestunde%' THEN 'fragestunde' WHEN NEW.title LIKE 'Aktuelle Stunde%' THEN 'aktuelle_stunde'
+    END WHERE id = NEW.id;
+END;
+CREATE TRIGGER speech_rede AFTER INSERT ON speech BEGIN
+  UPDATE speech SET rede_id = CASE WHEN NEW.id GLOB '*-[0-9]*' THEN substr(NEW.id, 1, instr(NEW.id, '-') - 1)
+    ELSE NEW.id END WHERE id = NEW.id;
+  UPDATE agenda_item SET kind = 'fragestunde' WHERE id = NEW.agenda_item_id AND NEW.kind = 'fragestunde';
+END;
+
 -- drucksache.originator_groups (bdf ingest_groups)
 CREATE TRIGGER drucksache_groups AFTER INSERT ON drucksache BEGIN
   UPDATE drucksache SET originator_groups = (
@@ -115,6 +133,39 @@ CREATE TRIGGER drucksache_groups AFTER INSERT ON drucksache BEGIN
   WHERE id = NEW.id;
 END;
 """
+
+
+def derive_interruptions(c: sqlite3.Connection) -> None:
+    """speech.interruption and interruption_start, by the foundation's rule (bdf ingest_speech_parts): a part by
+    someone other than the rede's first speaker is a Kurzintervention when the chair's words among the last six
+    paragraphs of the part before announce one, else a Zwischenfrage; the same person again is a new interruption
+    only after 30 words of the main speaker; no interruptions in a Befragung or Fragestunde. Call again after
+    inserting the parts of a rede."""
+    turns = {r[0] for r in c.execute("SELECT id FROM agenda_item WHERE kind IN ('befragung', 'fragestunde')")}
+    chair: dict[str, list[str]] = {}
+    for sid, kind, text in c.execute("SELECT speech_id, kind, text FROM speech_paragraph ORDER BY speech_id, position"):
+        chair.setdefault(sid, []).append(text if kind == "chair" else "")
+    redes: dict[str, list] = {}
+    for r in c.execute("SELECT id, person_id, text, agenda_item_id, rede_id FROM speech ORDER BY sitting_id, position"):
+        redes.setdefault(r[4], []).append(r)
+    updates = []
+    for parts in redes.values():
+        main, since_main, last, prev = parts[0][1], 0, {}, None
+        for p in parts:
+            kind = start = None
+            if p[1] == main or p[3] in turns:
+                since_main += len(p[2].split())
+            elif prev is not None and prev[1] == main:
+                if p[1] not in last or since_main >= 30:
+                    announced = re.search(r"Kurzintervention|Zwischenbemerkung", " ".join(chair.get(prev[0], [])[-6:]))
+                    last[p[1]] = ("kurzintervention" if announced else "zwischenfrage", p[0])
+                kind, start = last[p[1]]
+                since_main = 0
+            else:
+                kind, start = last.setdefault(p[1], ("zwischenfrage", p[0]))
+            updates.append((kind, start, p[0]))
+            prev = p
+    c.executemany("UPDATE speech SET interruption = ?, interruption_start = ? WHERE id = ?", updates)
 
 
 def store() -> sqlite3.Connection:
@@ -377,6 +428,7 @@ def store() -> sqlite3.Connection:
         " '21/88/1', 'Damit ist der Antrag angenommen.', 'https://x/21088.xml', 'BT-PlPr. 21/88', '2026-09-27',"
         " NULL, NULL)"
     )
+    derive_interruptions(c)
     return c
 
 

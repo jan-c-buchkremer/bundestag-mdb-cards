@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import shutil
 import sqlite3
 from collections import defaultdict
@@ -30,7 +29,7 @@ def _sql(conn: sqlite3.Connection) -> str:
     return f"""
 SELECT s.id, s.position, s.person_id, s.speaker_name, s.speaker_role, s.fraction, s.text, s.source_document_id,
        st.id AS sitting_id, st.number, st.date, st.pdf_url, s.speaker_group, a.position AS top_position, a.top_id,
-       a.title AS agenda_title, {kind_col}
+       a.title AS agenda_title, s.rede_id, {kind_col}
 FROM speech s
 JOIN sitting st ON st.id = s.sitting_id
 JOIN person p ON p.id = s.person_id
@@ -38,12 +37,6 @@ LEFT JOIN agenda_item a ON a.id = s.agenda_item_id
 WHERE st.wahlperiode = ?
 ORDER BY st.date, st.number, s.position
 """
-
-
-def rede_id(speech_id: str) -> str:
-    """ "ID1-3" -> "ID1": the speech a part belongs to. Its page is `reden/<page_id(rede_id)>.html`, since a
-    Fragestunde turn's id ("21/3/5/f1") has slashes."""
-    return re.sub(r"-\d+$", "", speech_id)
 
 
 def load(conn: sqlite3.Connection) -> list[dict]:
@@ -54,7 +47,7 @@ def load(conn: sqlite3.Connection) -> list[dict]:
         paragraphs[r["speech_id"]].append((r["kind"], r["text"]))
     redes: dict[str, dict] = {}
     for r in conn.execute(_sql(conn), (WP,)):
-        rid = rede_id(r["id"])
+        rid = r["rede_id"]  # the foundation's: the speech a part belongs to
         part = {
             "id": r["id"], "person": r["person_id"], "name": display_speaker(r), "fraction": r["speaker_group"],
             "role": r["speaker_role"],
@@ -178,7 +171,8 @@ def write_pages(out: Path, redes: list[dict], cards: set[str], clusters: dict[st
     shutil.copyfile(HERE / "reden.css", out / "reden.css")
     for r in redes:
         # the neighbours may name a part of a rede: its page is the rede's
-        near = list({rede_id(x): by_id[rede_id(x)] for x in similar.get(r["id"], []) if rede_id(x) in by_id}.values())
+        reden = [urls.rede(x) for x in similar.get(r["id"], [])]
+        near = list({x: by_id[x] for x in reden if x in by_id}.values())
         near = [s for s in near if s is not r][:SIMILAR]
         (folder / f"{page_id(r['id'])}.html").write_text(
             speech_page(r, cards, clusters, near, themes), encoding="utf-8"

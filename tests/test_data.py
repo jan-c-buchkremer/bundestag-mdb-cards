@@ -321,5 +321,5 @@ def test_plenum_leaves_out_notes_after_the_chair(conn):
         "NULL,NULL)"
     )
     assert data.plenum(conn)["2"]["received"]["SPD"]["beifall"] == 0
-    applause, _ = data._paragraph_stats(conn)
+    applause = data._applause(conn)
     assert applause["ID1-5"] == 1  # the note after his words, not the one after the chair's

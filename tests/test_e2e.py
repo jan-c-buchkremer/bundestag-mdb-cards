@@ -313,8 +313,8 @@ def test_fragen_lists_link_their_sources(site):
         for pid, _, _, card in d["persons"]:
             assert not card or (site / f"{pid}.html").is_file(), (slug, pid)
     turns = json.loads((site / "regierung" / "fragestunde.json").read_text())["rows"]
-    for speech_id, *_ in turns:
-        assert (site / urls.speech(speech_id).split("#")[0]).is_file(), speech_id
+    for href, *_ in turns:  # questions.py writes urls.speech
+        assert (site / href.split("#")[0]).is_file(), href
     (mf,) = json.loads((site / "regierung" / "muendliche-fragen.json").read_text())["rows"]
     sitting, position = mf[7][:2]
     assert f'id="top-{position}"' in (site / urls.sitting(sitting).split("#")[0]).read_text()

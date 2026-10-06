@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+import sqlite3
 from pathlib import Path
 
 from research.ui import e
@@ -70,6 +71,24 @@ def write(out: Path, old: str, target: str, title: str, rules: list[tuple[str, s
     path = out / old
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(stub(old, target, title, rules), encoding="utf-8")
+
+
+def person_aliases(conn: sqlite3.Connection, out: Path, cards: list[dict]) -> int:
+    """A placeholder person id the foundation has retired (`person_alias`: a Wikidata QID, "pdf-<name>") was the
+    address of a card; it leads to the person's card now. The JSON and portrait at the old id go, since a stub
+    cannot stand in for them. Returns the number of stubs; none for a store without the table."""
+    if not conn.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'person_alias'").fetchone():
+        return 0
+    names = {c["id"]: c["name"] for c in cards}
+    n = 0
+    for alias, pid in conn.execute("SELECT alias_id, person_id FROM person_alias ORDER BY alias_id"):
+        if pid not in names or alias in names:  # no card to lead to, or the old id has a card of its own again
+            continue
+        write(out, f"{alias}.html", f"{pid}.html", names[pid])
+        for stale in (out / f"{alias}.json", out / "fotos" / f"{alias}.jpg"):
+            stale.unlink(missing_ok=True)
+        n += 1
+    return n
 
 
 def any_fragment(new: str) -> list[tuple[str, str]]:

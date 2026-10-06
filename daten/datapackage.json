@@ -1,0 +1,4081 @@
+{
+  "profile": "data-package",
+  "name": "bundestag-data-foundation",
+  "title": "Bundestag: Plenarprotokolle, Abstimmungen, Drucksachen, Abgeordnete (21. Wahlperiode)",
+  "description": "Export of the bundestag-data-foundation SQLite store: one gzipped CSV per table. Every row that comes from a source carries source_url, source_document_id and retrieved_at.",
+  "homepage": "https://github.com/jan-c-buchkremer/bundestag-data-foundation",
+  "created": "2026-10-06T03:44:38Z",
+  "latest_sitting_date": "2026-09-25",
+  "sources": [
+    {
+      "title": "Deutscher Bundestag: Open Data (Plenarprotokolle, MdB-Stammdaten, Namentliche Abstimmungen)",
+      "path": "https://www.bundestag.de/services/opendata",
+      "attribution": "Quelle: \"Deutscher Bundestag\", bei Plenarprotokollen mit Nummer (BT-PlPr. 21/94). Keine Nutzung für Werbezwecke."
+    },
+    {
+      "title": "Deutscher Bundestag/Bundesrat: DIP (Dokumentations- und Informationssystem für Parlamentsmaterialien)",
+      "path": "https://dip.bundestag.de",
+      "attribution": "\"Deutscher Bundestag/Bundesrat – DIP\", bei Drucksachen und Plenarprotokollen mit Nummer (BT-Drs. 21/7300, BT-PlPr. 21/94). Änderungen sind zu kennzeichnen. Bei kommerzieller Nutzung: Hinweis, dass die Daten unter dip.bundestag.de kostenfrei verfügbar sind."
+    },
+    {
+      "title": "abgeordnetenwatch.de API v2",
+      "path": "https://www.abgeordnetenwatch.de/api",
+      "attribution": "Keine Pflicht; Nennung von abgeordnetenwatch.de erbeten."
+    },
+    {
+      "title": "Die Bundeswahlleiterin: Open Data Bundestagswahl 2025",
+      "path": "https://www.bundeswahlleiterin.de/bundestagswahlen/2025/ergebnisse/opendata.html",
+      "attribution": "\"© Die Bundeswahlleiterin, Wiesbaden 2025\", mit Link auf die Lizenz; Änderungen sind zu kennzeichnen."
+    },
+    {
+      "title": "Die Bundeswahlleiterin: Veränderungen im 21. Deutschen Bundestag (Mandatsnachfolger)",
+      "path": "https://www.bundeswahlleiterin.de/bundestagswahlen/2025/gewaehlte.html",
+      "attribution": "\"Die Bundeswahlleiterin, Wiesbaden\" als Herausgeberin; Änderungen sind zu kennzeichnen."
+    },
+    {
+      "title": "Wikidata",
+      "path": "https://www.wikidata.org",
+      "attribution": "Keine Pflicht."
+    },
+    {
+      "title": "Porträts: bundestag.de (Abgeordnetenbiografien) und Wikimedia Commons",
+      "path": "https://www.bundestag.de/abgeordnete",
+      "attribution": "Bei jedem Bild die Angabe aus person_photo.credit; bei Commons-Bildern zusätzlich Lizenz mit Link auf die Dateiseite. Der Export enthält nur Bild-URLs und Credits, keine Bilder; die Rechte an den Fotos sind nicht einzeln geprüft."
+    }
+  ],
+  "licenses": [
+    {
+      "name": "bundestag-nutzungsbedingungen",
+      "title": "Nutzungsbedingungen des Deutschen Bundestages; Plenarprotokolle sind amtliche Werke (§ 5 UrhG)",
+      "path": "https://www.bundestag.de/nutzungsbedingungen"
+    },
+    {
+      "name": "dip-nutzungsbedingungen",
+      "title": "Nutzungsbedingungen für das DIP (27.02.2023)",
+      "path": "https://github.com/jan-c-buchkremer/bundestag-data-foundation/blob/main/docs/nutzungsbedingungen_dip.pdf"
+    },
+    {
+      "name": "CC0-1.0",
+      "title": "CC0 1.0 Universal",
+      "path": "https://creativecommons.org/publicdomain/zero/1.0/"
+    },
+    {
+      "name": "dl-de-by-2.0",
+      "title": "Datenlizenz Deutschland – Namensnennung – Version 2.0",
+      "path": "https://www.govdata.de/dl-de/by-2-0"
+    },
+    {
+      "name": "bundeswahlleiterin-impressum",
+      "title": "Impressum der Bundeswahlleiterin: Vervielfältigung und Verbreitung mit Quellennachweis gestattet",
+      "path": "https://www.bundeswahlleiterin.de/info/impressum.html"
+    },
+    {
+      "name": "per-image",
+      "title": "Je Bild: Rechteinhaber laut person_photo.credit; Commons-Dateien meist CC BY-SA 4.0 (Lizenz auf der Dateiseite, source_url)",
+      "path": "https://github.com/jan-c-buchkremer/bundestag-data-foundation/blob/main/docs/licences.md#portraits-bundestagde-wikimedia-commons"
+    }
+  ],
+  "resources": [
+    {
+      "name": "agenda_item",
+      "path": "agenda_item.csv.gz",
+      "format": "csv",
+      "mediatype": "text/csv",
+      "compression": "gz",
+      "encoding": "utf-8",
+      "schema": {
+        "fields": [
+          {
+            "name": "id",
+            "type": "string",
+            "description": "\"<sitting_id>/<position>\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "sitting_id",
+            "type": "string",
+            "description": "→ sitting.id",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "position",
+            "type": "integer",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "top_id",
+            "type": "string",
+            "description": "XML top-id attribute, e.g. \"Tagesordnungspunkt 3\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "title",
+            "type": "string"
+          },
+          {
+            "name": "drucksache_numbers",
+            "type": "string",
+            "description": "JSON array of \"21/7300\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "source_url",
+            "type": "string",
+            "description": "where the row was read from (document, file or API record)",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "source_document_id",
+            "type": "string",
+            "description": "citable source pointer, e.g. \"BT-PlPr. 21/94\", \"BT-Drs. 21/7300\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "retrieved_at",
+            "type": "string",
+            "description": "when the source was downloaded (ISO 8601, UTC)",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "no_debate",
+            "type": "integer",
+            "description": "1: the chair says no Aussprache is provided (\"keine Aussprache vorgesehen\")",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "kind",
+            "type": "string",
+            "description": "derived: befragung (Befragung der Bundesregierung) | fragestunde | aktuelle_stunde | NULL for every other item"
+          }
+        ],
+        "primaryKey": [
+          "id"
+        ],
+        "missingValues": [
+          ""
+        ],
+        "foreignKeys": [
+          {
+            "fields": "sitting_id",
+            "reference": {
+              "resource": "sitting",
+              "fields": "id"
+            }
+          }
+        ]
+      },
+      "sources": [
+        {
+          "title": "Deutscher Bundestag: Open Data (Plenarprotokolle, MdB-Stammdaten, Namentliche Abstimmungen)",
+          "path": "https://www.bundestag.de/services/opendata"
+        }
+      ],
+      "licenses": [
+        {
+          "name": "bundestag-nutzungsbedingungen",
+          "title": "Nutzungsbedingungen des Deutschen Bundestages; Plenarprotokolle sind amtliche Werke (§ 5 UrhG)",
+          "path": "https://www.bundestag.de/nutzungsbedingungen"
+        }
+      ],
+      "bytes": 120270
+    },
+    {
+      "name": "agenda_item_paragraph",
+      "path": "agenda_item_paragraph.csv.gz",
+      "format": "csv",
+      "mediatype": "text/csv",
+      "compression": "gz",
+      "encoding": "utf-8",
+      "schema": {
+        "fields": [
+          {
+            "name": "id",
+            "type": "string",
+            "description": "\"<agenda_item_id>/<position>\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "agenda_item_id",
+            "type": "string",
+            "description": "→ agenda_item.id",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "position",
+            "type": "integer",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "kind",
+            "type": "string",
+            "description": "chair | comment | procedural | speaker | text",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "text",
+            "type": "string",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "source_url",
+            "type": "string",
+            "description": "where the row was read from (document, file or API record)",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "source_document_id",
+            "type": "string",
+            "description": "citable source pointer, e.g. \"BT-PlPr. 21/94\", \"BT-Drs. 21/7300\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "retrieved_at",
+            "type": "string",
+            "description": "when the source was downloaded (ISO 8601, UTC)",
+            "constraints": {
+              "required": true
+            }
+          }
+        ],
+        "primaryKey": [
+          "id"
+        ],
+        "missingValues": [
+          ""
+        ],
+        "foreignKeys": [
+          {
+            "fields": "agenda_item_id",
+            "reference": {
+              "resource": "agenda_item",
+              "fields": "id"
+            }
+          }
+        ]
+      },
+      "sources": [
+        {
+          "title": "Deutscher Bundestag: Open Data (Plenarprotokolle, MdB-Stammdaten, Namentliche Abstimmungen)",
+          "path": "https://www.bundestag.de/services/opendata"
+        }
+      ],
+      "licenses": [
+        {
+          "name": "bundestag-nutzungsbedingungen",
+          "title": "Nutzungsbedingungen des Deutschen Bundestages; Plenarprotokolle sind amtliche Werke (§ 5 UrhG)",
+          "path": "https://www.bundestag.de/nutzungsbedingungen"
+        }
+      ],
+      "bytes": 827740
+    },
+    {
+      "name": "agenda_item_vorlage",
+      "path": "agenda_item_vorlage.csv.gz",
+      "format": "csv",
+      "mediatype": "text/csv",
+      "compression": "gz",
+      "encoding": "utf-8",
+      "schema": {
+        "fields": [
+          {
+            "name": "id",
+            "type": "string",
+            "description": "\"<agenda_item_id or sub_item_id>/<drucksache_number>\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "agenda_item_id",
+            "type": "string",
+            "description": "→ agenda_item.id",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "sub_item_id",
+            "type": "string",
+            "description": "→ agenda_sub_item.id; set for the Drucksachen of a sub-item, NULL otherwise"
+          },
+          {
+            "name": "drucksache_number",
+            "type": "string",
+            "description": "\"21/7300\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "vorgang_id",
+            "type": "string",
+            "description": "→ vorgang.id; the only Vorgang of that Drucksache in vorgang_drucksache; else NULL"
+          },
+          {
+            "name": "source_url",
+            "type": "string",
+            "description": "where the row was read from (document, file or API record)",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "source_document_id",
+            "type": "string",
+            "description": "citable source pointer, e.g. \"BT-PlPr. 21/94\", \"BT-Drs. 21/7300\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "retrieved_at",
+            "type": "string",
+            "description": "when the source was downloaded (ISO 8601, UTC)",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "via",
+            "type": "string",
+            "description": "title: the item's printed title names it; decision: a decision taken under the item names it (an Entschließungsantrag decided after the bill)",
+            "constraints": {
+              "required": true
+            }
+          }
+        ],
+        "primaryKey": [
+          "id"
+        ],
+        "missingValues": [
+          ""
+        ],
+        "foreignKeys": [
+          {
+            "fields": "agenda_item_id",
+            "reference": {
+              "resource": "agenda_item",
+              "fields": "id"
+            }
+          },
+          {
+            "fields": "sub_item_id",
+            "reference": {
+              "resource": "agenda_sub_item",
+              "fields": "id"
+            }
+          },
+          {
+            "fields": "vorgang_id",
+            "reference": {
+              "resource": "vorgang",
+              "fields": "id"
+            }
+          }
+        ]
+      },
+      "sources": [
+        {
+          "title": "Deutscher Bundestag: Open Data (Plenarprotokolle, MdB-Stammdaten, Namentliche Abstimmungen)",
+          "path": "https://www.bundestag.de/services/opendata"
+        },
+        {
+          "title": "Deutscher Bundestag/Bundesrat: DIP (Dokumentations- und Informationssystem für Parlamentsmaterialien)",
+          "path": "https://dip.bundestag.de"
+        }
+      ],
+      "licenses": [
+        {
+          "name": "bundestag-nutzungsbedingungen",
+          "title": "Nutzungsbedingungen des Deutschen Bundestages; Plenarprotokolle sind amtliche Werke (§ 5 UrhG)",
+          "path": "https://www.bundestag.de/nutzungsbedingungen"
+        },
+        {
+          "name": "dip-nutzungsbedingungen",
+          "title": "Nutzungsbedingungen für das DIP (27.02.2023)",
+          "path": "https://github.com/jan-c-buchkremer/bundestag-data-foundation/blob/main/docs/nutzungsbedingungen_dip.pdf"
+        }
+      ],
+      "bytes": 34475
+    },
+    {
+      "name": "agenda_sub_item",
+      "path": "agenda_sub_item.csv.gz",
+      "format": "csv",
+      "mediatype": "text/csv",
+      "compression": "gz",
+      "encoding": "utf-8",
+      "schema": {
+        "fields": [
+          {
+            "name": "id",
+            "type": "string",
+            "description": "\"<agenda_item_id>/<label>\", e.g. \"21/96/6/41b\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "agenda_item_id",
+            "type": "string",
+            "description": "→ agenda_item.id",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "label",
+            "type": "string",
+            "description": "as called up: \"41b\"; Zusatzpunkte \"ZP8\", \"ZP1a\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "position",
+            "type": "integer",
+            "description": "order within the agenda item",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "title",
+            "type": "string",
+            "description": "this sub-item's title lines, joined with \" | \""
+          },
+          {
+            "name": "drucksache_numbers",
+            "type": "string",
+            "description": "JSON array of \"21/7300\", this sub-item's only",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "first_paragraph",
+            "type": "integer",
+            "description": "agenda_item_paragraph.position of the chair's call-up",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "last_paragraph",
+            "type": "integer",
+            "description": "… of the last paragraph before the next call-up (or the item's end)",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "source_url",
+            "type": "string",
+            "description": "where the row was read from (document, file or API record)",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "source_document_id",
+            "type": "string",
+            "description": "citable source pointer, e.g. \"BT-PlPr. 21/94\", \"BT-Drs. 21/7300\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "retrieved_at",
+            "type": "string",
+            "description": "when the source was downloaded (ISO 8601, UTC)",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "no_debate",
+            "type": "integer",
+            "description": "1: the chair says no Aussprache is provided (for the block or this item)",
+            "constraints": {
+              "required": true
+            }
+          }
+        ],
+        "primaryKey": [
+          "id"
+        ],
+        "missingValues": [
+          ""
+        ],
+        "foreignKeys": [
+          {
+            "fields": "agenda_item_id",
+            "reference": {
+              "resource": "agenda_item",
+              "fields": "id"
+            }
+          }
+        ]
+      },
+      "sources": [
+        {
+          "title": "Deutscher Bundestag: Open Data (Plenarprotokolle, MdB-Stammdaten, Namentliche Abstimmungen)",
+          "path": "https://www.bundestag.de/services/opendata"
+        }
+      ],
+      "licenses": [
+        {
+          "name": "bundestag-nutzungsbedingungen",
+          "title": "Nutzungsbedingungen des Deutschen Bundestages; Plenarprotokolle sind amtliche Werke (§ 5 UrhG)",
+          "path": "https://www.bundestag.de/nutzungsbedingungen"
+        }
+      ],
+      "bytes": 19596
+    },
+    {
+      "name": "aw_profile",
+      "path": "aw_profile.csv.gz",
+      "format": "csv",
+      "mediatype": "text/csv",
+      "compression": "gz",
+      "encoding": "utf-8",
+      "schema": {
+        "fields": [
+          {
+            "name": "aw_politician_id",
+            "type": "integer",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "person_id",
+            "type": "string",
+            "description": "→ person.id"
+          },
+          {
+            "name": "url",
+            "type": "string",
+            "description": "the public profile page",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "questions",
+            "type": "integer",
+            "description": "citizen questions on the profile, all periods (statistic_questions)"
+          },
+          {
+            "name": "questions_answered",
+            "type": "integer"
+          },
+          {
+            "name": "source_url",
+            "type": "string",
+            "description": "where the row was read from (document, file or API record)",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "source_document_id",
+            "type": "string",
+            "description": "citable source pointer, e.g. \"BT-PlPr. 21/94\", \"BT-Drs. 21/7300\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "retrieved_at",
+            "type": "string",
+            "description": "when the source was downloaded (ISO 8601, UTC)",
+            "constraints": {
+              "required": true
+            }
+          }
+        ],
+        "primaryKey": [
+          "aw_politician_id"
+        ],
+        "missingValues": [
+          ""
+        ],
+        "foreignKeys": [
+          {
+            "fields": "person_id",
+            "reference": {
+              "resource": "person",
+              "fields": "id"
+            }
+          }
+        ]
+      },
+      "sources": [
+        {
+          "title": "abgeordnetenwatch.de API v2",
+          "path": "https://www.abgeordnetenwatch.de/api"
+        }
+      ],
+      "licenses": [
+        {
+          "name": "CC0-1.0",
+          "title": "CC0 1.0 Universal",
+          "path": "https://creativecommons.org/publicdomain/zero/1.0/"
+        }
+      ],
+      "bytes": 16946
+    },
+    {
+      "name": "constituency",
+      "path": "constituency.csv.gz",
+      "format": "csv",
+      "mediatype": "text/csv",
+      "compression": "gz",
+      "encoding": "utf-8",
+      "schema": {
+        "fields": [
+          {
+            "name": "id",
+            "type": "string",
+            "description": "\"<election>/<number>\", e.g. \"btw25/114\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "election",
+            "type": "string",
+            "description": "\"btw25\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "number",
+            "type": "integer",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "name",
+            "type": "string",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "state",
+            "type": "string",
+            "description": "Land abbreviation, as mandate.state",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "seat_party",
+            "type": "string",
+            "description": "party whose candidate got the seat; NULL: no Zweitstimmendeckung"
+          },
+          {
+            "name": "electorate",
+            "type": "integer"
+          },
+          {
+            "name": "voters",
+            "type": "integer"
+          },
+          {
+            "name": "source_url",
+            "type": "string",
+            "description": "where the row was read from (document, file or API record)",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "source_document_id",
+            "type": "string",
+            "description": "citable source pointer, e.g. \"BT-PlPr. 21/94\", \"BT-Drs. 21/7300\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "retrieved_at",
+            "type": "string",
+            "description": "when the source was downloaded (ISO 8601, UTC)",
+            "constraints": {
+              "required": true
+            }
+          }
+        ],
+        "primaryKey": [
+          "id"
+        ],
+        "missingValues": [
+          ""
+        ]
+      },
+      "sources": [
+        {
+          "title": "Die Bundeswahlleiterin: Open Data Bundestagswahl 2025",
+          "path": "https://www.bundeswahlleiterin.de/bundestagswahlen/2025/ergebnisse/opendata.html"
+        }
+      ],
+      "licenses": [
+        {
+          "name": "dl-de-by-2.0",
+          "title": "Datenlizenz Deutschland – Namensnennung – Version 2.0",
+          "path": "https://www.govdata.de/dl-de/by-2-0"
+        }
+      ],
+      "bytes": 7761
+    },
+    {
+      "name": "constituency_municipality",
+      "path": "constituency_municipality.csv.gz",
+      "format": "csv",
+      "mediatype": "text/csv",
+      "compression": "gz",
+      "encoding": "utf-8",
+      "schema": {
+        "fields": [
+          {
+            "name": "id",
+            "type": "string",
+            "description": "\"<election>/<ags>/<constituency number>\", e.g. \"btw25/02000000/18\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "election",
+            "type": "string",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "ags",
+            "type": "string",
+            "description": "Amtlicher Gemeindeschlüssel, 8 digits",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "name",
+            "type": "string",
+            "description": "Gemeindename as in the file, e.g. \"Flensburg, Stadt\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "district",
+            "type": "string",
+            "description": "Kreisname, tells the many \"Neustadt\" apart",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "state",
+            "type": "string",
+            "description": "Land abbreviation, as constituency.state",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "constituency_number",
+            "type": "integer",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "split",
+            "type": "integer",
+            "description": "1: the Gemeinde is split across Wahlkreise, one row per Wahlkreis",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "source_url",
+            "type": "string",
+            "description": "where the row was read from (document, file or API record)",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "source_document_id",
+            "type": "string",
+            "description": "citable source pointer, e.g. \"BT-PlPr. 21/94\", \"BT-Drs. 21/7300\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "retrieved_at",
+            "type": "string",
+            "description": "when the source was downloaded (ISO 8601, UTC)",
+            "constraints": {
+              "required": true
+            }
+          }
+        ],
+        "primaryKey": [
+          "id"
+        ],
+        "missingValues": [
+          ""
+        ]
+      },
+      "sources": [
+        {
+          "title": "Die Bundeswahlleiterin: Open Data Bundestagswahl 2025",
+          "path": "https://www.bundeswahlleiterin.de/bundestagswahlen/2025/ergebnisse/opendata.html"
+        }
+      ],
+      "licenses": [
+        {
+          "name": "dl-de-by-2.0",
+          "title": "Datenlizenz Deutschland – Namensnennung – Version 2.0",
+          "path": "https://www.govdata.de/dl-de/by-2-0"
+        }
+      ],
+      "bytes": 153337
+    },
+    {
+      "name": "constituency_result",
+      "path": "constituency_result.csv.gz",
+      "format": "csv",
+      "mediatype": "text/csv",
+      "compression": "gz",
+      "encoding": "utf-8",
+      "schema": {
+        "fields": [
+          {
+            "name": "id",
+            "type": "string",
+            "description": "\"<election>/<number>/<group order>/<vote>\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "election",
+            "type": "string",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "constituency_number",
+            "type": "integer",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "group_kind",
+            "type": "string",
+            "description": "party | individual (Einzelbewerber)",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "party",
+            "type": "string",
+            "description": "Gruppenname, e.g. \"SPD\", \"CSU\", \"GRÜNE\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "vote",
+            "type": "integer",
+            "description": "1 = Erststimme, 2 = Zweitstimme",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "votes",
+            "type": "integer",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "percent",
+            "type": "number"
+          },
+          {
+            "name": "source_url",
+            "type": "string",
+            "description": "where the row was read from (document, file or API record)",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "source_document_id",
+            "type": "string",
+            "description": "citable source pointer, e.g. \"BT-PlPr. 21/94\", \"BT-Drs. 21/7300\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "retrieved_at",
+            "type": "string",
+            "description": "when the source was downloaded (ISO 8601, UTC)",
+            "constraints": {
+              "required": true
+            }
+          }
+        ],
+        "primaryKey": [
+          "id"
+        ],
+        "missingValues": [
+          ""
+        ]
+      },
+      "sources": [
+        {
+          "title": "Die Bundeswahlleiterin: Open Data Bundestagswahl 2025",
+          "path": "https://www.bundeswahlleiterin.de/bundestagswahlen/2025/ergebnisse/opendata.html"
+        }
+      ],
+      "licenses": [
+        {
+          "name": "dl-de-by-2.0",
+          "title": "Datenlizenz Deutschland – Namensnennung – Version 2.0",
+          "path": "https://www.govdata.de/dl-de/by-2-0"
+        }
+      ],
+      "bytes": 113508
+    },
+    {
+      "name": "decision",
+      "path": "decision.csv.gz",
+      "format": "csv",
+      "mediatype": "text/csv",
+      "compression": "gz",
+      "encoding": "utf-8",
+      "schema": {
+        "fields": [
+          {
+            "name": "id",
+            "type": "string",
+            "description": "roll-call: roll_call_vote.id (\"21/90/7\", else \"21/90/n<k>\"); show of hands: \"<sitting_id>/h<n>\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "sitting_id",
+            "type": "string",
+            "description": "→ sitting.id",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "agenda_item_id",
+            "type": "string",
+            "description": "→ agenda_item.id"
+          },
+          {
+            "name": "n",
+            "type": "integer",
+            "description": "running number per kind within the sitting",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "position",
+            "type": "integer",
+            "description": "order among all decisions of the sitting",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "kind",
+            "type": "string",
+            "description": "namentlich | handzeichen",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "subject",
+            "type": "string",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "drucksache_number",
+            "type": "string"
+          },
+          {
+            "name": "result",
+            "type": "string",
+            "description": "angenommen | abgelehnt | NULL (not found)"
+          },
+          {
+            "name": "roll_call_vote_id",
+            "type": "string",
+            "description": "→ roll_call_vote.id"
+          },
+          {
+            "name": "text",
+            "type": "string",
+            "description": "the chair's words the decision was read from",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "source_url",
+            "type": "string",
+            "description": "where the row was read from (document, file or API record)",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "source_document_id",
+            "type": "string",
+            "description": "citable source pointer, e.g. \"BT-PlPr. 21/94\", \"BT-Drs. 21/7300\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "retrieved_at",
+            "type": "string",
+            "description": "when the source was downloaded (ISO 8601, UTC)",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "sub_item_id",
+            "type": "string",
+            "description": "→ agenda_sub_item.id; the block item the chair had called up last, else NULL"
+          },
+          {
+            "name": "vorgang_id",
+            "type": "string",
+            "description": "→ vorgang.id; the decision's only Vorgang in decision_vorgang, else NULL"
+          },
+          {
+            "name": "dip_position_id",
+            "type": "string",
+            "description": "the DIP Vorgangsposition (BT, this sitting's Plenarprotokoll) whose beschlussfassung names the decision's Drucksache, when exactly one does"
+          },
+          {
+            "name": "dip_result",
+            "type": "string",
+            "description": "that beschlussfassung's beschlusstenor, \"Annahme der Vorlage\""
+          }
+        ],
+        "primaryKey": [
+          "id"
+        ],
+        "missingValues": [
+          ""
+        ],
+        "foreignKeys": [
+          {
+            "fields": "agenda_item_id",
+            "reference": {
+              "resource": "agenda_item",
+              "fields": "id"
+            }
+          },
+          {
+            "fields": "roll_call_vote_id",
+            "reference": {
+              "resource": "roll_call_vote",
+              "fields": "id"
+            }
+          },
+          {
+            "fields": "sitting_id",
+            "reference": {
+              "resource": "sitting",
+              "fields": "id"
+            }
+          },
+          {
+            "fields": "sub_item_id",
+            "reference": {
+              "resource": "agenda_sub_item",
+              "fields": "id"
+            }
+          },
+          {
+            "fields": "vorgang_id",
+            "reference": {
+              "resource": "vorgang",
+              "fields": "id"
+            }
+          }
+        ]
+      },
+      "sources": [
+        {
+          "title": "Deutscher Bundestag: Open Data (Plenarprotokolle, MdB-Stammdaten, Namentliche Abstimmungen)",
+          "path": "https://www.bundestag.de/services/opendata"
+        }
+      ],
+      "licenses": [
+        {
+          "name": "bundestag-nutzungsbedingungen",
+          "title": "Nutzungsbedingungen des Deutschen Bundestages; Plenarprotokolle sind amtliche Werke (§ 5 UrhG)",
+          "path": "https://www.bundestag.de/nutzungsbedingungen"
+        }
+      ],
+      "bytes": 118982
+    },
+    {
+      "name": "decision_fraction",
+      "path": "decision_fraction.csv.gz",
+      "format": "csv",
+      "mediatype": "text/csv",
+      "compression": "gz",
+      "encoding": "utf-8",
+      "schema": {
+        "fields": [
+          {
+            "name": "decision_id",
+            "type": "string",
+            "description": "→ decision.id",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "fraction",
+            "type": "string",
+            "description": "normalised, as membership.name",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "position",
+            "type": "string",
+            "description": "yes | no | abstain",
+            "constraints": {
+              "required": true
+            }
+          }
+        ],
+        "primaryKey": [
+          "decision_id",
+          "fraction"
+        ],
+        "missingValues": [
+          ""
+        ],
+        "foreignKeys": [
+          {
+            "fields": "decision_id",
+            "reference": {
+              "resource": "decision",
+              "fields": "id"
+            }
+          }
+        ]
+      },
+      "sources": [
+        {
+          "title": "Deutscher Bundestag: Open Data (Plenarprotokolle, MdB-Stammdaten, Namentliche Abstimmungen)",
+          "path": "https://www.bundestag.de/services/opendata"
+        }
+      ],
+      "licenses": [
+        {
+          "name": "bundestag-nutzungsbedingungen",
+          "title": "Nutzungsbedingungen des Deutschen Bundestages; Plenarprotokolle sind amtliche Werke (§ 5 UrhG)",
+          "path": "https://www.bundestag.de/nutzungsbedingungen"
+        }
+      ],
+      "bytes": 18468
+    },
+    {
+      "name": "decision_vorgang",
+      "path": "decision_vorgang.csv.gz",
+      "format": "csv",
+      "mediatype": "text/csv",
+      "compression": "gz",
+      "encoding": "utf-8",
+      "schema": {
+        "fields": [
+          {
+            "name": "decision_id",
+            "type": "string",
+            "description": "→ decision.id",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "vorgang_id",
+            "type": "string",
+            "description": "→ vorgang.id",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "via",
+            "type": "string",
+            "description": "roll_call: the roll call's Vorgang (DIP's Namentliche Abstimmung) | dip_step: DIP's step in this sitting deciding the Drucksache | drucksache: a Vorgang of the decision's or roll call's Drucksache | agenda_item: the single Vorgang of its (sub-)item's Vorlagen, for a decision whose Drucksache the chair does not name",
+            "constraints": {
+              "required": true
+            }
+          }
+        ],
+        "primaryKey": [
+          "decision_id",
+          "vorgang_id"
+        ],
+        "missingValues": [
+          ""
+        ],
+        "foreignKeys": [
+          {
+            "fields": "decision_id",
+            "reference": {
+              "resource": "decision",
+              "fields": "id"
+            }
+          },
+          {
+            "fields": "vorgang_id",
+            "reference": {
+              "resource": "vorgang",
+              "fields": "id"
+            }
+          }
+        ]
+      },
+      "sources": [
+        {
+          "title": "Deutscher Bundestag: Open Data (Plenarprotokolle, MdB-Stammdaten, Namentliche Abstimmungen)",
+          "path": "https://www.bundestag.de/services/opendata"
+        },
+        {
+          "title": "Deutscher Bundestag/Bundesrat: DIP (Dokumentations- und Informationssystem für Parlamentsmaterialien)",
+          "path": "https://dip.bundestag.de"
+        }
+      ],
+      "licenses": [
+        {
+          "name": "bundestag-nutzungsbedingungen",
+          "title": "Nutzungsbedingungen des Deutschen Bundestages; Plenarprotokolle sind amtliche Werke (§ 5 UrhG)",
+          "path": "https://www.bundestag.de/nutzungsbedingungen"
+        },
+        {
+          "name": "dip-nutzungsbedingungen",
+          "title": "Nutzungsbedingungen für das DIP (27.02.2023)",
+          "path": "https://github.com/jan-c-buchkremer/bundestag-data-foundation/blob/main/docs/nutzungsbedingungen_dip.pdf"
+        }
+      ],
+      "bytes": 7767
+    },
+    {
+      "name": "drucksache",
+      "path": "drucksache.csv.gz",
+      "format": "csv",
+      "mediatype": "text/csv",
+      "compression": "gz",
+      "encoding": "utf-8",
+      "schema": {
+        "fields": [
+          {
+            "name": "id",
+            "type": "string",
+            "description": "DIP id",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "number",
+            "type": "string",
+            "description": "\"21/7300\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "wahlperiode",
+            "type": "integer",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "type",
+            "type": "string",
+            "description": "drucksachetyp"
+          },
+          {
+            "name": "title",
+            "type": "string",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "date",
+            "type": "string",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "pdf_url",
+            "type": "string"
+          },
+          {
+            "name": "publisher",
+            "type": "string",
+            "description": "herausgeber: BT | BR"
+          },
+          {
+            "name": "originators",
+            "type": "string",
+            "description": "JSON array of urheber titles",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "author_count",
+            "type": "integer"
+          },
+          {
+            "name": "source_url",
+            "type": "string",
+            "description": "where the row was read from (document, file or API record)",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "source_document_id",
+            "type": "string",
+            "description": "citable source pointer, e.g. \"BT-PlPr. 21/94\", \"BT-Drs. 21/7300\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "retrieved_at",
+            "type": "string",
+            "description": "when the source was downloaded (ISO 8601, UTC)",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "originator_groups",
+            "type": "string",
+            "description": "derived: JSON array of the fractions and \"Bundesregierung\" among the originators (a ministry counts as the Bundesregierung); [] for none"
+          }
+        ],
+        "primaryKey": [
+          "id"
+        ],
+        "missingValues": [
+          ""
+        ]
+      },
+      "sources": [
+        {
+          "title": "Deutscher Bundestag/Bundesrat: DIP (Dokumentations- und Informationssystem für Parlamentsmaterialien)",
+          "path": "https://dip.bundestag.de"
+        }
+      ],
+      "licenses": [
+        {
+          "name": "dip-nutzungsbedingungen",
+          "title": "Nutzungsbedingungen für das DIP (27.02.2023)",
+          "path": "https://github.com/jan-c-buchkremer/bundestag-data-foundation/blob/main/docs/nutzungsbedingungen_dip.pdf"
+        }
+      ],
+      "bytes": 535560
+    },
+    {
+      "name": "drucksache_author",
+      "path": "drucksache_author.csv.gz",
+      "format": "csv",
+      "mediatype": "text/csv",
+      "compression": "gz",
+      "encoding": "utf-8",
+      "schema": {
+        "fields": [
+          {
+            "name": "id",
+            "type": "string",
+            "description": "\"<drucksache_id>/<dip_person_id>\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "drucksache_id",
+            "type": "string",
+            "description": "→ drucksache.id",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "dip_person_id",
+            "type": "string",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "person_id",
+            "type": "string",
+            "description": "→ person.id"
+          },
+          {
+            "name": "name",
+            "type": "string",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "activity_type",
+            "type": "string",
+            "description": "aktivitaetsart, e.g. \"Antrag\", \"Kleine Anfrage\""
+          },
+          {
+            "name": "source_url",
+            "type": "string",
+            "description": "where the row was read from (document, file or API record)",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "source_document_id",
+            "type": "string",
+            "description": "citable source pointer, e.g. \"BT-PlPr. 21/94\", \"BT-Drs. 21/7300\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "retrieved_at",
+            "type": "string",
+            "description": "when the source was downloaded (ISO 8601, UTC)",
+            "constraints": {
+              "required": true
+            }
+          }
+        ],
+        "primaryKey": [
+          "id"
+        ],
+        "missingValues": [
+          ""
+        ],
+        "foreignKeys": [
+          {
+            "fields": "drucksache_id",
+            "reference": {
+              "resource": "drucksache",
+              "fields": "id"
+            }
+          },
+          {
+            "fields": "person_id",
+            "reference": {
+              "resource": "person",
+              "fields": "id"
+            }
+          }
+        ]
+      },
+      "sources": [
+        {
+          "title": "Deutscher Bundestag/Bundesrat: DIP (Dokumentations- und Informationssystem für Parlamentsmaterialien)",
+          "path": "https://dip.bundestag.de"
+        }
+      ],
+      "licenses": [
+        {
+          "name": "dip-nutzungsbedingungen",
+          "title": "Nutzungsbedingungen für das DIP (27.02.2023)",
+          "path": "https://github.com/jan-c-buchkremer/bundestag-data-foundation/blob/main/docs/nutzungsbedingungen_dip.pdf"
+        }
+      ],
+      "bytes": 1251660
+    },
+    {
+      "name": "election_candidacy",
+      "path": "election_candidacy.csv.gz",
+      "format": "csv",
+      "mediatype": "text/csv",
+      "compression": "gz",
+      "encoding": "utf-8",
+      "schema": {
+        "fields": [
+          {
+            "name": "id",
+            "type": "string",
+            "description": "\"<election>/<row in the Gewählte file>\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "election",
+            "type": "string",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "person_id",
+            "type": "string",
+            "description": "→ person.id"
+          },
+          {
+            "name": "last_name",
+            "type": "string",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "first_names",
+            "type": "string",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "birth_year",
+            "type": "integer"
+          },
+          {
+            "name": "party",
+            "type": "string",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "elected_via",
+            "type": "string",
+            "description": "constituency | list",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "constituency_number",
+            "type": "integer",
+            "description": "won there, or stood there (list members)"
+          },
+          {
+            "name": "first_vote_percent",
+            "type": "number",
+            "description": "constituency winners only; others: constituency_result"
+          },
+          {
+            "name": "list_state",
+            "type": "string"
+          },
+          {
+            "name": "list_position",
+            "type": "integer"
+          },
+          {
+            "name": "occupation",
+            "type": "string"
+          },
+          {
+            "name": "source_url",
+            "type": "string",
+            "description": "where the row was read from (document, file or API record)",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "source_document_id",
+            "type": "string",
+            "description": "citable source pointer, e.g. \"BT-PlPr. 21/94\", \"BT-Drs. 21/7300\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "retrieved_at",
+            "type": "string",
+            "description": "when the source was downloaded (ISO 8601, UTC)",
+            "constraints": {
+              "required": true
+            }
+          }
+        ],
+        "primaryKey": [
+          "id"
+        ],
+        "missingValues": [
+          ""
+        ],
+        "foreignKeys": [
+          {
+            "fields": "person_id",
+            "reference": {
+              "resource": "person",
+              "fields": "id"
+            }
+          }
+        ]
+      },
+      "sources": [
+        {
+          "title": "Die Bundeswahlleiterin: Open Data Bundestagswahl 2025",
+          "path": "https://www.bundeswahlleiterin.de/bundestagswahlen/2025/ergebnisse/opendata.html"
+        }
+      ],
+      "licenses": [
+        {
+          "name": "dl-de-by-2.0",
+          "title": "Datenlizenz Deutschland – Namensnennung – Version 2.0",
+          "path": "https://www.govdata.de/dl-de/by-2-0"
+        }
+      ],
+      "bytes": 22328
+    },
+    {
+      "name": "government_role",
+      "path": "government_role.csv.gz",
+      "format": "csv",
+      "mediatype": "text/csv",
+      "compression": "gz",
+      "encoding": "utf-8",
+      "schema": {
+        "fields": [
+          {
+            "name": "id",
+            "type": "string",
+            "description": "wikidata: statement id of the \"position held\" (P39) claim; else \"<source_kind>:<person_id>:<kind>:<department key>\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "person_id",
+            "type": "string",
+            "description": "→ person.id"
+          },
+          {
+            "name": "wikidata_qid",
+            "type": "string",
+            "description": "the holder's QID, when known"
+          },
+          {
+            "name": "name",
+            "type": "string",
+            "description": "the holder's Wikidata label, else first + last name of the person",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "office",
+            "type": "string",
+            "description": "Wikidata's position label, else a generic one, \"Bundesminister der Finanzen\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "department",
+            "type": "string",
+            "description": "ministry or office, \"Bundesministerium der Finanzen\""
+          },
+          {
+            "name": "kind",
+            "type": "string",
+            "description": "kanzler | minister | staatsminister | parl_sts | beamteter_sts",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "from_date",
+            "type": "string",
+            "description": "wikidata, stammdaten: start of office; protocol: first sitting that prints the role for the person (evidence, not the appointment)",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "to_date",
+            "type": "string",
+            "description": "wikidata, stammdaten: end of office (or inferred, docs/decisions.md); protocol: last sitting that prints the role (evidence, not the end)"
+          },
+          {
+            "name": "source_url",
+            "type": "string",
+            "description": "where the row was read from (document, file or API record)",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "source_document_id",
+            "type": "string",
+            "description": "citable source pointer, e.g. \"BT-PlPr. 21/94\", \"BT-Drs. 21/7300\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "retrieved_at",
+            "type": "string",
+            "description": "when the source was downloaded (ISO 8601, UTC)",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "source_kind",
+            "type": "string",
+            "description": "wikidata | stammdaten | protocol: source of dates + provenance",
+            "constraints": {
+              "required": true
+            }
+          }
+        ],
+        "primaryKey": [
+          "id"
+        ],
+        "missingValues": [
+          ""
+        ],
+        "foreignKeys": [
+          {
+            "fields": "person_id",
+            "reference": {
+              "resource": "person",
+              "fields": "id"
+            }
+          }
+        ]
+      },
+      "sources": [
+        {
+          "title": "Wikidata",
+          "path": "https://www.wikidata.org"
+        },
+        {
+          "title": "Deutscher Bundestag: Open Data (Plenarprotokolle, MdB-Stammdaten, Namentliche Abstimmungen)",
+          "path": "https://www.bundestag.de/services/opendata"
+        }
+      ],
+      "licenses": [
+        {
+          "name": "CC0-1.0",
+          "title": "CC0 1.0 Universal",
+          "path": "https://creativecommons.org/publicdomain/zero/1.0/"
+        },
+        {
+          "name": "bundestag-nutzungsbedingungen",
+          "title": "Nutzungsbedingungen des Deutschen Bundestages; Plenarprotokolle sind amtliche Werke (§ 5 UrhG)",
+          "path": "https://www.bundestag.de/nutzungsbedingungen"
+        }
+      ],
+      "bytes": 3519
+    },
+    {
+      "name": "individual_vote",
+      "path": "individual_vote.csv.gz",
+      "format": "csv",
+      "mediatype": "text/csv",
+      "compression": "gz",
+      "encoding": "utf-8",
+      "schema": {
+        "fields": [
+          {
+            "name": "id",
+            "type": "string",
+            "description": "\"<vote_id>/<row>\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "vote_id",
+            "type": "string",
+            "description": "→ roll_call_vote.id",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "person_id",
+            "type": "string",
+            "description": "→ person.id"
+          },
+          {
+            "name": "last_name",
+            "type": "string",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "first_name",
+            "type": "string",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "fraction",
+            "type": "string",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "vote",
+            "type": "string",
+            "description": "yes | no | abstain | invalid | absent",
+            "constraints": {
+              "required": true
+            }
+          }
+        ],
+        "primaryKey": [
+          "id"
+        ],
+        "missingValues": [
+          ""
+        ],
+        "foreignKeys": [
+          {
+            "fields": "person_id",
+            "reference": {
+              "resource": "person",
+              "fields": "id"
+            }
+          },
+          {
+            "fields": "vote_id",
+            "reference": {
+              "resource": "roll_call_vote",
+              "fields": "id"
+            }
+          }
+        ]
+      },
+      "sources": [
+        {
+          "title": "Deutscher Bundestag: Open Data (Plenarprotokolle, MdB-Stammdaten, Namentliche Abstimmungen)",
+          "path": "https://www.bundestag.de/services/opendata"
+        }
+      ],
+      "licenses": [
+        {
+          "name": "bundestag-nutzungsbedingungen",
+          "title": "Nutzungsbedingungen des Deutschen Bundestages; Plenarprotokolle sind amtliche Werke (§ 5 UrhG)",
+          "path": "https://www.bundestag.de/nutzungsbedingungen"
+        }
+      ],
+      "bytes": 633620
+    },
+    {
+      "name": "interjection",
+      "path": "interjection.csv.gz",
+      "format": "csv",
+      "mediatype": "text/csv",
+      "compression": "gz",
+      "encoding": "utf-8",
+      "schema": {
+        "fields": [
+          {
+            "name": "id",
+            "type": "string",
+            "description": "\"<speech_id>/<paragraph>/<part>/<actor>\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "speech_id",
+            "type": "string",
+            "description": "→ speech.id",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "paragraph",
+            "type": "integer",
+            "description": "speech_paragraph.position of the comment",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "part",
+            "type": "integer",
+            "description": "order of the part within the comment",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "kind",
+            "type": "string",
+            "description": "beifall | zuruf | gegenruf | lachen | heiterkeit | widerspruch | zustimmung | unruhe | other",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "actor",
+            "type": "string",
+            "description": "fraction | members (some of the fraction) | person | house | unknown",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "fraction",
+            "type": "string"
+          },
+          {
+            "name": "person_id",
+            "type": "string",
+            "description": "→ person.id"
+          },
+          {
+            "name": "name",
+            "type": "string",
+            "description": "printed name of a person"
+          },
+          {
+            "name": "text",
+            "type": "string",
+            "description": "the words of a Zuruf / Gegenruf, when printed"
+          },
+          {
+            "name": "to_person_id",
+            "type": "string",
+            "description": "→ person.id; addressee named in the comment (\"an den Abg. …\");"
+          },
+          {
+            "name": "to_name",
+            "type": "string",
+            "description": "NULL: aimed at the speaker of speech_id"
+          }
+        ],
+        "primaryKey": [
+          "id"
+        ],
+        "missingValues": [
+          ""
+        ],
+        "foreignKeys": [
+          {
+            "fields": "person_id",
+            "reference": {
+              "resource": "person",
+              "fields": "id"
+            }
+          },
+          {
+            "fields": "speech_id",
+            "reference": {
+              "resource": "speech",
+              "fields": "id"
+            }
+          },
+          {
+            "fields": "to_person_id",
+            "reference": {
+              "resource": "person",
+              "fields": "id"
+            }
+          }
+        ]
+      },
+      "sources": [
+        {
+          "title": "Deutscher Bundestag: Open Data (Plenarprotokolle, MdB-Stammdaten, Namentliche Abstimmungen)",
+          "path": "https://www.bundestag.de/services/opendata"
+        }
+      ],
+      "licenses": [
+        {
+          "name": "bundestag-nutzungsbedingungen",
+          "title": "Nutzungsbedingungen des Deutschen Bundestages; Plenarprotokolle sind amtliche Werke (§ 5 UrhG)",
+          "path": "https://www.bundestag.de/nutzungsbedingungen"
+        }
+      ],
+      "bytes": 2227155
+    },
+    {
+      "name": "mandate",
+      "path": "mandate.csv.gz",
+      "format": "csv",
+      "mediatype": "text/csv",
+      "compression": "gz",
+      "encoding": "utf-8",
+      "schema": {
+        "fields": [
+          {
+            "name": "id",
+            "type": "string",
+            "description": "\"<person_id>/<wp>\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "person_id",
+            "type": "string",
+            "description": "→ person.id",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "wahlperiode",
+            "type": "integer",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "from_date",
+            "type": "string",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "to_date",
+            "type": "string"
+          },
+          {
+            "name": "mandate_type",
+            "type": "string",
+            "description": "Direktwahl | Landesliste"
+          },
+          {
+            "name": "constituency_number",
+            "type": "integer"
+          },
+          {
+            "name": "constituency_name",
+            "type": "string"
+          },
+          {
+            "name": "state",
+            "type": "string"
+          },
+          {
+            "name": "source_url",
+            "type": "string",
+            "description": "where the row was read from (document, file or API record)",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "source_document_id",
+            "type": "string",
+            "description": "citable source pointer, e.g. \"BT-PlPr. 21/94\", \"BT-Drs. 21/7300\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "retrieved_at",
+            "type": "string",
+            "description": "when the source was downloaded (ISO 8601, UTC)",
+            "constraints": {
+              "required": true
+            }
+          }
+        ],
+        "primaryKey": [
+          "id"
+        ],
+        "missingValues": [
+          ""
+        ],
+        "foreignKeys": [
+          {
+            "fields": "person_id",
+            "reference": {
+              "resource": "person",
+              "fields": "id"
+            }
+          }
+        ]
+      },
+      "sources": [
+        {
+          "title": "Deutscher Bundestag: Open Data (Plenarprotokolle, MdB-Stammdaten, Namentliche Abstimmungen)",
+          "path": "https://www.bundestag.de/services/opendata"
+        }
+      ],
+      "licenses": [
+        {
+          "name": "bundestag-nutzungsbedingungen",
+          "title": "Nutzungsbedingungen des Deutschen Bundestages; Plenarprotokolle sind amtliche Werke (§ 5 UrhG)",
+          "path": "https://www.bundestag.de/nutzungsbedingungen"
+        }
+      ],
+      "bytes": 152388
+    },
+    {
+      "name": "mandate_successor",
+      "path": "mandate_successor.csv.gz",
+      "format": "csv",
+      "mediatype": "text/csv",
+      "compression": "gz",
+      "encoding": "utf-8",
+      "schema": {
+        "fields": [
+          {
+            "name": "id",
+            "type": "string",
+            "description": "\"<election>/<Bek.-Nr.>\", the list's running number",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "election",
+            "type": "string",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "predecessor_person_id",
+            "type": "string",
+            "description": "→ person.id"
+          },
+          {
+            "name": "predecessor_name",
+            "type": "string",
+            "description": "as printed, \"Heveling, Ansgar Guido Karl Johannes\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "predecessor_party",
+            "type": "string",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "predecessor_state",
+            "type": "string",
+            "description": "Land code as in mandate.state (\"NW\")",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "predecessor_seat",
+            "type": "string",
+            "description": "\"LL 003\" (Landesliste, position) | \"WK 044\" (Wahlkreis)",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "reason",
+            "type": "string",
+            "description": "Ausscheidungsgrund: Ablehnung, Mandatsverzicht, Tod, …",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "person_id",
+            "type": "string",
+            "description": "→ person.id"
+          },
+          {
+            "name": "name",
+            "type": "string",
+            "description": "the successor as printed, \"Breilmann, Michael\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "birth_year",
+            "type": "integer",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "party",
+            "type": "string",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "state",
+            "type": "string",
+            "description": "the Land whose Landesliste the seat comes from",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "seat",
+            "type": "string",
+            "description": "the successor's candidacy, \"LL 018\" | \"WK 282\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "from_date",
+            "type": "string",
+            "description": "Beginn der Mitgliedschaft",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "source_url",
+            "type": "string",
+            "description": "where the row was read from (document, file or API record)",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "source_document_id",
+            "type": "string",
+            "description": "citable source pointer, e.g. \"BT-PlPr. 21/94\", \"BT-Drs. 21/7300\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "retrieved_at",
+            "type": "string",
+            "description": "when the source was downloaded (ISO 8601, UTC)",
+            "constraints": {
+              "required": true
+            }
+          }
+        ],
+        "primaryKey": [
+          "id"
+        ],
+        "missingValues": [
+          ""
+        ],
+        "foreignKeys": [
+          {
+            "fields": "person_id",
+            "reference": {
+              "resource": "person",
+              "fields": "id"
+            }
+          },
+          {
+            "fields": "predecessor_person_id",
+            "reference": {
+              "resource": "person",
+              "fields": "id"
+            }
+          }
+        ]
+      },
+      "sources": [
+        {
+          "title": "Die Bundeswahlleiterin: Veränderungen im 21. Deutschen Bundestag (Mandatsnachfolger)",
+          "path": "https://www.bundeswahlleiterin.de/bundestagswahlen/2025/gewaehlte.html"
+        }
+      ],
+      "licenses": [
+        {
+          "name": "bundeswahlleiterin-impressum",
+          "title": "Impressum der Bundeswahlleiterin: Vervielfältigung und Verbreitung mit Quellennachweis gestattet",
+          "path": "https://www.bundeswahlleiterin.de/info/impressum.html"
+        }
+      ],
+      "bytes": 879
+    },
+    {
+      "name": "membership",
+      "path": "membership.csv.gz",
+      "format": "csv",
+      "mediatype": "text/csv",
+      "compression": "gz",
+      "encoding": "utf-8",
+      "schema": {
+        "fields": [
+          {
+            "name": "id",
+            "type": "string",
+            "description": "\"<person_id>/<wp>/<n>\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "person_id",
+            "type": "string",
+            "description": "→ person.id",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "wahlperiode",
+            "type": "integer",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "kind",
+            "type": "string",
+            "description": "fraction | committee | other",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "name",
+            "type": "string",
+            "description": "normalised fraction, or institution name",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "role",
+            "type": "string",
+            "description": "FKT_LANG, e.g. \"Vorsitzende\""
+          },
+          {
+            "name": "from_date",
+            "type": "string"
+          },
+          {
+            "name": "to_date",
+            "type": "string"
+          },
+          {
+            "name": "source_url",
+            "type": "string",
+            "description": "where the row was read from (document, file or API record)",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "source_document_id",
+            "type": "string",
+            "description": "citable source pointer, e.g. \"BT-PlPr. 21/94\", \"BT-Drs. 21/7300\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "retrieved_at",
+            "type": "string",
+            "description": "when the source was downloaded (ISO 8601, UTC)",
+            "constraints": {
+              "required": true
+            }
+          }
+        ],
+        "primaryKey": [
+          "id"
+        ],
+        "missingValues": [
+          ""
+        ],
+        "foreignKeys": [
+          {
+            "fields": "person_id",
+            "reference": {
+              "resource": "person",
+              "fields": "id"
+            }
+          }
+        ]
+      },
+      "sources": [
+        {
+          "title": "Deutscher Bundestag: Open Data (Plenarprotokolle, MdB-Stammdaten, Namentliche Abstimmungen)",
+          "path": "https://www.bundestag.de/services/opendata"
+        }
+      ],
+      "licenses": [
+        {
+          "name": "bundestag-nutzungsbedingungen",
+          "title": "Nutzungsbedingungen des Deutschen Bundestages; Plenarprotokolle sind amtliche Werke (§ 5 UrhG)",
+          "path": "https://www.bundestag.de/nutzungsbedingungen"
+        }
+      ],
+      "bytes": 191154
+    },
+    {
+      "name": "party_fraction",
+      "path": "party_fraction.csv.gz",
+      "format": "csv",
+      "mediatype": "text/csv",
+      "compression": "gz",
+      "encoding": "utf-8",
+      "schema": {
+        "fields": [
+          {
+            "name": "party",
+            "type": "string",
+            "description": "as person.party or the Bundeswahlleiterin print it: \"CSU\", \"GRÜNE\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "fraction",
+            "type": "string",
+            "description": "the fraction its members sit in: \"CDU/CSU\", \"BÜNDNIS 90/DIE GRÜNEN\"",
+            "constraints": {
+              "required": true
+            }
+          }
+        ],
+        "primaryKey": [
+          "party"
+        ],
+        "missingValues": [
+          ""
+        ]
+      },
+      "sources": [
+        {
+          "title": "Deutscher Bundestag: Open Data (Plenarprotokolle, MdB-Stammdaten, Namentliche Abstimmungen)",
+          "path": "https://www.bundestag.de/services/opendata"
+        },
+        {
+          "title": "Die Bundeswahlleiterin: Open Data Bundestagswahl 2025",
+          "path": "https://www.bundeswahlleiterin.de/bundestagswahlen/2025/ergebnisse/opendata.html"
+        }
+      ],
+      "licenses": [
+        {
+          "name": "bundestag-nutzungsbedingungen",
+          "title": "Nutzungsbedingungen des Deutschen Bundestages; Plenarprotokolle sind amtliche Werke (§ 5 UrhG)",
+          "path": "https://www.bundestag.de/nutzungsbedingungen"
+        },
+        {
+          "name": "dl-de-by-2.0",
+          "title": "Datenlizenz Deutschland – Namensnennung – Version 2.0",
+          "path": "https://www.govdata.de/dl-de/by-2-0"
+        }
+      ],
+      "bytes": 121
+    },
+    {
+      "name": "person",
+      "path": "person.csv.gz",
+      "format": "csv",
+      "mediatype": "text/csv",
+      "compression": "gz",
+      "encoding": "utf-8",
+      "schema": {
+        "fields": [
+          {
+            "name": "id",
+            "type": "string",
+            "description": "Bundestag MdB id (MDB/ID == redner/@id)",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "first_name",
+            "type": "string",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "last_name",
+            "type": "string",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "name_prefix",
+            "type": "string",
+            "description": "Adel / Präfix (\"von\", \"Freiherr von\")"
+          },
+          {
+            "name": "academic_title",
+            "type": "string"
+          },
+          {
+            "name": "birth_date",
+            "type": "string",
+            "description": "ISO date"
+          },
+          {
+            "name": "birth_place",
+            "type": "string"
+          },
+          {
+            "name": "gender",
+            "type": "string"
+          },
+          {
+            "name": "party",
+            "type": "string"
+          },
+          {
+            "name": "is_mdb",
+            "type": "integer",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "role",
+            "type": "string",
+            "description": "for non-MdB speakers: rolle_lang from the protocol"
+          },
+          {
+            "name": "dip_person_id",
+            "type": "string"
+          },
+          {
+            "name": "aw_politician_id",
+            "type": "integer"
+          },
+          {
+            "name": "wikidata_qid",
+            "type": "string"
+          },
+          {
+            "name": "source_url",
+            "type": "string",
+            "description": "where the row was read from (document, file or API record)",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "source_document_id",
+            "type": "string",
+            "description": "citable source pointer, e.g. \"BT-PlPr. 21/94\", \"BT-Drs. 21/7300\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "retrieved_at",
+            "type": "string",
+            "description": "when the source was downloaded (ISO 8601, UTC)",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "fraction",
+            "type": "string",
+            "description": "derived: the fraction in the newest Wahlperiode the person has a mandate in (the open membership, else the last one; without one, as for a Nachrücker not yet in the Stammdaten, the one printed in protocols and vote lists, else \"fraktionslos\"); NULL for everyone else"
+          }
+        ],
+        "primaryKey": [
+          "id"
+        ],
+        "missingValues": [
+          ""
+        ]
+      },
+      "sources": [
+        {
+          "title": "Deutscher Bundestag: Open Data (Plenarprotokolle, MdB-Stammdaten, Namentliche Abstimmungen)",
+          "path": "https://www.bundestag.de/services/opendata"
+        },
+        {
+          "title": "abgeordnetenwatch.de API v2",
+          "path": "https://www.abgeordnetenwatch.de/api"
+        },
+        {
+          "title": "Wikidata",
+          "path": "https://www.wikidata.org"
+        }
+      ],
+      "licenses": [
+        {
+          "name": "bundestag-nutzungsbedingungen",
+          "title": "Nutzungsbedingungen des Deutschen Bundestages; Plenarprotokolle sind amtliche Werke (§ 5 UrhG)",
+          "path": "https://www.bundestag.de/nutzungsbedingungen"
+        },
+        {
+          "name": "CC0-1.0",
+          "title": "CC0 1.0 Universal",
+          "path": "https://creativecommons.org/publicdomain/zero/1.0/"
+        },
+        {
+          "name": "CC0-1.0",
+          "title": "CC0 1.0 Universal",
+          "path": "https://creativecommons.org/publicdomain/zero/1.0/"
+        }
+      ],
+      "bytes": 121720
+    },
+    {
+      "name": "person_alias",
+      "path": "person_alias.csv.gz",
+      "format": "csv",
+      "mediatype": "text/csv",
+      "compression": "gz",
+      "encoding": "utf-8",
+      "schema": {
+        "fields": [
+          {
+            "name": "alias_id",
+            "type": "string",
+            "description": "a placeholder person id that is gone: a Wikidata QID (\"Q109023\") made for a government member, or \"pdf-<name>\" for a speaker read from a PDF",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "person_id",
+            "type": "string",
+            "description": "→ person.id; the person it turned out to be",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "recorded_at",
+            "type": "string",
+            "description": "when the ingest first retired the placeholder, ISO timestamp",
+            "constraints": {
+              "required": true
+            }
+          }
+        ],
+        "primaryKey": [
+          "alias_id"
+        ],
+        "missingValues": [
+          ""
+        ],
+        "foreignKeys": [
+          {
+            "fields": "person_id",
+            "reference": {
+              "resource": "person",
+              "fields": "id"
+            }
+          }
+        ]
+      },
+      "sources": [
+        {
+          "title": "Deutscher Bundestag: Open Data (Plenarprotokolle, MdB-Stammdaten, Namentliche Abstimmungen)",
+          "path": "https://www.bundestag.de/services/opendata"
+        },
+        {
+          "title": "Wikidata",
+          "path": "https://www.wikidata.org"
+        }
+      ],
+      "licenses": [
+        {
+          "name": "bundestag-nutzungsbedingungen",
+          "title": "Nutzungsbedingungen des Deutschen Bundestages; Plenarprotokolle sind amtliche Werke (§ 5 UrhG)",
+          "path": "https://www.bundestag.de/nutzungsbedingungen"
+        },
+        {
+          "name": "CC0-1.0",
+          "title": "CC0 1.0 Universal",
+          "path": "https://creativecommons.org/publicdomain/zero/1.0/"
+        }
+      ],
+      "bytes": 55
+    },
+    {
+      "name": "person_photo",
+      "path": "person_photo.csv.gz",
+      "format": "csv",
+      "mediatype": "text/csv",
+      "compression": "gz",
+      "encoding": "utf-8",
+      "schema": {
+        "fields": [
+          {
+            "name": "person_id",
+            "type": "string",
+            "description": "→ person.id",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "image_url",
+            "type": "string",
+            "description": "the image as downloaded (bundestag.de rendition or Commons thumbnail)",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "credit",
+            "type": "string",
+            "description": "photographer / rights holder as printed by the source, without \"©\""
+          },
+          {
+            "name": "bio_url",
+            "type": "string",
+            "description": "bundestag.de biography page; NULL for Commons portraits"
+          },
+          {
+            "name": "source_url",
+            "type": "string",
+            "description": "where the row was read from (document, file or API record)",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "source_document_id",
+            "type": "string",
+            "description": "citable source pointer, e.g. \"BT-PlPr. 21/94\", \"BT-Drs. 21/7300\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "retrieved_at",
+            "type": "string",
+            "description": "when the source was downloaded (ISO 8601, UTC)",
+            "constraints": {
+              "required": true
+            }
+          }
+        ],
+        "primaryKey": [
+          "person_id"
+        ],
+        "missingValues": [
+          ""
+        ],
+        "foreignKeys": [
+          {
+            "fields": "person_id",
+            "reference": {
+              "resource": "person",
+              "fields": "id"
+            }
+          }
+        ]
+      },
+      "sources": [
+        {
+          "title": "Porträts: bundestag.de (Abgeordnetenbiografien) und Wikimedia Commons",
+          "path": "https://www.bundestag.de/abgeordnete"
+        }
+      ],
+      "licenses": [
+        {
+          "name": "per-image",
+          "title": "Je Bild: Rechteinhaber laut person_photo.credit; Commons-Dateien meist CC BY-SA 4.0 (Lizenz auf der Dateiseite, source_url)",
+          "path": "https://github.com/jan-c-buchkremer/bundestag-data-foundation/blob/main/docs/licences.md#portraits-bundestagde-wikimedia-commons"
+        }
+      ],
+      "bytes": 63438
+    },
+    {
+      "name": "question_activity",
+      "path": "question_activity.csv.gz",
+      "format": "csv",
+      "mediatype": "text/csv",
+      "compression": "gz",
+      "encoding": "utf-8",
+      "schema": {
+        "fields": [
+          {
+            "name": "id",
+            "type": "string",
+            "description": "DIP Aktivität id",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "vorgang_id",
+            "type": "string",
+            "description": "the single question (DIP vorgangsbezug), a Vorgang of question_type",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "question_type",
+            "type": "string",
+            "description": "Schriftliche Frage | Mündliche Frage",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "activity_type",
+            "type": "string",
+            "description": "Frage | Zusatzfrage | Antwort",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "dip_person_id",
+            "type": "string",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "person_id",
+            "type": "string",
+            "description": "→ person.id"
+          },
+          {
+            "name": "name",
+            "type": "string",
+            "description": "DIP's title, \"Julia Schneider, MdB, BÜNDNIS 90/DIE GRÜNEN\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "ressort",
+            "type": "string",
+            "description": "Antwort: the answering ministry as the title names it, else NULL"
+          },
+          {
+            "name": "document_kind",
+            "type": "string",
+            "description": "Drucksache (the Sammeldrucksache) | Plenarprotokoll",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "document_number",
+            "type": "string",
+            "description": "\"21/4372\", \"21/9\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "question_numbers",
+            "type": "string",
+            "description": "Drucksache: DIP's frage_nummer, \"93, 94\""
+          },
+          {
+            "name": "page",
+            "type": "string",
+            "description": "Plenarprotokoll: page and quadrant, \"683D\""
+          },
+          {
+            "name": "source_url",
+            "type": "string",
+            "description": "where the row was read from (document, file or API record)",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "source_document_id",
+            "type": "string",
+            "description": "citable source pointer, e.g. \"BT-PlPr. 21/94\", \"BT-Drs. 21/7300\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "retrieved_at",
+            "type": "string",
+            "description": "when the source was downloaded (ISO 8601, UTC)",
+            "constraints": {
+              "required": true
+            }
+          }
+        ],
+        "primaryKey": [
+          "id"
+        ],
+        "missingValues": [
+          ""
+        ],
+        "foreignKeys": [
+          {
+            "fields": "person_id",
+            "reference": {
+              "resource": "person",
+              "fields": "id"
+            }
+          }
+        ]
+      },
+      "sources": [
+        {
+          "title": "Deutscher Bundestag/Bundesrat: DIP (Dokumentations- und Informationssystem für Parlamentsmaterialien)",
+          "path": "https://dip.bundestag.de"
+        }
+      ],
+      "licenses": [
+        {
+          "name": "dip-nutzungsbedingungen",
+          "title": "Nutzungsbedingungen für das DIP (27.02.2023)",
+          "path": "https://github.com/jan-c-buchkremer/bundestag-data-foundation/blob/main/docs/nutzungsbedingungen_dip.pdf"
+        }
+      ],
+      "bytes": 490281
+    },
+    {
+      "name": "roll_call_vote",
+      "path": "roll_call_vote.csv.gz",
+      "format": "csv",
+      "mediatype": "text/csv",
+      "compression": "gz",
+      "encoding": "utf-8",
+      "schema": {
+        "fields": [
+          {
+            "name": "id",
+            "type": "string",
+            "description": "\"21/90/7\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "sitting_id",
+            "type": "string",
+            "description": "→ sitting.id"
+          },
+          {
+            "name": "number",
+            "type": "integer",
+            "description": "Abstimmnr",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "date",
+            "type": "string",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "title",
+            "type": "string",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "drucksache_number",
+            "type": "string"
+          },
+          {
+            "name": "vorgang_id",
+            "type": "string",
+            "description": "→ vorgang.id"
+          },
+          {
+            "name": "link_method",
+            "type": "string",
+            "description": "dip_beschluss | title_regex | manual"
+          },
+          {
+            "name": "yes",
+            "type": "integer",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "no",
+            "type": "integer",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "abstain",
+            "type": "integer",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "invalid",
+            "type": "integer",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "absent",
+            "type": "integer",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "xlsx_url",
+            "type": "string",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "pdf_url",
+            "type": "string"
+          },
+          {
+            "name": "source_url",
+            "type": "string",
+            "description": "where the row was read from (document, file or API record)",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "source_document_id",
+            "type": "string",
+            "description": "citable source pointer, e.g. \"BT-PlPr. 21/94\", \"BT-Drs. 21/7300\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "retrieved_at",
+            "type": "string",
+            "description": "when the source was downloaded (ISO 8601, UTC)",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "agenda_item_id",
+            "type": "string",
+            "description": "→ agenda_item.id; same sitting: Drucksache on the agenda, else the decision's"
+          }
+        ],
+        "primaryKey": [
+          "id"
+        ],
+        "missingValues": [
+          ""
+        ],
+        "foreignKeys": [
+          {
+            "fields": "agenda_item_id",
+            "reference": {
+              "resource": "agenda_item",
+              "fields": "id"
+            }
+          },
+          {
+            "fields": "sitting_id",
+            "reference": {
+              "resource": "sitting",
+              "fields": "id"
+            }
+          },
+          {
+            "fields": "vorgang_id",
+            "reference": {
+              "resource": "vorgang",
+              "fields": "id"
+            }
+          }
+        ]
+      },
+      "sources": [
+        {
+          "title": "Deutscher Bundestag: Open Data (Plenarprotokolle, MdB-Stammdaten, Namentliche Abstimmungen)",
+          "path": "https://www.bundestag.de/services/opendata"
+        },
+        {
+          "title": "Deutscher Bundestag/Bundesrat: DIP (Dokumentations- und Informationssystem für Parlamentsmaterialien)",
+          "path": "https://dip.bundestag.de"
+        }
+      ],
+      "licenses": [
+        {
+          "name": "bundestag-nutzungsbedingungen",
+          "title": "Nutzungsbedingungen des Deutschen Bundestages; Plenarprotokolle sind amtliche Werke (§ 5 UrhG)",
+          "path": "https://www.bundestag.de/nutzungsbedingungen"
+        },
+        {
+          "name": "dip-nutzungsbedingungen",
+          "title": "Nutzungsbedingungen für das DIP (27.02.2023)",
+          "path": "https://github.com/jan-c-buchkremer/bundestag-data-foundation/blob/main/docs/nutzungsbedingungen_dip.pdf"
+        }
+      ],
+      "bytes": 5648
+    },
+    {
+      "name": "side_job",
+      "path": "side_job.csv.gz",
+      "format": "csv",
+      "mediatype": "text/csv",
+      "compression": "gz",
+      "encoding": "utf-8",
+      "schema": {
+        "fields": [
+          {
+            "name": "id",
+            "type": "integer",
+            "description": "abgeordnetenwatch sidejob id",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "wahlperiode",
+            "type": "integer",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "person_id",
+            "type": "string",
+            "description": "→ person.id; via aw mandate -> politician; NULL if the politician is unmatched"
+          },
+          {
+            "name": "aw_mandate_id",
+            "type": "integer",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "label",
+            "type": "string",
+            "description": "the entry as published, e.g. \"Mitglied des Beirates, ehrenamtlich (ab …)\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "job_title_extra",
+            "type": "string"
+          },
+          {
+            "name": "category",
+            "type": "string",
+            "description": "Bundestag category (Verhaltensregeln), label of aw's code"
+          },
+          {
+            "name": "income_level",
+            "type": "integer",
+            "description": "published Stufe 0..10; NULL: none published"
+          },
+          {
+            "name": "income_range",
+            "type": "string",
+            "description": "the Stufe's range, e.g. \"1.000 € bis 3.500 €\""
+          },
+          {
+            "name": "income",
+            "type": "number",
+            "description": "amount as published by aw (`income`); NULL if none"
+          },
+          {
+            "name": "interval",
+            "type": "string",
+            "description": "einmalig | monatlich | jährlich"
+          },
+          {
+            "name": "additional_information",
+            "type": "string",
+            "description": "aw's free text (may contain HTML)"
+          },
+          {
+            "name": "organization_id",
+            "type": "integer",
+            "description": "aw sidejob_organization id"
+          },
+          {
+            "name": "organization",
+            "type": "string"
+          },
+          {
+            "name": "city",
+            "type": "string"
+          },
+          {
+            "name": "topics",
+            "type": "string",
+            "description": "JSON list of aw topic labels"
+          },
+          {
+            "name": "created",
+            "type": "string",
+            "description": "date first recorded by aw"
+          },
+          {
+            "name": "data_change_date",
+            "type": "string",
+            "description": "date aw last changed the record"
+          },
+          {
+            "name": "source_url",
+            "type": "string",
+            "description": "where the row was read from (document, file or API record)",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "source_document_id",
+            "type": "string",
+            "description": "citable source pointer, e.g. \"BT-PlPr. 21/94\", \"BT-Drs. 21/7300\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "retrieved_at",
+            "type": "string",
+            "description": "when the source was downloaded (ISO 8601, UTC)",
+            "constraints": {
+              "required": true
+            }
+          }
+        ],
+        "primaryKey": [
+          "id"
+        ],
+        "missingValues": [
+          ""
+        ],
+        "foreignKeys": [
+          {
+            "fields": "person_id",
+            "reference": {
+              "resource": "person",
+              "fields": "id"
+            }
+          }
+        ]
+      },
+      "sources": [
+        {
+          "title": "abgeordnetenwatch.de API v2",
+          "path": "https://www.abgeordnetenwatch.de/api"
+        }
+      ],
+      "licenses": [
+        {
+          "name": "CC0-1.0",
+          "title": "CC0 1.0 Universal",
+          "path": "https://creativecommons.org/publicdomain/zero/1.0/"
+        }
+      ],
+      "bytes": 248112
+    },
+    {
+      "name": "sitting",
+      "path": "sitting.csv.gz",
+      "format": "csv",
+      "mediatype": "text/csv",
+      "compression": "gz",
+      "encoding": "utf-8",
+      "schema": {
+        "fields": [
+          {
+            "name": "id",
+            "type": "string",
+            "description": "\"21/94\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "wahlperiode",
+            "type": "integer",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "number",
+            "type": "integer",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "date",
+            "type": "string",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "start_time",
+            "type": "string"
+          },
+          {
+            "name": "end_time",
+            "type": "string"
+          },
+          {
+            "name": "xml_url",
+            "type": "string",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "pdf_url",
+            "type": "string",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "source_url",
+            "type": "string",
+            "description": "where the row was read from (document, file or API record)",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "source_document_id",
+            "type": "string",
+            "description": "citable source pointer, e.g. \"BT-PlPr. 21/94\", \"BT-Drs. 21/7300\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "retrieved_at",
+            "type": "string",
+            "description": "when the source was downloaded (ISO 8601, UTC)",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "preliminary",
+            "type": "integer",
+            "description": "1: the XML is the preliminary version (\"Der gesamte und damit endgültige Stenografische Bericht … wird am … veröffentlicht\"); it can lack the last pages. `update` re-fetches it until the final one is served",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "final_announced",
+            "type": "string",
+            "description": "the date the preliminary XML announces for the final version, ISO"
+          },
+          {
+            "name": "final_fetched_at",
+            "type": "string",
+            "description": "retrieved_at of the XML once it is final; NULL while preliminary"
+          },
+          {
+            "name": "first_page",
+            "type": "integer",
+            "description": "Druckseite the XML's sitzungsverlauf starts on (start-seitennr)"
+          },
+          {
+            "name": "last_page",
+            "type": "integer",
+            "description": "preliminary XML: the Druckseite its text ends on, found in the final PDF, which supplies the rest of the sitting (rows with the PDF as source_url); NULL for a final XML and while no PDF part could be read"
+          }
+        ],
+        "primaryKey": [
+          "id"
+        ],
+        "missingValues": [
+          ""
+        ]
+      },
+      "sources": [
+        {
+          "title": "Deutscher Bundestag: Open Data (Plenarprotokolle, MdB-Stammdaten, Namentliche Abstimmungen)",
+          "path": "https://www.bundestag.de/services/opendata"
+        }
+      ],
+      "licenses": [
+        {
+          "name": "bundestag-nutzungsbedingungen",
+          "title": "Nutzungsbedingungen des Deutschen Bundestages; Plenarprotokolle sind amtliche Werke (§ 5 UrhG)",
+          "path": "https://www.bundestag.de/nutzungsbedingungen"
+        }
+      ],
+      "bytes": 3264
+    },
+    {
+      "name": "speech",
+      "path": "speech.csv.gz",
+      "format": "csv",
+      "mediatype": "text/csv",
+      "compression": "gz",
+      "encoding": "utf-8",
+      "schema": {
+        "fields": [
+          {
+            "name": "id",
+            "type": "string",
+            "description": "XML rede/@id, \"-2\", \"-3\" … when split; Fragestunde: \"<agenda_item_id>/f<n>\" (synthetic, docs/decisions.md)",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "sitting_id",
+            "type": "string",
+            "description": "→ sitting.id",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "agenda_item_id",
+            "type": "string",
+            "description": "→ agenda_item.id"
+          },
+          {
+            "name": "position",
+            "type": "integer",
+            "description": "order within the sitting",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "person_id",
+            "type": "string",
+            "description": "→ person.id",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "speaker_name",
+            "type": "string",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "speaker_role",
+            "type": "string"
+          },
+          {
+            "name": "fraction",
+            "type": "string"
+          },
+          {
+            "name": "text",
+            "type": "string",
+            "description": "clean text: paragraphs of kind 'text', blank-line joined",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "source_url",
+            "type": "string",
+            "description": "where the row was read from (document, file or API record)",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "source_document_id",
+            "type": "string",
+            "description": "citable source pointer, e.g. \"BT-PlPr. 21/94\", \"BT-Drs. 21/7300\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "retrieved_at",
+            "type": "string",
+            "description": "when the source was downloaded (ISO 8601, UTC)",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "kind",
+            "type": "string",
+            "description": "rede | fragestunde: a Fragestunde question, answer or Nachfrage; shown, but left out of speech counts and shares",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "sub_item_id",
+            "type": "string",
+            "description": "→ agenda_sub_item.id; the sub-item of a block item during which the speech was given (its call-up is the last one before the speech), else NULL"
+          },
+          {
+            "name": "speaker_group",
+            "type": "string",
+            "description": "derived: who the speech counts for: a fraction | Bundesregierung (given in a federal government office, whatever the speaker's fraction) | Bundesrat (a Land office) | Sonstige"
+          },
+          {
+            "name": "member_fraction",
+            "type": "string",
+            "description": "derived: the speaker's fraction on the sitting day (membership, else the printed one), also when speaking as a minister; NULL for non-members"
+          },
+          {
+            "name": "rede_id",
+            "type": "string",
+            "description": "derived: the speech this part belongs to (id without \"-2\", \"-3\" …)"
+          },
+          {
+            "name": "interruption",
+            "type": "string",
+            "description": "derived: zwischenfrage | kurzintervention for a part by someone other than the rede's first speaker (docs/design.md \"Speech parts\"); NULL otherwise"
+          },
+          {
+            "name": "interruption_start",
+            "type": "string",
+            "description": "derived: the first part of the interruption this part belongs to (a question over two parts is one interruption); NULL with interruption"
+          }
+        ],
+        "primaryKey": [
+          "id"
+        ],
+        "missingValues": [
+          ""
+        ],
+        "foreignKeys": [
+          {
+            "fields": "agenda_item_id",
+            "reference": {
+              "resource": "agenda_item",
+              "fields": "id"
+            }
+          },
+          {
+            "fields": "person_id",
+            "reference": {
+              "resource": "person",
+              "fields": "id"
+            }
+          },
+          {
+            "fields": "sitting_id",
+            "reference": {
+              "resource": "sitting",
+              "fields": "id"
+            }
+          },
+          {
+            "fields": "sub_item_id",
+            "reference": {
+              "resource": "agenda_sub_item",
+              "fields": "id"
+            }
+          }
+        ]
+      },
+      "sources": [
+        {
+          "title": "Deutscher Bundestag: Open Data (Plenarprotokolle, MdB-Stammdaten, Namentliche Abstimmungen)",
+          "path": "https://www.bundestag.de/services/opendata"
+        }
+      ],
+      "licenses": [
+        {
+          "name": "bundestag-nutzungsbedingungen",
+          "title": "Nutzungsbedingungen des Deutschen Bundestages; Plenarprotokolle sind amtliche Werke (§ 5 UrhG)",
+          "path": "https://www.bundestag.de/nutzungsbedingungen"
+        }
+      ],
+      "bytes": 14737483
+    },
+    {
+      "name": "speech_paragraph",
+      "path": "speech_paragraph.csv.gz",
+      "format": "csv",
+      "mediatype": "text/csv",
+      "compression": "gz",
+      "encoding": "utf-8",
+      "schema": {
+        "fields": [
+          {
+            "name": "id",
+            "type": "string",
+            "description": "\"<speech_id>/<position>\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "speech_id",
+            "type": "string",
+            "description": "→ speech.id",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "position",
+            "type": "integer",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "kind",
+            "type": "string",
+            "description": "text | comment | chair | procedural",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "text",
+            "type": "string",
+            "constraints": {
+              "required": true
+            }
+          }
+        ],
+        "primaryKey": [
+          "id"
+        ],
+        "missingValues": [
+          ""
+        ],
+        "foreignKeys": [
+          {
+            "fields": "speech_id",
+            "reference": {
+              "resource": "speech",
+              "fields": "id"
+            }
+          }
+        ]
+      },
+      "sources": [
+        {
+          "title": "Deutscher Bundestag: Open Data (Plenarprotokolle, MdB-Stammdaten, Namentliche Abstimmungen)",
+          "path": "https://www.bundestag.de/services/opendata"
+        }
+      ],
+      "licenses": [
+        {
+          "name": "bundestag-nutzungsbedingungen",
+          "title": "Nutzungsbedingungen des Deutschen Bundestages; Plenarprotokolle sind amtliche Werke (§ 5 UrhG)",
+          "path": "https://www.bundestag.de/nutzungsbedingungen"
+        }
+      ],
+      "bytes": 18383595
+    },
+    {
+      "name": "vorgang",
+      "path": "vorgang.csv.gz",
+      "format": "csv",
+      "mediatype": "text/csv",
+      "compression": "gz",
+      "encoding": "utf-8",
+      "schema": {
+        "fields": [
+          {
+            "name": "id",
+            "type": "string",
+            "description": "DIP id",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "wahlperiode",
+            "type": "integer",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "type",
+            "type": "string"
+          },
+          {
+            "name": "title",
+            "type": "string",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "status",
+            "type": "string",
+            "description": "beratungsstand"
+          },
+          {
+            "name": "subjects",
+            "type": "string",
+            "description": "JSON array (sachgebiet)",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "initiators",
+            "type": "string",
+            "description": "JSON array (initiative)",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "source_url",
+            "type": "string",
+            "description": "where the row was read from (document, file or API record)",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "source_document_id",
+            "type": "string",
+            "description": "citable source pointer, e.g. \"BT-PlPr. 21/94\", \"BT-Drs. 21/7300\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "retrieved_at",
+            "type": "string",
+            "description": "when the source was downloaded (ISO 8601, UTC)",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "verkuendung",
+            "type": "string",
+            "description": "JSON array of DIP verkuendung objects (BGBl reference), NULL if none"
+          },
+          {
+            "name": "inkrafttreten",
+            "type": "string",
+            "description": "JSON array of {datum, erlaeuterung} objects, NULL if none"
+          }
+        ],
+        "primaryKey": [
+          "id"
+        ],
+        "missingValues": [
+          ""
+        ]
+      },
+      "sources": [
+        {
+          "title": "Deutscher Bundestag/Bundesrat: DIP (Dokumentations- und Informationssystem für Parlamentsmaterialien)",
+          "path": "https://dip.bundestag.de"
+        }
+      ],
+      "licenses": [
+        {
+          "name": "dip-nutzungsbedingungen",
+          "title": "Nutzungsbedingungen für das DIP (27.02.2023)",
+          "path": "https://github.com/jan-c-buchkremer/bundestag-data-foundation/blob/main/docs/nutzungsbedingungen_dip.pdf"
+        }
+      ],
+      "bytes": 997620
+    },
+    {
+      "name": "vorgang_drucksache",
+      "path": "vorgang_drucksache.csv.gz",
+      "format": "csv",
+      "mediatype": "text/csv",
+      "compression": "gz",
+      "encoding": "utf-8",
+      "schema": {
+        "fields": [
+          {
+            "name": "vorgang_id",
+            "type": "string",
+            "description": "→ vorgang.id",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "drucksache_id",
+            "type": "string",
+            "description": "→ drucksache.id",
+            "constraints": {
+              "required": true
+            }
+          }
+        ],
+        "primaryKey": [
+          "vorgang_id",
+          "drucksache_id"
+        ],
+        "missingValues": [
+          ""
+        ],
+        "foreignKeys": [
+          {
+            "fields": "drucksache_id",
+            "reference": {
+              "resource": "drucksache",
+              "fields": "id"
+            }
+          },
+          {
+            "fields": "vorgang_id",
+            "reference": {
+              "resource": "vorgang",
+              "fields": "id"
+            }
+          }
+        ]
+      },
+      "sources": [
+        {
+          "title": "Deutscher Bundestag/Bundesrat: DIP (Dokumentations- und Informationssystem für Parlamentsmaterialien)",
+          "path": "https://dip.bundestag.de"
+        }
+      ],
+      "licenses": [
+        {
+          "name": "dip-nutzungsbedingungen",
+          "title": "Nutzungsbedingungen für das DIP (27.02.2023)",
+          "path": "https://github.com/jan-c-buchkremer/bundestag-data-foundation/blob/main/docs/nutzungsbedingungen_dip.pdf"
+        }
+      ],
+      "bytes": 69649
+    },
+    {
+      "name": "vorgang_position",
+      "path": "vorgang_position.csv.gz",
+      "format": "csv",
+      "mediatype": "text/csv",
+      "compression": "gz",
+      "encoding": "utf-8",
+      "schema": {
+        "fields": [
+          {
+            "name": "id",
+            "type": "string",
+            "description": "DIP id of the Vorgangsposition (one step of a Vorgang)",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "vorgang_id",
+            "type": "string",
+            "description": "DIP id of the Vorgang; not every Vorgang is in table vorgang",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "date",
+            "type": "string",
+            "description": "datum",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "position",
+            "type": "string",
+            "description": "vorgangsposition, e.g. \"Gesetzentwurf\", \"1. Beratung\", \"Antwort\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "chamber",
+            "type": "string",
+            "description": "zuordnung: BT | BR | BV | …"
+          },
+          {
+            "name": "document_kind",
+            "type": "string",
+            "description": "fundstelle.dokumentart: Drucksache | Plenarprotokoll"
+          },
+          {
+            "name": "document_number",
+            "type": "string",
+            "description": "fundstelle.dokumentnummer: \"21/304\" (Drucksache), \"21/13\" (protocol)"
+          },
+          {
+            "name": "document_type",
+            "type": "string",
+            "description": "fundstelle.drucksachetyp"
+          },
+          {
+            "name": "pdf_url",
+            "type": "string",
+            "description": "fundstelle.pdf_url"
+          },
+          {
+            "name": "pages",
+            "type": "string",
+            "description": "\"1234-1236\" (fundstelle.anfangsseite-endseite), protocols only"
+          },
+          {
+            "name": "originators",
+            "type": "string",
+            "description": "JSON array of urheber titles",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "ressort",
+            "type": "string",
+            "description": "JSON array of objects {titel, federfuehrend}, NULL if none"
+          },
+          {
+            "name": "decisions",
+            "type": "string",
+            "description": "JSON array of beschlussfassung objects as in DIP, NULL if none"
+          },
+          {
+            "name": "source_url",
+            "type": "string",
+            "description": "where the row was read from (document, file or API record)",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "source_document_id",
+            "type": "string",
+            "description": "citable source pointer, e.g. \"BT-PlPr. 21/94\", \"BT-Drs. 21/7300\"",
+            "constraints": {
+              "required": true
+            }
+          },
+          {
+            "name": "retrieved_at",
+            "type": "string",
+            "description": "when the source was downloaded (ISO 8601, UTC)",
+            "constraints": {
+              "required": true
+            }
+          }
+        ],
+        "primaryKey": [
+          "id"
+        ],
+        "missingValues": [
+          ""
+        ]
+      },
+      "sources": [
+        {
+          "title": "Deutscher Bundestag/Bundesrat: DIP (Dokumentations- und Informationssystem für Parlamentsmaterialien)",
+          "path": "https://dip.bundestag.de"
+        }
+      ],
+      "licenses": [
+        {
+          "name": "dip-nutzungsbedingungen",
+          "title": "Nutzungsbedingungen für das DIP (27.02.2023)",
+          "path": "https://github.com/jan-c-buchkremer/bundestag-data-foundation/blob/main/docs/nutzungsbedingungen_dip.pdf"
+        }
+      ],
+      "bytes": 695410
+    }
+  ]
+}

@@ -101,6 +101,28 @@ def available(conn: sqlite3.Connection) -> bool:
     return all(has_table(conn, t) for t in ("question_text", "question_turn", "question_parse", "question_table"))
 
 
+def answer_by(name: str) -> str:
+    """Who answered, after "Antwort": the PDF prints the genitive without its article ("Bundesministeriums des
+    Innern", "Parl. Staatssekretärs Christoph de Vries"), or with it ("des Parlamentarischen Staatssekretärs …")."""
+    if name.startswith(("des ", "der ")):
+        return name
+    words = name.split()
+    office = words[1] if words[0] == "Parl." and len(words) > 1 else words[0]
+    return ("der " if office.endswith("in") else "des ") + name
+
+
+def ministry_name(name: str | None) -> str | None:
+    """The answering ministry in the nominative, for lists: "Bundesministeriums des Innern" -> "Bundesministerium
+    des Innern", "Auswärtigen Amts" -> "Auswärtiges Amt"."""
+    if not name:
+        return name
+    for gen, nom in (("Bundesministeriums ", "Bundesministerium "), ("Auswärtigen Amts", "Auswärtiges Amt"),
+                     ("Bundeskanzleramts", "Bundeskanzleramt")):  # fmt: skip
+        if name.startswith(gen):
+            return nom + name[len(gen) :]
+    return name
+
+
 def _paragraphs(text: str | None) -> list[str]:
     return [p.strip() for p in (text or "").split("\n\n") if p.strip()]
 
@@ -389,9 +411,9 @@ def anfrage_page(a: dict, cards: set[str]) -> str:
         lines.append(f'<span class="k">{e(a["type"])}</span> Drucksache {e(a["asked"]["number"])} vom '
                      f'{long_date(a["asked"]["date"])} (<a href="{e(a["asked"]["pdf"])}">PDF</a>)')  # fmt: skip
     if a["answer"]:
-        by = f", {e(a['ministry'])}" if a["ministry"] else ""
+        by = f" (Antwort {e(answer_by(a['ministry']))})" if a["ministry"] else ""
         lines.append(f'<span class="k">Antwort</span> Drucksache {e(a["answer"]["number"])} vom '
-                     f'{long_date(a["answer"]["date"])}{by} (<a href="{e(pdf)}">PDF</a>)')  # fmt: skip
+                     f'{long_date(a["answer"]["date"])}{by}, <a href="{e(pdf)}">PDF</a>')  # fmt: skip
     head = entity_header(a["title"], lines, [f'<a href="{DIP_VORGANG.format(e(a["id"]))}">Vorgang im DIP ↗</a>'],
                          when=e(a["type"]), cls="sp-head")  # fmt: skip
     colour = TOKEN.get(a["fractions"][0], "reg")
@@ -443,7 +465,7 @@ def anfragen_page(items: list[dict], sitting_dates: list[str]) -> str:
         fr.update(toks)
         art[a["type"]] += 1
         sub = " · ".join(x for x in (a["type"], ", ".join(SHORT.get(f, f) for f in a["fractions"]),
-                                     a["ministry"] or "") if x)  # fmt: skip
+                                     ministry_name(a["ministry"]) or "") if x)  # fmt: skip
         rows.append(_row(urls.anfrage(a["id"]).removeprefix("regierung/"), a["date"], a["title"], e(sub), a["status"],
                          {"fraktion": " ".join(toks), "art": urls.slug(a["type"]),
                           "stand": STATUS_SLUG.get(a["status"], "offen"),
@@ -507,7 +529,8 @@ def frage_page(q: dict, cards: set[str], people: dict[str, dict]) -> str:
                      f'{f" {e(q['frage']['number'])}" if q["frage"]["number"] else ""}'
                      f"</div>{_text(q['frage']['text'])}</section>")  # fmt: skip
     for t in answers:
-        who = t["name"] or (q["answerer"] or {}).get("name") or ""
+        # the name as printed after "Antwort", else DIP's answerer ("Sören Bartol, Parl. Staatssekr., …")
+        who = answer_by(t["name"]) if t["name"] else f"von {(q['answerer'] or {}).get('name') or 'unbekannt'}"
         if t["answerer_person_id"] in cards:
             who = f'<a href="{root}{e(urls.person(t["answerer_person_id"]))}">{e(who)}</a>'
         else:

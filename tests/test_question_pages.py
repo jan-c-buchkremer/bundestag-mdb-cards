@@ -119,3 +119,13 @@ def test_write_forwards_the_muendliche_frage_vorgang_page(conn, tmp_path):
 def test_nothing_without_the_question_tables(conn, tmp_path):
     conn.execute("DROP TABLE question_turn")
     assert question_pages.write(conn, tmp_path, set(), []) == {}
+
+
+def test_answer_names_read_as_german():
+    assert question_pages.answer_by("Bundesministeriums des Innern") == "des Bundesministeriums des Innern"
+    assert question_pages.answer_by("Parl. Staatssekretärin Anna Adler") == "der Parl. Staatssekretärin Anna Adler"
+    assert (
+        question_pages.answer_by("des Parlamentarischen Staatssekretärs X") == "des Parlamentarischen Staatssekretärs X"
+    )
+    assert question_pages.ministry_name("Auswärtigen Amts") == "Auswärtiges Amt"
+    assert question_pages.ministry_name("Bundesministeriums für Verkehr") == "Bundesministerium für Verkehr"

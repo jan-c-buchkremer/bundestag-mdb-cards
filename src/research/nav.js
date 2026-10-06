@@ -71,7 +71,20 @@
     if (open) input.focus(); else close();
   }
   icon.addEventListener('click', () => narrow.matches ? toggle(!header.classList.contains('q-open')) : input.focus());
+
+  // the phone's menu (shell.css, max-width 760px): "Menü" folds the sections out below the bar and back
+  const menu = header.querySelector('.nav-menu');
+  function fold(open) {
+    header.classList.toggle('menu-open', open);
+    menu.setAttribute('aria-expanded', open);
+    menu.textContent = open ? 'Schließen' : 'Menü';
+  }
+  if (menu) {
+    menu.addEventListener('click', e => { e.stopPropagation(); fold(!header.classList.contains('menu-open')); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && header.classList.contains('menu-open')) { fold(false); menu.focus(); } });
+  }
   document.addEventListener('click', e => {
+    if (menu && header.classList.contains('menu-open') && !header.contains(e.target)) fold(false);
     if (form.contains(e.target)) return;
     close();
     if (narrow.matches && header.classList.contains('q-open')) toggle(false);

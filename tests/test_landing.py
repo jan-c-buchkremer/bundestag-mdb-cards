@@ -14,7 +14,7 @@ def page(conn, **kw) -> str:
 
 def test_front_page(conn):
     html = page(conn)
-    assert '<header class="m-home">' in html and '<body class="p-home mode-home">' in html
+    assert '<header class="m-home has-menu">' in html and '<body class="p-home mode-home">' in html
     # an old link to the Abgeordnete list that was the front page keeps working
     assert "location.replace('abgeordnete.html' + location.search + location.hash)" in html
     assert '<section class="world research"' in html and 'href="abgeordnete.html"' in html

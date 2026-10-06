@@ -5,6 +5,17 @@ not before? If that sentence is hard to write, the release is not a finished ver
 
 ## Unreleased
 
+## v0.2.2 (2026-10-06)
+
+Readers on a phone can open a Steckbrief from the parliament views with a second tap and reach every section through a
+menu instead of a bar that scrolled sideways.
+
+- Parliament views: a second tap within finger reach of the seat, or on its tooltip, opens the Steckbrief.
+- Phone header: "Menü" folds the sections out as a list; the open search field covers the bar with its icon inside.
+- Sachgebiete and Gremien: rows of identical tiles that fill one rectangle, the larger items in fewer, taller tiles.
+- Front page: the Radar section in the same plain form as Recherche, violet instead of blue.
+- Dates: no page shows a date in another numeric form than dd.mm.yyyy (#64).
+
 ## v0.2.1 (2026-10-06)
 
 The build fits its 6g container again: the 10,662 Einzelfrage pages leave the full-text search, which took Pagefind

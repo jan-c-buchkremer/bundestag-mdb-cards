@@ -19,7 +19,6 @@ from research import controls
 from research.data import (
     MIN_CHARS,
     NO_FRACTION,
-    PARTY_TO_FRACTION,
     WP,
     _houses,
     after_speaker,
@@ -32,10 +31,8 @@ from research.ui import FOOTER, MONTHS, ORDER, SHORT, TOKEN, dot, e, frac_link, 
 from research.urls import slug as controls_slug
 
 GOVERNMENT = "Bundesregierung"
-OTHER = "Sonstige"  # Bundesrat, Wehrbeauftragter: neither fraction nor government
+OTHER = "Sonstige"  # Bundesrat, Wehrbeauftragte: neither fraction nor government
 UNCLEAR = "unklar"
-_GOV_ROLE = re.compile(r"^(Bundeskanzler|Bundesminister|Staatsminister|Parl\. Staatssekretär)")
-_CHAIR_ROLE = re.compile(r"^(Vize)?[Pp]räsident")
 AGE_GROUPS = ("unter 40", "40 bis 49", "50 bis 59", "60 und älter")
 TERMS = ("erste Wahlperiode", "schon früher im Bundestag")
 GENDERS = {"weiblich": "Frauen", "männlich": "Männer"}
@@ -45,13 +42,10 @@ def words(text: str | None) -> int:
     return len((text or "").split())
 
 
-def speaker_group(role: str | None, fraction: str | None) -> str | None:
-    """Fraction, the government, or 'Sonstige'; None for the chair, whose words are not a contribution."""
-    if role and _CHAIR_ROLE.search(role) and not _GOV_ROLE.search(role):
-        return None
-    if role and _GOV_ROLE.search(role):
-        return GOVERNMENT
-    return fraction or OTHER
+def speaker_group(group: str | None) -> str:
+    """Who a speech counts for, from the foundation's speech.speaker_group: a fraction, the government (a speech in
+    a government office, whatever the speaker's fraction), or Sonstige (the Bundesrat, the Wehrbeauftragte)."""
+    return OTHER if group in (None, "Bundesrat", OTHER) else group
 
 
 def age_group(birth: str | None, on: str) -> str | None:
@@ -73,18 +67,15 @@ def group_order(g: str) -> tuple[int, str]:
 def _members(conn: sqlite3.Connection) -> dict[str, dict]:
     """Every WP 21 member with fraction, gender, birth date and whether an earlier Wahlperiode had them."""
     earlier = Counter(r[0] for r in conn.execute("SELECT person_id FROM mandate WHERE wahlperiode < ?", (WP,)))
-    fraction = {r[0]: r[1] for r in conn.execute(
-        "SELECT person_id, name FROM membership WHERE wahlperiode = ? AND kind = 'fraction' ORDER BY from_date",
-        (WP,))}  # fmt: skip
     out = {}
     for r in conn.execute(
-        """SELECT p.id, p.gender, p.birth_date, p.party, p.last_name, m.to_date FROM mandate m
+        """SELECT p.id, p.gender, p.birth_date, p.fraction, p.last_name, m.to_date FROM mandate m
            JOIN person p ON p.id = m.person_id WHERE m.wahlperiode = ?""",
         (WP,),
     ):
         out[r[0]] = {
             "gender": r[1], "birth": r[2], "last_name": r[4], "current": r[5] is None,
-            "fraction": fraction.get(r[0]) or PARTY_TO_FRACTION.get(r[3], r[3]) or NO_FRACTION,
+            "fraction": r[3] or NO_FRACTION,
             "term": TERMS[1] if earlier[r[0]] else TERMS[0],
         }  # fmt: skip
     return out
@@ -92,10 +83,10 @@ def _members(conn: sqlite3.Connection) -> dict[str, dict]:
 
 def _speeches(conn: sqlite3.Connection) -> list[dict]:
     return [
-        {"id": r[0], "sitting": r[1], "date": r[2], "person": r[3], "group": speaker_group(r[4], r[5]),
+        {"id": r[0], "sitting": r[1], "date": r[2], "person": r[3], "group": speaker_group(r[4]),
          "words": words(r[6])}
         for r in conn.execute(
-            f"""SELECT s.id, s.sitting_id, st.date, s.person_id, s.speaker_role, s.fraction, s.text FROM speech s
+            f"""SELECT s.id, s.sitting_id, st.date, s.person_id, s.speaker_group, s.fraction, s.text FROM speech s
                JOIN sitting st ON st.id = s.sitting_id WHERE st.wahlperiode = ? {kind_filter(conn)}
                ORDER BY st.date, s.position""",
             (WP,),
@@ -198,7 +189,7 @@ def addressee(text: str, names: dict[str, str], about: bool = False) -> str:
 
 def _paragraphs(conn: sqlite3.Connection):
     return conn.execute(
-        """SELECT p.speech_id, p.position, p.kind, p.text, s.sitting_id, st.date, s.fraction, s.speaker_role
+        """SELECT p.speech_id, p.position, p.kind, p.text, s.sitting_id, st.date, s.fraction, s.speaker_group
            FROM speech_paragraph p JOIN speech s ON s.id = p.speech_id JOIN sitting st ON st.id = s.sitting_id
            WHERE st.wahlperiode = ? ORDER BY st.date, s.sitting_id, s.position, p.position""",
         (WP,),
@@ -240,8 +231,8 @@ def order_measures(conn: sqlite3.Connection, rows: list | None = None) -> list[d
                 heard = hecklers.get((before[0], before[1]), set())
                 if before[2] == "comment" and len(heard) == 1:
                     fraction = next(iter(heard))
-                elif before[2] == "text" and speaker_group(r[7], r[6]) not in (None, OTHER):
-                    fraction = speaker_group(r[7], r[6])
+                elif before[2] == "text" and speaker_group(r[7]) != OTHER:
+                    fraction = speaker_group(r[7])
             out.append({"kind": kind, "fraction": fraction, "sitting": r[4], "date": r[5], "speech": r[0],
                         "text": r[3]})  # fmt: skip
     return out
@@ -300,7 +291,7 @@ def interim_questions(conn: sqlite3.Connection, rows: list | None = None) -> lis
             elif nxt[2] == "text":
                 result = answer(nxt[3])
             break
-        out.append({"result": result, "asked": speaker_group(r[7], r[6]) or OTHER,
+        out.append({"result": result, "asked": speaker_group(r[7]),
                     "by": requester(r[3], names), "sitting": r[4], "date": r[5]})  # fmt: skip
     return out
 
@@ -318,13 +309,13 @@ def interruptions(conn: sqlite3.Connection) -> dict[str, dict[str, list[int]]]:
     marks = ",".join("?" * len(INTERRUPTIONS))
     heard = after_speaker(conn)
     for r in conn.execute(
-        f"""SELECT st.date, s.speaker_role, s.fraction, i.fraction, i.speech_id, i.paragraph FROM interjection i
+        f"""SELECT st.date, s.speaker_group, s.fraction, i.fraction, i.speech_id, i.paragraph FROM interjection i
             JOIN speech s ON s.id = i.speech_id JOIN sitting st ON st.id = s.sitting_id
             WHERE st.wahlperiode = ? AND i.kind IN ({marks}) AND i.to_person_id IS NULL {kind_filter(conn)}""",
         (WP, *INTERRUPTIONS),
     ):
-        g = speaker_group(r[1], r[2])
-        if g and (r[4], r[5]) in heard and not (r[3] and r[3] == r[2]):
+        g = speaker_group(r[1])
+        if (r[4], r[5]) in heard and not (r[3] and r[3] == r[2]):
             out[r[0][:7]][g][0] += 1
     return {m: dict(v) for m, v in sorted(out.items())}
 
@@ -339,12 +330,12 @@ def network(conn: sqlite3.Connection) -> dict:
     the applause notes (whole fraction or some members) and how many of them cross a fraction line."""
     speeches = {}
     for r in conn.execute(
-        f"""SELECT s.id, st.date, s.speaker_role, s.fraction, length(s.text) FROM speech s
+        f"""SELECT s.id, st.date, s.speaker_group, s.fraction, length(s.text) FROM speech s
            JOIN sitting st ON st.id = s.sitting_id WHERE st.wahlperiode = ? {kind_filter(conn)}""",
         (WP,),
     ):
-        g = speaker_group(r[2], r[3])
-        if g and g != OTHER and r[4] >= MIN_CHARS:
+        g = speaker_group(r[2])
+        if g != OTHER and r[4] >= MIN_CHARS:
             speeches[r[0]] = (g, r[1][:7])
     count = Counter(g for g, _ in speeches.values())
     hits: dict[str, set[tuple[str, str, str]]] = {"fraction": set(), "members": set(), "zuruf": set()}

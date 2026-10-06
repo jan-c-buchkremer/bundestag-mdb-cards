@@ -22,7 +22,6 @@ _COMMITTEE_PREFIX = re.compile(r"^Ausschuss (für |des |der )?")
 _UMLAUT = str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "Ä": "Ae", "Ö": "Oe", "Ü": "Ue", "ß": "ss"})
 _SLUG_STRIP = re.compile(r"[^a-z0-9]+")
 # speech.fraction is NULL for ministers; person.party fills the gap (as in the landscape)
-PARTY_TO_FRACTION = {"CDU": "CDU/CSU", "CSU": "CDU/CSU", "DIE LINKE.": "Die Linke"}
 NO_FRACTION = "fraktionslos"
 VOTE_CHOICES = ("yes", "no", "abstain")
 MIN_CHARS = 500  # as the landscape: shorter units are procedural remarks, oaths and one-liners, not Reden
@@ -77,7 +76,8 @@ def _sql_speech(conn: sqlite3.Connection) -> str:
     kind_col = "s.kind" if has_speech_kind(conn) else "'rede' AS kind"
     return f"""
 SELECT s.id, s.position, s.person_id, s.speaker_name, s.speaker_role, s.fraction, s.text, s.source_document_id,
-       st.id AS sitting_id, st.date, st.pdf_url, p.party, a.id AS agenda_item_id, a.top_id, a.title AS agenda_title,
+       st.id AS sitting_id, st.date, st.pdf_url, s.speaker_group, a.id AS agenda_item_id, a.top_id,
+       a.title AS agenda_title,
        a.position AS top_position, {kind_col}
 FROM speech s
 JOIN sitting st ON st.id = s.sitting_id
@@ -86,10 +86,6 @@ LEFT JOIN agenda_item a ON a.id = s.agenda_item_id
 WHERE st.wahlperiode = ?
 ORDER BY st.date, s.position
 """
-
-
-def _fraction(r: sqlite3.Row) -> str | None:
-    return r["fraction"] or PARTY_TO_FRACTION.get(r["party"], r["party"])
 
 
 def after_speaker(conn: sqlite3.Connection) -> set[tuple[str, int]]:
@@ -158,7 +154,7 @@ def speeches(conn: sqlite3.Connection) -> dict[str, dict[str, list]]:
             for p in parts:
                 out[p["person_id"]]["fragestunde"].append(
                     {"id": p["id"], **where, "words": len(p["text"].split()), "role": p["speaker_role"],
-                     "fraction": _fraction(p), "on_map": False, "excerpt": excerpt(p["text"])}
+                     "fraction": p["speaker_group"], "on_map": False, "excerpt": excerpt(p["text"])}
                 )  # fmt: skip
             continue
         if BEFRAGUNG in (first["agenda_title"] or ""):
@@ -184,15 +180,16 @@ def speeches(conn: sqlite3.Connection) -> dict[str, dict[str, list]]:
                     announced = _KURZINTERVENTION.search(chair.get(prev["id"], ""))
                     kind = "kurzintervention" if announced else "zwischenfrage"
                     interruptions.append(
-                        {"id": p["id"], "person": p["person_id"], "name": display_speaker(p), "fraction": _fraction(p),
-                         "kind": kind, "excerpt": excerpt(p["text"])}
+                        {"id": p["id"], "person": p["person_id"], "name": display_speaker(p),
+                         "fraction": p["speaker_group"], "kind": kind, "excerpt": excerpt(p["text"])}
                     )  # fmt: skip
                 since_main = 0
             prev = p
         long = len("\n\n".join(p["text"] for p in own)) >= MIN_CHARS  # re-joined like the landscape's speeches
         out[main]["reden" if long else "kurz"].append(
             {
-                "id": first["id"], **where, "role": first["speaker_role"], "fraction": _fraction(first), "on_map": long,
+                "id": first["id"], **where, "role": first["speaker_role"], "fraction": first["speaker_group"],
+                "on_map": long,
                 "words": sum(len(p["text"].split()) for p in own),
                 "applause": sum(applause[p["id"]] for p in own),
                 "interruptions": [{k: v for k, v in i.items() if k not in ("id", "excerpt")} for i in interruptions],
@@ -322,15 +319,16 @@ def drucksachen(conn: sqlite3.Connection) -> dict[str, dict[str, list]]:
     return out
 
 
+GOVERNMENT_GROUP = "Bundesregierung"  # as the foundation names it in speech.speaker_group and originator_groups
 # DIP's Urheber titles ("Fraktion der SPD", "Fraktion BÜNDNIS 90/DIE GRÜNEN", "Bundesregierung") -> the group
 _ORIGINATOR = (("cdu/csu", "CDU/CSU"), ("spd", "SPD"), ("afd", "AfD"), ("grünen", "BÜNDNIS 90/DIE GRÜNEN"),
                ("linke", "Die Linke"))  # fmt: skip
-GOVERNMENT_GROUP = "Bundesregierung"
 
 
 def originator_group(title: str) -> str | None:
-    """The group behind a DIP Urheber title: a fraction, the Bundesregierung, or None (a committee, the Bundesrat, a
-    person). Matched by name; a normalised field in the foundation would be better (docs/plan.md 11.8)."""
+    """The group behind a DIP initiator title of a Vorgang: a fraction, the Bundesregierung, or None. Matched by
+    name: the foundation groups the Urheber of Drucksachen (originator_groups), not yet the initiators of Vorgänge
+    (its "Not now": vorgang.initiator_groups)."""
     t = title.lower()
     if t.startswith("bundesregierung"):
         return GOVERNMENT_GROUP
@@ -374,7 +372,7 @@ def drucksache_facts(conn: sqlite3.Connection) -> list[dict]:
         out.append({
             "id": r["id"], "number": r["number"], "type": r["type"], "date": r["date"],
             "title": dip_subject(r["title"]) or r["title"], "originators": originators,
-            "groups": sorted({g for g in map(originator_group, originators) if g}),
+            "groups": sorted(json.loads(r["originator_groups"] or "[]")),  # the foundation's (bdf ingest_groups)
             "url": DIP_DOC.format(r["id"]), "pdf": r["pdf_url"] or (drucksache_pdf(r["number"]) if bt else None),
             "cite": r["source_document_id"], "vorgang": next(iter(vs)) if len(vs) == 1 else None,
         })  # fmt: skip
@@ -465,9 +463,11 @@ def constituencies(conn: sqlite3.Connection) -> list[dict]:
         if pct is not None and (wk not in top or pct > top[wk][1]):
             top[wk] = (party, pct)
     none = (None, None)
+    fraction_of = dict(conn.execute("SELECT party, fraction FROM party_fraction"))  # bdf ingest_groups
     return [
         {
             "number": r["number"], "name": r["name"], "state": r["state"], "seat_party": r["seat_party"],
+            "seat_fraction": fraction_of.get(r["seat_party"], r["seat_party"]) if r["seat_party"] else None,
             "first_party": top.get(r["number"], none)[0], "first_percent": top.get(r["number"], none)[1],
             "turnout": round(100 * r["voters"] / r["electorate"], 1) if r["voters"] and r["electorate"] else None,
         }
@@ -697,14 +697,8 @@ def cards(conn: sqlite3.Connection) -> tuple[list[dict], dict]:
         wp21 = next((m for m in mandates[pid] if m["wahlperiode"] == WP), None)
         is_member = wp21 is not None or pid in vote_rows
         ms = members[pid]
+        fraction = p["fraction"]  # the foundation's current fraction (bdf ingest_groups)
         fraction_rows = [m for m in ms if m["kind"] == "fraction"]
-        current = [m for m in fraction_rows if m["to_date"] is None] or fraction_rows
-        if current:
-            fraction = current[-1]["name"]
-        elif vote_rows.get(pid):
-            fraction = vote_rows[pid][-1]["fraction"]
-        else:
-            fraction = None
         sp = by_person.get(pid, {"reden": [], "kurz": [], "fragen": [], "befragung": [], "fragestunde": []})
         roles = [r["role"] for r in sp["reden"] + sp["befragung"] + sp["fragestunde"] if r["role"]]
         female = p["gender"] == "weiblich" or any(_FEMALE_ROLE.search(r) for r in roles)
@@ -819,7 +813,7 @@ def government(conn: sqlite3.Connection) -> list[dict]:
     evidence = "OR g.source_kind = 'protocol'" if _has_column(conn, "government_role", "source_kind") else ""
     rows = conn.execute(
         f"""SELECT g.person_id, g.wikidata_qid, g.name, g.office, g.department, g.kind, g.from_date, g.to_date,
-                  {"g.source_kind" if evidence else "'wikidata'"} AS source_kind, p.party, p.gender
+                  {"g.source_kind" if evidence else "'wikidata'"} AS source_kind, p.fraction, p.gender
            FROM government_role g LEFT JOIN person p ON p.id = g.person_id
            WHERE g.to_date IS NULL OR g.to_date >= date('now') {evidence}"""
     ).fetchall()
@@ -842,7 +836,7 @@ def government(conn: sqlite3.Connection) -> list[dict]:
         out.append({
             "id": pid, "name": r["name"], "department": r["department"], "kind": r["kind"],
             "office": feminine(r["office"]) if r["gender"] == "weiblich" else r["office"],
-            "fraction": PARTY_TO_FRACTION.get(r["party"], r["party"]) if r["party"] else None,
+            "fraction": r["fraction"],
             "evidence": evidence_only,
             "seen": max(x["to_date"] or x["from_date"] for x in held) if evidence_only else None,
         })  # fmt: skip
@@ -1189,8 +1183,8 @@ def _sql_sitting_speech(conn: sqlite3.Connection) -> str:
     kind_col = "s.kind" if has_speech_kind(conn) else "'rede' AS kind"
     sub_col = "s.sub_item_id" if subtops.has_speech_sub_item(conn) else "NULL AS sub_item_id"
     return f"""
-SELECT s.id, s.agenda_item_id, s.person_id, s.speaker_role, s.fraction, s.text, p.party, p.first_name, p.last_name,
-       p.academic_title, p.name_prefix, {kind_col}, {sub_col}
+SELECT s.id, s.agenda_item_id, s.person_id, s.speaker_role, s.fraction, s.text, s.speaker_group, p.first_name,
+       p.last_name, p.academic_title, p.name_prefix, {kind_col}, {sub_col}
 FROM speech s JOIN person p ON p.id = s.person_id
 WHERE s.sitting_id = ?
 ORDER BY s.position
@@ -1274,7 +1268,7 @@ def sittings(conn: sqlite3.Connection, decided: list[dict] | None = None) -> lis
             length = len("\n\n".join(p["text"] for p in own))
             item["speeches"].append(
                 {"id": first["id"], "person": first["person_id"], "name": display_name(first),
-                 "fraction": _fraction(first), "role": first["speaker_role"],
+                 "fraction": first["speaker_group"], "role": first["speaker_role"],
                  "words": sum(len(p["text"].split()) for p in own), "on_map": length >= MIN_CHARS,
                  "photo": first["person_id"] in photos, "sub_item": first["sub_item_id"],
                  "date": st["date"], "sitting": st["id"], "position": item["position"], "title": item["title"],

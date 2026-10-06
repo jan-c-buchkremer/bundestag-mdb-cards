@@ -1,6 +1,7 @@
 import json
 
 import pytest
+from conftest import LONG
 
 from research import debate
 
@@ -49,11 +50,25 @@ def test_answer(text, expected):
 
 
 def test_speaker_group():
-    assert debate.speaker_group("Bundesministerin der Justiz", None) == "Bundesregierung"
-    assert debate.speaker_group("Bundeskanzler", "CDU/CSU") == "Bundesregierung"  # counted apart from fractions
-    assert debate.speaker_group(None, "SPD") == "SPD"
-    assert debate.speaker_group("Ministerpräsidentin (Mecklenburg-Vorpommern)", None) == "Sonstige"
-    assert debate.speaker_group("Vizepräsidentin", None) is None
+    """The foundation's speech.speaker_group, with the Bundesrat counted under Sonstige."""
+    assert debate.speaker_group("Bundesregierung") == "Bundesregierung"
+    assert debate.speaker_group("SPD") == "SPD"
+    assert debate.speaker_group("Bundesrat") == "Sonstige"
+    assert debate.speaker_group("Sonstige") == "Sonstige"
+
+
+def test_a_ministers_speech_counts_for_the_government(conn):
+    """Merz's speeches as Kanzler count for the Bundesregierung, not for the CDU/CSU (foundation speaker_group)."""
+    conn.execute(
+        "INSERT INTO speech (id, sitting_id, agenda_item_id, position, person_id, speaker_name, speaker_role, "
+        "fraction, text, source_url, source_document_id, retrieved_at) VALUES ('ID9', '21/88', '21/88/2', 20, '2', "
+        "'Dr. Bernd Berg, Bundesminister', 'Bundesminister des Innern', NULL, ?, 'u', 'd', 't')",
+        (LONG,),
+    )
+    group = {s["id"]: s["group"] for s in debate._speeches(conn)}
+    assert group["ID9"] == "Bundesregierung" and group["ID1"] == "CDU/CSU"
+    member = conn.execute("SELECT member_fraction FROM speech WHERE id = 'ID9'").fetchone()[0]
+    assert member == "CDU/CSU"  # the fraction is kept beside it
 
 
 def test_addressee():

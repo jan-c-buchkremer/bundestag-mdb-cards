@@ -24,6 +24,7 @@ def add_changes(c):
             membership("7", 1, "fraction", "CDU/CSU", to="2026-05-05"),
             membership("7", 2, "fraction", "fraktionslos", frm="2026-05-05"),
             membership("5", 1, "fraction", "SPD", to="2026-06-01"),
+            membership("8", 1, "fraction", "SPD", frm="2026-08-01"),
         ],
     )
 

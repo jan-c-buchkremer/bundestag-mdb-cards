@@ -14,7 +14,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 from research import redirects, urls
-from research.data import NO_FRACTION, PARTY_TO_FRACTION, WP, display_name, feminine, government_roles
+from research.data import NO_FRACTION, WP, display_name, feminine, government_roles
 from research.ui import SHORT, TOKEN, dot, e, fraction_order, n, short_date
 
 BUCKETS = ("1", "2", "3", "4", "5 und mehr")
@@ -67,8 +67,7 @@ def members(conn: sqlite3.Connection) -> list[dict]:
         (WP,),
     ):
         rows = fractions[r["person_id"]]
-        open_rows = [f for f in rows if f["to_date"] is None] or rows
-        fraction = open_rows[-1]["name"] if open_rows else PARTY_TO_FRACTION.get(r["party"], r["party"])
+        fraction = r["fraction"]  # the foundation's current fraction (bdf ingest_groups)
         out.append(
             {"id": r["person_id"], "name": display_name(r), "last_name": r["last_name"], "gender": r["gender"],
              "birth_date": r["birth_date"], "fraction": fraction or NO_FRACTION, "periods": periods[r["person_id"]],

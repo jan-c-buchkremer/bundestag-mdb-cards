@@ -42,9 +42,10 @@ def vote_row(n, pid, last, fraction, vote, vote_id="21/88/1"):
     return (f"{vote_id}/{n}", vote_id, pid, last, "X", fraction, vote)
 
 
-# What the foundation's ingest derives (bdf ingest_vorlagen), as views over whatever rows a test inserts, so every
-# test sees the derived rows of its own data. decision_vorgang: the roll call's Vorgang, else every Vorgang of the
-# decision's or roll call's Drucksache (BT only, no shared Unterrichtung); DIP's steps are left out here.
+# What the foundation's ingest derives (bdf ingest_groups, ingest_vorlagen), as views and triggers over whatever rows
+# a test inserts, so every test sees the derived values of its own data. decision_vorgang: the roll call's Vorgang,
+# else every Vorgang of the decision's or roll call's Drucksache (BT only, no shared Unterrichtung); DIP's steps are
+# left out here.
 DERIVED = """
 DROP TABLE decision_vorgang;
 CREATE VIEW decision_vorgang AS
@@ -58,6 +59,61 @@ JOIN drucksache x ON x.number IN (d.drucksache_number, r.drucksache_number)
 JOIN vorgang_drucksache vd ON vd.drucksache_id = x.id JOIN vorgang v ON v.id = vd.vorgang_id
 WHERE (r.vorgang_id IS NULL OR r.vorgang_id NOT IN (SELECT id FROM vorgang)) AND coalesce(x.publisher, 'BT') = 'BT'
   AND NOT (x.type = 'Unterrichtung' AND (SELECT count(*) FROM vorgang_drucksache y WHERE y.drucksache_id = x.id) > 1);
+
+INSERT INTO party_fraction VALUES ('CDU', 'CDU/CSU'), ('CSU', 'CDU/CSU'), ('SPD', 'SPD'), ('AfD', 'AfD'),
+  ('GRÜNE', 'BÜNDNIS 90/DIE GRÜNEN'), ('BÜNDNIS 90/DIE GRÜNEN', 'BÜNDNIS 90/DIE GRÜNEN'), ('DIE LINKE.', 'Die Linke'),
+  ('Die Linke', 'Die Linke');
+
+-- speech.speaker_group / member_fraction (bdf ingest_groups): a federal office counts for the Bundesregierung,
+-- a Land office for the Bundesrat, else the printed fraction
+CREATE TRIGGER speech_groups AFTER INSERT ON speech BEGIN
+  UPDATE speech SET
+    speaker_group = CASE
+      WHEN NEW.speaker_role LIKE '%(%)' THEN 'Bundesrat'
+      WHEN NEW.speaker_role LIKE 'Bundeskanzler%' OR NEW.speaker_role LIKE 'Bundesminister%'
+        OR NEW.speaker_role LIKE 'Staatsminister%' OR NEW.speaker_role LIKE 'Parl%Staatssekret%'
+        OR NEW.speaker_role LIKE 'Beauftragte% der Bundesregierung%' THEN 'Bundesregierung'
+      ELSE coalesce(NEW.fraction, 'Sonstige') END,
+    member_fraction = coalesce(
+      (SELECT name FROM membership WHERE person_id = NEW.person_id AND wahlperiode = 21 AND kind = 'fraction'
+       ORDER BY to_date IS NULL DESC, from_date DESC LIMIT 1), NEW.fraction)
+  WHERE id = NEW.id;
+END;
+
+-- person.fraction (bdf ingest_groups): the open WP 21 fraction membership, else the last; without one (moved up
+-- after the Stammdaten snapshot) the fraction in the vote lists; a member with neither is fraktionslos
+CREATE VIEW person_fraction_of AS
+SELECT p.id, coalesce(
+  (SELECT name FROM membership x WHERE x.person_id = p.id AND x.wahlperiode = 21 AND x.kind = 'fraction'
+   ORDER BY x.to_date IS NULL DESC, x.from_date DESC LIMIT 1),
+  (SELECT fraction FROM individual_vote i WHERE i.person_id = p.id ORDER BY i.id DESC LIMIT 1),
+  CASE WHEN EXISTS (SELECT 1 FROM mandate m WHERE m.person_id = p.id AND m.wahlperiode = 21) THEN 'fraktionslos' END)
+  AS fraction
+FROM person p;
+CREATE TRIGGER fraction_mandate AFTER INSERT ON mandate BEGIN
+  UPDATE person SET fraction = (SELECT fraction FROM person_fraction_of WHERE id = NEW.person_id)
+  WHERE id = NEW.person_id;
+END;
+CREATE TRIGGER fraction_membership AFTER INSERT ON membership BEGIN
+  UPDATE person SET fraction = (SELECT fraction FROM person_fraction_of WHERE id = NEW.person_id)
+  WHERE id = NEW.person_id;
+END;
+CREATE TRIGGER fraction_vote AFTER INSERT ON individual_vote BEGIN
+  UPDATE person SET fraction = (SELECT fraction FROM person_fraction_of WHERE id = NEW.person_id)
+  WHERE id = NEW.person_id;
+END;
+
+-- drucksache.originator_groups (bdf ingest_groups)
+CREATE TRIGGER drucksache_groups AFTER INSERT ON drucksache BEGIN
+  UPDATE drucksache SET originator_groups = (
+    SELECT json_group_array(g) FROM (SELECT DISTINCT CASE
+      WHEN value LIKE 'Bundesregierung%' OR value LIKE 'Bundesministerium%' THEN 'Bundesregierung'
+      WHEN value LIKE 'Fraktion%' OR value LIKE 'Gruppe%' THEN CASE
+        WHEN value LIKE '%CDU/CSU%' THEN 'CDU/CSU' WHEN value LIKE '%SPD%' THEN 'SPD' WHEN value LIKE '%AfD%' THEN 'AfD'
+        WHEN value LIKE '%GR_NEN%' THEN 'BÜNDNIS 90/DIE GRÜNEN' WHEN value LIKE '%LINKE%' THEN 'Die Linke' END
+      END AS g FROM json_each(NEW.originators)) WHERE g IS NOT NULL)
+  WHERE id = NEW.id;
+END;
 """
 
 

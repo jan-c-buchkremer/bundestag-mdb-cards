@@ -29,7 +29,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 from research import controls, urls
-from research.data import NO_FRACTION, PARTY_TO_FRACTION, WP, drucksache_pdf, excerpt, has_table, kind_filter
+from research.data import NO_FRACTION, WP, drucksache_pdf, excerpt, has_table, kind_filter
 from research.ui import FOOTER, MONTHS, SHORT, TOKEN, dot, e, fraction_order, n, shell, short_date
 
 DEADLINE = 14  # § 104 Abs. 2 GO-BT: the government is asked to answer within 14 days, extendable
@@ -145,7 +145,7 @@ def written_questions(conn: sqlite3.Connection) -> dict:
     is printed in; askers are named per Sammeldrucksache only, so the fractions count (Drucksache, person) pairs."""
     out: dict = {}
     fractions = _fraction_at(conn)
-    parties = {r["id"]: r["party"] for r in conn.execute("SELECT id, party FROM person")}
+    current = {r["id"]: r["fraction"] for r in conn.execute("SELECT id, fraction FROM person")}
     for kind, dtype in (("Schriftliche Frage", "Schriftliche Fragen"), ("Mündliche Frage", "Fragen")):
         dates = conn.execute(
             """SELECT v.id, min(d.date) FROM vorgang v
@@ -169,9 +169,8 @@ def written_questions(conn: sqlite3.Connection) -> dict:
             for m in fractions.get(r["person_id"] or "", []):
                 if m["from_date"] <= r["date"] and (m["to_date"] is None or m["to_date"] >= r["date"]):
                     f = m["name"]
-            if f is None and r["person_id"] in parties:
-                p = parties[r["person_id"]]
-                f = PARTY_TO_FRACTION.get(p, p) if p else NO_FRACTION
+            if f is None and r["person_id"] in current:
+                f = current[r["person_id"]] or NO_FRACTION
             askers[f or "unbekannt"] += 1
         out[kind] = {
             "total": len(dates),
@@ -372,15 +371,10 @@ def _ressorts(conn: sqlite3.Connection) -> dict[str, str]:
 
 
 def _people(conn: sqlite3.Connection) -> dict[str, tuple[str, str | None]]:
-    """Person id -> (display name, current fraction or party's fraction)."""
+    """Person id -> (display name, current fraction)."""
     from research.data import display_name
 
-    fr = {r["person_id"]: r["name"] for r in conn.execute(
-        "SELECT person_id, name FROM membership WHERE kind = 'fraction' AND wahlperiode = ? ORDER BY from_date",
-        (WP,))}  # fmt: skip
-    return {r["id"]: (display_name(r), fr.get(r["id"]) or (PARTY_TO_FRACTION.get(r["party"], r["party"])
-                                                          if r["party"] else None))
-            for r in conn.execute("SELECT * FROM person")}  # fmt: skip
+    return {r["id"]: (display_name(r), r["fraction"]) for r in conn.execute("SELECT * FROM person")}
 
 
 def research_kleine_anfragen(conn: sqlite3.Connection, pk: Packer, ressorts: dict[str, str]) -> dict:

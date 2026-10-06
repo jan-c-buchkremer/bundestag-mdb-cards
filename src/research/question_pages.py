@@ -15,8 +15,10 @@ This repo parses nothing (the split in goal 4): the texts and turns are the foun
 `question_table`, `question_turn` and `question_parse`. A question the foundation marks `failed` or `partial` is shown
 as "Antwort nicht lesbar" with the PDF, never as unanswered. Without those tables nothing is written.
 
-Search: each question page is in the Pagefind index (`data-pagefind-body`) with its title and question text; the
-answers are on the page but not indexed (`data-pagefind-ignore`)."""
+Search: the pages of the Anfragen and Befragungen are in the Pagefind index (`data-pagefind-body`) with their title
+and question text; the answers are on the page but not indexed (`data-pagefind-ignore`). The 10,662 Einzelfrage pages
+are not indexed: with them Pagefind needs 5.5 GB, without them 4.4 GB, and the build runs in a 6g container
+(measured 2026-10-06). The Einzelfragen list's word filter searches their titles."""
 
 from __future__ import annotations
 
@@ -551,10 +553,9 @@ def frage_page(q: dict, cards: set[str], people: dict[str, dict]) -> str:
                         "beantwortet und zählt weiter als mündliche Frage.</p>")  # fmt: skip
     if not q["turns"]:
         parts.append(_gap(q["status"], pdf))
-    marks = search_marks(q["type"], q["date"], Fraktion=fraction)
     body = (
         crumbs((f"{root}{urls.EINZELFRAGEN}", "Einzelfragen"), (None, q["type"]))
-        + f'<article data-pagefind-body>{marks}<span hidden data-pagefind-meta="title">{e(q["title"])}</span>'
+        + "<article>"  # not in the search index (module docstring)
         + head
         + "".join(parts)
         + "</article>"

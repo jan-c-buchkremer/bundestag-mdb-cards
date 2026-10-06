@@ -90,6 +90,7 @@ def test_muendliche_frage_answered_in_writing_stays_muendlich(conn):
     html = question_pages.frage_page(m1, {"1", "2"}, {"1": {"name": "Anna Adler", "fraction": "SPD"}})
     assert "Warum fallen Züge aus?" in html and "Wegen Bauarbeiten." in html
     assert "zählt weiter als mündliche Frage" in html and 'href="../../2.html"' in html
+    assert "data-pagefind-body" not in html  # Einzelfragen stay out of the full-text index (memory)
     index = question_pages.einzelfragen_page([m1], {"1": {"name": "Anna Adler", "fraction": "SPD"}}, [])
     assert 'data-weg="muendlich"' in index and "mündlich, schriftlich beantwortet" in index
 

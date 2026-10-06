@@ -5,6 +5,12 @@ not before? If that sentence is hard to write, the release is not a finished ver
 
 ## Unreleased
 
+## v0.2.1 (2026-10-06)
+
+The build fits its 6g container again: the 10,662 Einzelfrage pages leave the full-text search, which took Pagefind
+from 4.4 to 5.5 GB. They stay findable by title in the Einzelfragen list; the Anfragen and Befragungen stay in the
+search.
+
 ## v0.2.0 (2026-10-06)
 
 Readers can read every question to the government and its answer on the site: each Kleine and Große Anfrage with its

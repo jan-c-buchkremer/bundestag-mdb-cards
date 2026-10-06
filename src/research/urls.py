@@ -14,6 +14,9 @@ PROCEDURES = "vorgaenge/index.html"
 SUBJECTS = "sachgebiete/index.html"
 EU = "vorgaenge/eu-vorlagen.html"
 THEMES = "themen/index.html"
+ANFRAGEN = "regierung/anfragen.html"
+EINZELFRAGEN = "regierung/einzelfragen.html"
+BEFRAGUNGEN = "regierung/regierungsbefragung.html"
 
 
 def person(pid: str) -> str:
@@ -75,3 +78,18 @@ def subject(name: str) -> str:
 
 def theme(theme_id: int | str) -> str:
     return f"themen/{theme_id}.html"
+
+
+def anfrage(vorgang_id: str) -> str:
+    """A Kleine or Große Anfrage with its questions and answers (question_pages.py)."""
+    return f"regierung/anfragen/{vorgang_id}.html"
+
+
+def frage(vorgang_id: str) -> str:
+    """A Mündliche or Schriftliche Frage with its answer (question_pages.py)."""
+    return f"regierung/fragen/{vorgang_id}.html"
+
+
+def befragung(sitting_id: str) -> str:
+    """The Befragung der Bundesregierung of a sitting, every question and answer (question_pages.py)."""
+    return f"regierung/regierungsbefragung/{page_id(sitting_id)}.html"

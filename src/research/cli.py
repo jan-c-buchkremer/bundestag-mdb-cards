@@ -19,6 +19,7 @@ from research import (
     places,
     preview,
     procedures,
+    question_pages,
     questions,
     redirects,
     search,
@@ -100,6 +101,12 @@ def main(argv: list[str] | None = None) -> None:
                                       themes)  # fmt: skip
     print(f"wrote {n_speeches} speech pages in reden/" + (f", {len(similar)} with similar speeches" if similar else ""))
     procs = procedures.write(conn, args.out, sittings, decided, rcm)
+    asked = question_pages.write(conn, args.out, {c["id"] for c in cards}, [s["date"] for s in sittings])
+    if asked:  # after vorgaenge/: the Mündliche Fragen's Vorgang pages become stubs to their question pages
+        print(
+            f"wrote {asked['anfragen']} Anfragen, {asked['einzelfragen']} Einzelfragen and "
+            f"{asked['befragungen']} Regierungsbefragungen in regierung/"
+        )
     missing = procedures.missing_debates(procs)
     print(f"{sum(len(x) for x in missing.values())} Beratungen in {len(missing)} sittings without protocol text")
     written |= sources.write(conn, args.out, meta, missing)

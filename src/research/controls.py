@@ -285,24 +285,64 @@ TILE_MIN = 150  # px, the narrowest tile: every name stays readable
 
 
 def tile_basis(counts: list[int], per: float | None = None) -> list[int]:
-    """The base width of each tile in px, by count: the tiles fill about TILE_ROWS rows of ROW_WIDTH, at least
-    TILE_MIN. The tiles sit in wrapping flex rows and grow by their count to fill each row, so no row has a gap.
-    `per`: px per unit of count instead (members of a Gremium: one member stays small however few the Gremien are)."""
+    """The width each tile asks for in px, by count: together about TILE_ROWS rows of ROW_WIDTH, at least TILE_MIN.
+    `tile_rows` turns these into rows of identical tiles. `per`: px per unit of count instead (members of a Gremium:
+    one member stays small however few the Gremien are)."""
     total = sum(counts) or 1
     scale = per if per else ROW_WIDTH * TILE_ROWS / total
     return [max(TILE_MIN, round(k * scale)) for k in counts]
 
 
+ROW_SPLITS = (1, 2, 3, 4, 6)  # tiles per row; each splits evenly on a phone (4 -> 2 lines of 2, 6 -> 2 lines of 3)
+
+
+def tile_rows(widths: list[int]) -> list[int]:
+    """How many tiles each row holds, top to bottom, for tiles sorted largest first with these target widths
+    (`tile_basis`): every row is split into equal tiles (ROW_SPLITS) and spans the whole field, so the field is one
+    rectangle and the tiles of a row are identical; no row holds fewer tiles than the one above, so a smaller item
+    never gets a bigger tile. Chosen to keep each tile closest to its target width (squared log ratio, dynamic
+    programming over the sorted list)."""
+    import math
+
+    n = len(widths)
+    if not n:
+        return []
+    cost = [[(math.log(ROW_WIDTH / c) - math.log(max(w, 1))) ** 2 for c in ROW_SPLITS] for w in widths]
+    inf = float("inf")
+    # best[i][j]: least cost of tiles i.. when the row starting at i holds at least ROW_SPLITS[j] tiles per row
+    best = [[inf] * len(ROW_SPLITS) for _ in range(n + 1)]
+    pick: list[list[int | None]] = [[None] * len(ROW_SPLITS) for _ in range(n + 1)]
+    best[n] = [0.0] * len(ROW_SPLITS)
+    for i in range(n - 1, -1, -1):
+        for j in range(len(ROW_SPLITS) - 1, -1, -1):
+            for jj in range(j, len(ROW_SPLITS)):
+                c = ROW_SPLITS[jj]
+                if i + c > n:
+                    break
+                v = sum(cost[x][jj] for x in range(i, i + c)) + best[i + c][jj]
+                if v < best[i][j]:
+                    best[i][j], pick[i][j] = v, jj
+    rows, i, j = [], 0, 0
+    while i < n:
+        jj = pick[i][j]
+        if jj is None:  # cannot happen: one tile per row always fits
+            raise ValueError("no row plan")
+        rows.append(ROW_SPLITS[jj])
+        i, j = i + ROW_SPLITS[jj], jj
+    return rows
+
+
 def tiles(items: list[tuple[str, str, int, Counter]], kinds: list[tuple], noun: str, one: str, title: str,
           attrs: list[str] | None = None, listing: bool = False, per: float | None = None) -> str:  # fmt: skip
-    """The tile field: one tile per item (href, label, count, counts by kind), largest first, its width by count
-    (`tile_basis`, the rows always full), a thin bar inside with the composition by kind (`kinds`: (kind, label) in
+    """The tile field: one tile per item (href, label, count, counts by kind), largest first, in rows of identical
+    tiles that fill the field (`tile_rows`, sized from `tile_basis`), a thin bar inside with the composition by kind
+    (`kinds`: (kind, label) in
     the neutral shades, or (kind, label, colour token), e.g. the fractions). A tile is a link to the item's page.
     `attrs`: each tile's values for the controls; `listing`: the tiles are the list a scope filters; `per`: px per
     unit of count (tile_basis)."""
     counts = [k for _, _, k, _ in items]
     out = []
-    for i, ((href, label, k, c), basis) in enumerate(zip(items, tile_basis(counts, per), strict=True)):
+    for i, (href, label, k, c) in enumerate(items):
         total = sum(c.values()) or 1
         bar = "".join(f'<i {_shade(j, kind)} style="width:{_pct(c[kind[0]], total)}%{_bg(kind)}"></i>'
                       for j, kind in enumerate(kinds) if c[kind[0]])  # fmt: skip
@@ -310,13 +350,17 @@ def tiles(items: list[tuple[str, str, int, Counter]], kinds: list[tuple], noun: 
         unit = one if k == 1 else noun
         extra = f" {attrs[i]}" if attrs else ""
         out.append(
-            f'<a class="tile" href="{e(href)}" style="--g:{max(k, 1)};--b:{basis}px"{extra} '
+            f'<a class="tile" href="{e(href)}"{extra} '
             f'title="{e(label)}: {n(k)} {e(unit)} ({e(parts)})"><span class="tn">{e(label)}</span>'
             f'<span class="tc">{n(k)} <span class="tu">{e(unit)}</span></span><span class="tbar">{bar}</span></a>'
         )
     legend = "".join(f'<span><i {_shade(i, k, "sw")} style="{_bg(k)[1:]}"></i>{e(k[1])}</span>'
                      for i, k in enumerate(kinds))  # fmt: skip
-    field = f'<nav class="tiles" aria-label="{e(title)}">{"".join(out)}</nav>'
+    rows, at = [], 0
+    for c in tile_rows(tile_basis(counts, per)):
+        rows.append(f'<div class="trow" data-c="{c}">{"".join(out[at : at + c])}</div>')
+        at += c
+    field = f'<nav class="tiles" aria-label="{e(title)}">{"".join(rows)}</nav>'
     if listing:
         field = (f'<div class="count" data-count></div><div data-rows data-row="a.tile" data-limit="9999">{field}'
                  '<div class="rows"><div class="empty" data-none hidden>Keine Treffer für diese Auswahl.</div></div>'

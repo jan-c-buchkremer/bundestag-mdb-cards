@@ -1,4 +1,5 @@
 import json
+from collections import Counter
 
 from research import data, facts, procedures
 
@@ -211,3 +212,34 @@ def test_beratung_without_protocol_text(conn):
     )
     assert 'href="../sitzungen/21-88.html' not in second_li  # no agenda item to link
     assert 'class="dec' not in second_li  # DIP's decisions are not drawn as votes parsed from the protocol
+
+
+def _proc(id_, type_, title="Titel"):
+    return {"id": id_, "type": type_, "title": title, "status": "unbekannt", "initiators": [], "latest": "2026-06-01",
+            "in_force": None}  # fmt: skip
+
+
+def test_every_dip_art_has_a_group():
+    """A Petition is a Sammelübersicht and an Einzelfall; an Art DIP adds later is "weitere"."""
+    assert procedures.vorgang_group(_proc("p", "Petition")) == "einzelfaelle"
+    assert procedures.vorgang_group(_proc("a", "Geschäftsordnung")) == "antraege"
+    assert procedures.vorgang_group(_proc("x", "Neue Art")) == "weitere"
+    groups = dict(procedures.VORGANG_GROUPS)
+    assert all(g in groups for g in procedures.VORGANG_GROUP.values())
+    row = procedures.row(_proc("p", "Petition"), "p.html")
+    assert 'data-gruppe="einzelfaelle" data-art="petition"' in row and ">Sammelübersicht<" in row
+
+
+def test_index_leaves_out_the_fragen_and_names_them():
+    """The Mündliche Fragen debated in the Fragestunde are not on the index; a note names every kind of Frage and
+    the Unterrichtungen that never reached the plenum, with their counts."""
+    procs = [_proc("g1", "Gesetzgebung"), _proc("a1", "Antrag"), _proc("m1", "Mündliche Frage", "Frage zu X"),
+             _proc("e1", "EU-Vorlage")]  # fmt: skip
+    stored = Counter({"Gesetzgebung": 1, "Antrag": 1, "Mündliche Frage": 1624, "Schriftliche Frage": 9038,
+                      "EU-Vorlage": 1856, "Bericht, Gutachten, Programm": 2})  # fmt: skip
+    html = procedures.index_page(procs, [], stored)
+    assert 'href="m1.html"' not in html and 'href="a1.html"' in html
+    assert "9.038 Schriftliche Fragen, 1.624 Mündliche Fragen" in html and '"../regierung/index.html"' in html
+    assert "1.857 Vorgänge der Gruppe „Unterrichtungen und Haushaltskontrolle“" in html
+    assert "darunter 1.855 <a" in html
+    assert 'data-f="gruppe"' in html and 'data-f="art"' in html

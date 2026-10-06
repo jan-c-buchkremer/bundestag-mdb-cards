@@ -16,7 +16,11 @@ CREATE TABLE IF NOT EXISTS person (
     dip_person_id TEXT,
     aw_politician_id INTEGER,
     wikidata_qid TEXT,
-    source_url TEXT NOT NULL, source_document_id TEXT NOT NULL, retrieved_at TEXT NOT NULL
+    source_url TEXT NOT NULL, source_document_id TEXT NOT NULL, retrieved_at TEXT NOT NULL,
+    fraction TEXT                       -- derived: the fraction in the newest Wahlperiode the person has a mandate in
+                                        -- (the open membership, else the last one; without one, as for a Nachrücker
+                                        -- not yet in the Stammdaten, the one printed in protocols and vote lists,
+                                        -- else "fraktionslos"); NULL for everyone else
 );
 
 CREATE TABLE IF NOT EXISTS mandate (
@@ -73,7 +77,10 @@ CREATE TABLE IF NOT EXISTS agenda_item (
     title TEXT,
     drucksache_numbers TEXT NOT NULL,   -- JSON array of "21/7300"
     source_url TEXT NOT NULL, source_document_id TEXT NOT NULL, retrieved_at TEXT NOT NULL,
-    no_debate INTEGER NOT NULL DEFAULT 0  -- 1: the chair says no Aussprache is provided ("keine Aussprache vorgesehen")
+    no_debate INTEGER NOT NULL DEFAULT 0,  -- 1: the chair says no Aussprache is provided ("keine Aussprache
+                                        -- vorgesehen")
+    kind TEXT                           -- derived: befragung (Befragung der Bundesregierung) | fragestunde
+                                        -- | aktuelle_stunde | NULL for every other item
 );
 
 CREATE TABLE IF NOT EXISTS agenda_sub_item (
@@ -114,8 +121,16 @@ CREATE TABLE IF NOT EXISTS speech (
     source_url TEXT NOT NULL, source_document_id TEXT NOT NULL, retrieved_at TEXT NOT NULL,
     kind TEXT NOT NULL DEFAULT 'rede',  -- rede | fragestunde: a Fragestunde question, answer or
                                         -- Nachfrage; shown, but left out of speech counts and shares
-    sub_item_id TEXT REFERENCES agenda_sub_item(id)  -- the sub-item of a block item during which the speech was
+    sub_item_id TEXT REFERENCES agenda_sub_item(id),  -- the sub-item of a block item during which the speech was
                                         -- given (its call-up is the last one before the speech), else NULL
+    speaker_group TEXT,                 -- derived: who the speech counts for: a fraction | Bundesregierung (given in a
+                                        -- federal government office, whatever the speaker's fraction) | Bundesrat
+                                        -- (a Land office) | Sonstige
+    member_fraction TEXT,               -- derived: the speaker's fraction on the sitting day (membership, else the
+                                        -- printed one), also when speaking as a minister; NULL for non-members
+    rede_id TEXT,                       -- derived: the speech this part belongs to (id without "-2", "-3" …)
+    interruption TEXT                   -- derived: zwischenfrage | kurzintervention for a part by someone other than
+                                        -- the rede's first speaker (docs/design.md "Speech parts"); NULL otherwise
 );
 
 CREATE TABLE IF NOT EXISTS speech_paragraph (
@@ -153,7 +168,9 @@ CREATE TABLE IF NOT EXISTS drucksache (
     publisher TEXT,                     -- herausgeber: BT | BR
     originators TEXT NOT NULL,          -- JSON array of urheber titles
     author_count INTEGER,
-    source_url TEXT NOT NULL, source_document_id TEXT NOT NULL, retrieved_at TEXT NOT NULL
+    source_url TEXT NOT NULL, source_document_id TEXT NOT NULL, retrieved_at TEXT NOT NULL,
+    originator_groups TEXT              -- derived: JSON array of the fractions and "Bundesregierung" among the
+                                        -- originators (a ministry counts as the Bundesregierung); [] for none
 );
 
 CREATE TABLE IF NOT EXISTS drucksache_author (
@@ -303,6 +320,11 @@ CREATE TABLE IF NOT EXISTS constituency_result (
     source_url TEXT NOT NULL, source_document_id TEXT NOT NULL, retrieved_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS party_fraction (
+    party TEXT PRIMARY KEY,             -- as person.party or the Bundeswahlleiterin print it: "CSU", "GRÜNE"
+    fraction TEXT NOT NULL              -- the fraction its members sit in: "CDU/CSU", "BÜNDNIS 90/DIE GRÜNEN"
+);
+
 CREATE TABLE IF NOT EXISTS constituency_municipality (
     id TEXT PRIMARY KEY,                -- "<election>/<ags>/<constituency number>", e.g. "btw25/02000000/18"
     election TEXT NOT NULL,
@@ -401,7 +423,19 @@ CREATE TABLE IF NOT EXISTS decision (
     text TEXT NOT NULL,                 -- the chair's words the decision was read from
     source_url TEXT NOT NULL, source_document_id TEXT NOT NULL, retrieved_at TEXT NOT NULL,
     sub_item_id TEXT REFERENCES agenda_sub_item(id),  -- the block item the chair had called up last, else NULL
-    vorgang_id TEXT REFERENCES vorgang(id)  -- the only Vorgang of drucksache_number in vorgang_drucksache, else NULL
+    vorgang_id TEXT REFERENCES vorgang(id),  -- the decision's only Vorgang in decision_vorgang, else NULL
+    dip_position_id TEXT,               -- the DIP Vorgangsposition (BT, this sitting's Plenarprotokoll) whose
+                                        -- beschlussfassung names the decision's Drucksache, when exactly one does
+    dip_result TEXT                     -- that beschlussfassung's beschlusstenor, "Annahme der Vorlage"
+);
+
+CREATE TABLE IF NOT EXISTS decision_vorgang (
+    decision_id TEXT NOT NULL REFERENCES decision(id),
+    vorgang_id TEXT NOT NULL REFERENCES vorgang(id),
+    via TEXT NOT NULL,                  -- roll_call: the roll call's Vorgang (DIP's Namentliche Abstimmung) |
+                                        -- dip_step: DIP's step in this sitting deciding the Drucksache |
+                                        -- drucksache: a Vorgang of the decision's or roll call's Drucksache
+    PRIMARY KEY (decision_id, vorgang_id)
 );
 
 CREATE TABLE IF NOT EXISTS decision_fraction (
@@ -431,6 +465,7 @@ CREATE INDEX IF NOT EXISTS question_person ON question_activity(person_id);
 CREATE INDEX IF NOT EXISTS drucksache_date ON drucksache(date);
 CREATE INDEX IF NOT EXISTS person_dip ON person(dip_person_id);
 CREATE INDEX IF NOT EXISTS vorgang_position_vorgang ON vorgang_position(vorgang_id);
+CREATE INDEX IF NOT EXISTS decision_vorgang_vorgang ON decision_vorgang(vorgang_id);
 CREATE INDEX IF NOT EXISTS vorgang_position_date ON vorgang_position(date);
 CREATE INDEX IF NOT EXISTS candidacy_person ON election_candidacy(person_id);
 CREATE INDEX IF NOT EXISTS municipality_constituency ON constituency_municipality(election, constituency_number);

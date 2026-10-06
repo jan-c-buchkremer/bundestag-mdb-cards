@@ -7,7 +7,9 @@ def add_questions(c):
     """Two AfD Kleine Anfragen, one answered via the Vorgang (10 days), one via the title (20 days), one open; a
     Sammeldrucksache of Schriftliche Fragen with one asker; a Fragestunde without speeches."""
     c.executemany(
-        "INSERT INTO drucksache VALUES (?,?,21,?,?,?,?,'BT',?,?,?,?,?)",
+        "INSERT INTO drucksache (id, number, wahlperiode, type, title, date, pdf_url, publisher, originators, "
+        "author_count, source_url, source_document_id, retrieved_at "
+        ") VALUES (?,?,21,?,?,?,?,'BT',?,?,?,?,?)",
         [
             ("k1", "21/10", "Kleine Anfrage", "Brücken", "2026-06-01", None, '["Fraktion der AfD"]', 5, *DIP),
             ("k2", "21/11", "Kleine Anfrage", "Tunnel", "2026-06-01", None, '["Fraktion der AfD"]', 5, *DIP),
@@ -31,7 +33,9 @@ def add_questions(c):
     )
     c.execute("INSERT INTO drucksache_author VALUES ('s1/c','s1','c','3','Clara Cohn','Frage',?,?,?)", DIP)
     c.execute(
-        "INSERT INTO agenda_item VALUES ('21/88/3','21/88',3,'Tagesordnungspunkt 3','Fragestunde','[]','u','d','t',0)"
+        "INSERT INTO agenda_item (id, sitting_id, position, top_id, title, drucksache_numbers, source_url, "
+        "source_document_id, retrieved_at, no_debate "
+        ") VALUES ('21/88/3','21/88',3,'Tagesordnungspunkt 3','Fragestunde','[]','u','d','t',0)"
     )
 
 
@@ -105,7 +109,9 @@ def add_research(c):
 
     add_fragestunde(c)
     c.executemany(
-        "INSERT INTO drucksache VALUES (?,?,21,?,?,?,?,'BT',?,?,?,?,?)",
+        "INSERT INTO drucksache (id, number, wahlperiode, type, title, date, pdf_url, publisher, originators, "
+        "author_count, source_url, source_document_id, retrieved_at "
+        ") VALUES (?,?,21,?,?,?,?,'BT',?,?,?,?,?)",
         [
             ("rk1", "21/610", "Kleine Anfrage", "Brückensanierung", "2026-06-01", None, '["Fraktion der SPD"]', 2,
              *DIP),

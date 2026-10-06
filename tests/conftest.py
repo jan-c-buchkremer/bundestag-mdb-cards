@@ -42,13 +42,36 @@ def vote_row(n, pid, last, fraction, vote, vote_id="21/88/1"):
     return (f"{vote_id}/{n}", vote_id, pid, last, "X", fraction, vote)
 
 
+# What the foundation's ingest derives (bdf ingest_vorlagen), as views over whatever rows a test inserts, so every
+# test sees the derived rows of its own data. decision_vorgang: the roll call's Vorgang, else every Vorgang of the
+# decision's or roll call's Drucksache (BT only, no shared Unterrichtung); DIP's steps are left out here.
+DERIVED = """
+DROP TABLE decision_vorgang;
+CREATE VIEW decision_vorgang AS
+SELECT d.id AS decision_id, r.vorgang_id, 'roll_call' AS via
+FROM decision d JOIN roll_call_vote r ON r.id = d.roll_call_vote_id
+WHERE r.vorgang_id IN (SELECT id FROM vorgang)
+UNION
+SELECT d.id, vd.vorgang_id, 'drucksache'
+FROM decision d LEFT JOIN roll_call_vote r ON r.id = d.roll_call_vote_id
+JOIN drucksache x ON x.number IN (d.drucksache_number, r.drucksache_number)
+JOIN vorgang_drucksache vd ON vd.drucksache_id = x.id JOIN vorgang v ON v.id = vd.vorgang_id
+WHERE (r.vorgang_id IS NULL OR r.vorgang_id NOT IN (SELECT id FROM vorgang)) AND coalesce(x.publisher, 'BT') = 'BT'
+  AND NOT (x.type = 'Unterrichtung' AND (SELECT count(*) FROM vorgang_drucksache y WHERE y.drucksache_id = x.id) > 1);
+"""
+
+
 def store() -> sqlite3.Connection:
     """The fixture store, in memory: the schema of tests/schema.sql and a few rows of every table."""
     c = sqlite3.connect(":memory:")
     c.row_factory = sqlite3.Row
     c.executescript((Path(__file__).parent / "schema.sql").read_text())
+    c.executescript(DERIVED)
     c.executemany(
-        "INSERT INTO person VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        "INSERT INTO person (id, first_name, last_name, name_prefix, academic_title, birth_date, birth_place, "
+        "gender, party, is_mdb, role, dip_person_id, aw_politician_id, wikidata_qid, "
+        "source_url, source_document_id, retrieved_at "
+        ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         [
             person("1", "Anna", "Adler", "SPD"),
             person("2", "Bernd", "Berg", "CSU", title="Dr.", gender="männlich"),
@@ -95,14 +118,18 @@ def store() -> sqlite3.Connection:
               "VALUES ('21/88',21,88,'2026-07-08',NULL,NULL,'https://x/21088.xml',"
               "'https://x/21088.pdf','https://x/21088.xml','BT-PlPr. 21/88','2026-09-27')")  # fmt: skip
     c.executemany(
-        "INSERT INTO agenda_item VALUES (?,'21/88',?,?,?,'[]','https://x/21088.xml',?,'2026-09-27',0)",
+        "INSERT INTO agenda_item (id, sitting_id, position, top_id, title, drucksache_numbers, source_url, "
+        "source_document_id, retrieved_at, no_debate "
+        ") VALUES (?,'21/88',?,?,?,'[]','https://x/21088.xml',?,'2026-09-27',0)",
         [
             ("21/88/1", 1, "Tagesordnungspunkt 1", "Befragung der Bundesregierung", PLPR),
             ("21/88/2", 2, "Tagesordnungspunkt 2", "Beratung des Antrags der Fraktion X | Mietpreisbremse", PLPR),
         ],
     )
     c.executemany(
-        "INSERT INTO speech VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'rede',NULL)",
+        "INSERT INTO speech (id, sitting_id, agenda_item_id, position, person_id, speaker_name, speaker_role, "
+        "fraction, text, source_url, source_document_id, retrieved_at, kind, sub_item_id "
+        ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'rede',NULL)",
         [
             # Regierungsbefragung: every question and answer is its own rede
             speech("ID10", 1, "9", "Stefanie Hubig, Bundesministerin", LONG, "21/88/1", role="Bundesministerin"),
@@ -166,7 +193,9 @@ def store() -> sqlite3.Connection:
     )
     dip = ("https://search.dip.bundestag.de/api/v1/drucksache/1", "BT-Drs. 21/1", "2026-09-27")
     c.executemany(
-        "INSERT INTO drucksache VALUES (?,?,21,?,?,?,?,'BT',?,?,?,?,?)",
+        "INSERT INTO drucksache (id, number, wahlperiode, type, title, date, pdf_url, publisher, originators, "
+        "author_count, source_url, source_document_id, retrieved_at "
+        ") VALUES (?,?,21,?,?,?,?,'BT',?,?,?,?,?)",
         [
             ("d1", "21/100", "Antrag", "Mieten", "2026-07-06", "https://x/100.pdf", '["Fraktion SPD"]', 3, *dip),
             ("d2", "21/200", "Kleine Anfrage", "Pflege", "2026-07-07", "https://x/2.pdf", '["SPD"]', 120, *dip),
@@ -260,7 +289,10 @@ def store() -> sqlite3.Connection:
             ("g5", None, "Q78", "Bea Beamtin", "Staatssekretärin", "BMF", "beamteter_sts", "2025-05-06", None, *wd),
         ],
     )  # fmt: skip
-    c.execute("INSERT INTO person VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+    c.execute("INSERT INTO person (id, first_name, last_name, name_prefix, academic_title, birth_date, "
+              "birth_place, gender, party, is_mdb, role, dip_person_id, aw_politician_id, "
+              "wikidata_qid, source_url, source_document_id, retrieved_at "
+              ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
               ("Q79", "Bruno", "Böhm", None, None, "1978-06-02", None, None, "SPD", 0, "beamteter Staatssekretär",
                None, None, "Q79", "https://www.wikidata.org/wiki/Q79", "Wikidata Q79", "2026-09-28"))  # fmt: skip
     c.executemany(
@@ -282,7 +314,10 @@ def store() -> sqlite3.Connection:
         ],
     )  # fmt: skip
     c.execute(
-        "INSERT INTO decision VALUES ('21/88/1', '21/88', '21/88/2', 1, 1, 'namentlich', 'Antrag', NULL, 'angenommen',"
+        "INSERT INTO decision (id, sitting_id, agenda_item_id, n, position, kind, subject, drucksache_number, "
+        "result, roll_call_vote_id, text, source_url, source_document_id, retrieved_at, "
+        "sub_item_id, vorgang_id "
+        ") VALUES ('21/88/1', '21/88', '21/88/2', 1, 1, 'namentlich', 'Antrag', NULL, 'angenommen',"
         " '21/88/1', 'Damit ist der Antrag angenommen.', 'https://x/21088.xml', 'BT-PlPr. 21/88', '2026-09-27',"
         " NULL, NULL)"
     )

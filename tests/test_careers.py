@@ -8,7 +8,10 @@ def add_changes(c):
     for fraktionslos; Xaver leaves the SPD without joining another fraction."""
     c.execute("UPDATE mandate SET to_date = '2026-07-31' WHERE id = '6/21'")
     c.execute(
-        "INSERT INTO person VALUES ('8','Paul','Pohl',NULL,NULL,'1980-01-01','Bonn','männlich','SPD',1,NULL,NULL,"
+        "INSERT INTO person (id, first_name, last_name, name_prefix, academic_title, birth_date, birth_place, "
+        "gender, party, is_mdb, role, dip_person_id, aw_politician_id, wikidata_qid, "
+        "source_url, source_document_id, retrieved_at "
+        ") VALUES ('8','Paul','Pohl',NULL,NULL,'1980-01-01','Bonn','männlich','SPD',1,NULL,NULL,"
         "NULL,NULL,?,?,?)",
         STAMM,
     )

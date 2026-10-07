@@ -280,6 +280,7 @@ def drucksachen(conn: sqlite3.Connection) -> dict[str, dict[str, list]]:
     """Per person: `authored` Drucksachen (incl. Schriftliche Fragen) and `reported` ones (Berichterstattung),
     each with the Bundestag's own subject index (DIP sachgebiet) of its Vorgänge."""
     out: dict[str, dict[str, list]] = defaultdict(lambda: {"authored": [], "reported": []})
+    hib = hib_newest(conn)
     for r in conn.execute(_SQL_DRUCKSACHE, (WP,)):
         if r["activity_type"] in AUTHORSHIP:
             key = "authored"
@@ -293,6 +294,7 @@ def drucksachen(conn: sqlite3.Connection) -> dict[str, dict[str, list]]:
                 "id": r["id"], "number": r["number"], "type": r["type"], "activity": r["activity_type"],
                 "title": r["title"], "date": r["date"], "pdf": r["pdf_url"], "authors": r["author_count"],
                 "originators": json.loads(r["originators"]), "subjects": subjects, "cite": r["source_document_id"],
+                **({"hib": hib[r["number"]]} if r["number"] in hib else {}),  # the card's JSON stays as it was
             }
         )  # fmt: skip
     return out
@@ -343,6 +345,7 @@ def drucksache_facts(conn: sqlite3.Connection) -> list[dict]:
     if not has_table(conn, "drucksache"):
         return []
     vindex = vorgang_index(conn)
+    hib = hib_newest(conn)
     out = []
     for r in conn.execute("SELECT * FROM drucksache WHERE wahlperiode = ? ORDER BY date, number", (WP,)):
         originators = json.loads(r["originators"] or "[]")
@@ -354,6 +357,7 @@ def drucksache_facts(conn: sqlite3.Connection) -> list[dict]:
             "groups": sorted(json.loads(r["originator_groups"] or "[]")),  # the foundation's (bdf ingest_groups)
             "url": DIP_DOC.format(r["id"]), "pdf": r["pdf_url"] or (drucksache_pdf(r["number"]) if bt else None),
             "cite": r["source_document_id"], "vorgang": next(iter(vs)) if len(vs) == 1 else None,
+            "hib": hib.get(r["number"]),
         })  # fmt: skip
     return out
 
@@ -949,6 +953,45 @@ def drucksache_ref(number: str, dip: dict[str, sqlite3.Row]) -> dict:
         "number": number, "type": r["type"] if r else None,
         "url": DIP_DOC.format(r["id"]) if r else drucksache_pdf(number), "pdf": drucksache_pdf(number),
     }  # fmt: skip
+
+
+# hib ("heute im bundestag") items: what the pages may show. The article text (hib_item.text) is protected
+# (bundestag.de Impressum) and never read here, so it reaches no page, no search index and no JSON.
+_HIB_COLUMNS = "id, number, date, title, ressort, kind, committee, source_url"
+
+
+def hib_items(conn: sqlite3.Connection) -> list[dict]:
+    """Every hib item of the Wahlperiode, newest first: id, hib number, date, title, Ressort, kind, the committee
+    its text names (Ausschuss and Anhörung, else None), the link to bundestag.de and its Drucksachen in the order the
+    text mentions them (as `drucksache_ref`). Empty without the `hib_item` table."""
+    if not has_table(conn, "hib_item"):
+        return []
+    dip = _dip_index(conn) if has_table(conn, "drucksache") else {}
+    numbers: dict[str, list[str]] = defaultdict(list)
+    if has_table(conn, "hib_drucksache"):
+        for r in conn.execute("SELECT hib_id, drucksache_number FROM hib_drucksache ORDER BY hib_id, position"):
+            numbers[r["hib_id"]].append(r["drucksache_number"])
+    return [
+        {"id": r["id"], "number": r["number"], "date": r["date"], "title": r["title"], "ressort": r["ressort"],
+         "kind": r["kind"], "committee": r["committee"], "url": r["source_url"],
+         "drucksachen": [drucksache_ref(x, dip) for x in numbers[r["id"]]]}
+        for r in conn.execute(f"SELECT {_HIB_COLUMNS} FROM hib_item WHERE wahlperiode = ? "
+                              "ORDER BY date DESC, id DESC", (WP,))
+    ]  # fmt: skip
+
+
+def hib_by_drucksache(items: list[dict]) -> dict[str, list[dict]]:
+    """Per Drucksache number: the hib items that link it, newest first (`items` as hib_items gives them)."""
+    out: dict[str, list[dict]] = defaultdict(list)
+    for h in items:
+        for r in h["drucksachen"]:
+            out[r["number"]].append(h)
+    return dict(out)
+
+
+def hib_newest(conn: sqlite3.Connection) -> dict[str, dict]:
+    """Per Drucksache number: the newest hib item that links it, as a Drucksache row links it ({url, number})."""
+    return {k: {"url": hs[0]["url"], "number": hs[0]["number"]} for k, hs in hib_by_drucksache(hib_items(conn)).items()}
 
 
 def dip_subject(title: str | None) -> str | None:

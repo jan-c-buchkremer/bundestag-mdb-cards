@@ -1,8 +1,8 @@
-"""One rendering component per kind of fact (docs/plan.md section 11, D13): `speech`, `vote`, `decision` and
-`drucksache`, with their list forms. Every page that shows one of these facts calls the function here, filtered by
-its entity (a person, a group, a place, a procedure, a sitting, a topic): the card, the Fraktion, Gremium and
-Bundesregierung pages, the place pages, the Vorgang timeline, the sitting and week pages, the topic pages and the
-votes overview. No page renders its own variant.
+"""One rendering component per kind of fact (docs/plan.md section 11, D13): `speech`, `vote`, `decision`,
+`drucksache` and `hib` (a Meldung of "heute im bundestag"), with their list forms. Every page that shows one of these
+facts calls the function here, filtered by its entity (a person, a group, a place, a procedure, a sitting, a topic):
+the card, the Fraktion, Gremium and Bundesregierung pages, the place pages, the Vorgang timeline, the sitting and week
+pages, the topic pages and the votes overview. No page renders its own variant.
 
 HTML written by Python, so every link is in the file and scripts/check_links.py can follow it; `root` is the way
 back to the site root ("" or "../"). Lists longer than their limit keep every row in the file, the rest hidden
@@ -16,7 +16,21 @@ from collections import Counter, defaultdict
 
 from research import urls
 from research.data import NO_FRACTION, VOTE_CHOICES, iso_week, majority
-from research.ui import LANDSCAPE, POSITION, SHORT, TOKEN, VOTE, badge, dot, e, frac_link, fraction_order, kind_label, n
+from research.ui import (
+    LANDSCAPE,
+    MONTHS,
+    POSITION,
+    SHORT,
+    TOKEN,
+    VOTE,
+    badge,
+    dot,
+    e,
+    frac_link,
+    fraction_order,
+    kind_label,
+    n,
+)
 from research.ui import short_date as sd
 
 LIMIT = 25  # rows of a list shown before "Alle N zeigen"
@@ -480,6 +494,9 @@ def drucksache(r: dict, root: str = "../", *, compact: bool = False, own: bool =
     if r.get("subjects"):
         sub.append(e(", ".join(r["subjects"])))
     go = []
+    if r.get("hib"):
+        go.append(f'<a class="hib" href="{e(r["hib"]["url"])}" title="Meldung hib {e(r["hib"]["number"])} auf '
+                  'bundestag.de">hib ↗</a>')  # fmt: skip
     if r.get("vorgang"):
         go.append(f'<a href="{root}{e(urls.vorgang(r["vorgang"]))}" title="Der Vorgang dieser Drucksache">Vorgang</a>')
     if r.get("pdf"):
@@ -501,3 +518,41 @@ def drucksache_list(refs: list[dict], root: str = "../", key: str = "drs", *, co
     more = len(refs) - len(shown)
     return (", ".join(drucksache(r, root, compact=True) for r in shown)
             + (f' <span class="faint">und {more} weitere</span>' if more > 0 else ""))  # fmt: skip
+
+
+# ---------------------------------------------------------------- hib
+
+
+HIB_EXPLAIN = "hib („heute im bundestag“) sind die Meldungen der Parlamentsnachrichten des Bundestages."
+HIB_SOURCE = '<p class="explain hib-src">Quelle: Deutscher Bundestag, hib. Die Meldungen stehen auf bundestag.de.</p>'
+
+
+def hib(h: dict, root: str = "../", *, drucksachen: bool = False) -> str:
+    """One hib Meldung: date, kind, title linked to the Meldung on bundestag.de (↗) and the hib number; with
+    `drucksachen`, the Drucksachen it links (as `drucksache_list`). Its text is protected and never shown."""
+    sub = [e(h["kind"]), f"hib {e(h['number'])}"]
+    if drucksachen and h.get("drucksachen"):
+        sub.append("Drs. " + drucksache_list(h["drucksachen"], root, limit=4))
+    return (f'<div class="row hib"><div class="d">{sd(h["date"])}</div><div class="t">'
+            f'<a class="ti" href="{e(h["url"])}" title="Die Meldung auf bundestag.de">{e(h["title"])} ↗</a>'
+            f'<div class="sub">{" · ".join(sub)}</div></div></div>')  # fmt: skip
+
+
+def hib_list(hs: list[dict], root: str = "../", key: str = "hib-liste", *, drucksachen: bool = False,
+             months: bool = False, limit: int | None = LIMIT) -> str:  # fmt: skip
+    """hib Meldungen in a box, in the order given (newest first), with the source line under it; with `months`, a
+    box per month under its name (a timeline)."""
+    if not months:
+        return fact_list([hib(h, root, drucksachen=drucksachen) for h in hs], key, "Keine Meldungen.", limit,
+                         HIB_SOURCE)  # fmt: skip
+    by: dict[str, list[dict]] = defaultdict(list)
+    for h in hs:
+        by[h["date"][:7]].append(h)
+    return (
+        "".join(
+            f'<h3 class="hib-m">{MONTHS[int(m[5:7]) - 1]} {m[:4]} <span class="n">{n(len(xs))}</span></h3>'
+            + fact_list([hib(h, root, drucksachen=drucksachen) for h in xs], f"{key}-{m}", "", None)
+            for m, xs in by.items()
+        )
+        + HIB_SOURCE
+    )

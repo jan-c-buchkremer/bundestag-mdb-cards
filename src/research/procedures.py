@@ -29,7 +29,7 @@ import sqlite3
 from collections import Counter
 from pathlib import Path
 
-from research import controls, facts, redirects, urls
+from research import controls, data, facts, redirects, urls
 from research.controls import GROUP_TOKENS
 from research.data import WP, _has_column, drucksache_pdf, has_table, initiator_group, iso_week, page_id
 from research.ui import (
@@ -278,9 +278,9 @@ def _json_list(s: str | None) -> list:
 
 
 def load(conn: sqlite3.Connection, sittings: list[dict], decisions: list[dict], today: str | None = None) -> list[dict]:
-    """Every Vorgang of the Wahlperiode that reaches the plenum, with its Drucksachen, debates (agenda items and
-    sub-items that carry one of its Vorlagen, with their speeches), decisions and DIP positions (None when the store
-    has no `vorgang_position`), newest activity first. Empty without the `vorgang` table.
+    """Every Vorgang of the Wahlperiode that reaches the plenum or that hib reported on, with its Drucksachen, debates
+    (agenda items and sub-items that carry one of its Vorlagen, with their speeches), decisions and DIP positions (None
+    when the store has no `vorgang_position`), newest activity first. Empty without the `vorgang` table.
     `latest` is the newest step that has happened by `today` (the build date), so a law that comes into force in 2030
     does not sort first; `in_force` is a later Inkrafttreten, shown as such on the row."""
     if not has_table(conn, "vorgang"):
@@ -292,6 +292,7 @@ def load(conn: sqlite3.Connection, sittings: list[dict], decisions: list[dict], 
             "id": r["id"], "type": r["type"] or "Vorgang", "title": r["title"], "status": r["status"] or "unbekannt",
             "subjects": _json_list(r["subjects"]), "initiators": _json_list(r["initiators"]),
             "source": r["source_url"], "docs": [], "debates": [], "decisions": [], "shared": [], "positions": None,
+            "hib": [],
             "verkuendung": _json_list(r["verkuendung"]) if has_verk else [],
             "inkrafttreten": _json_list(r["inkrafttreten"]) if has_inkraft else [],
         }
@@ -299,6 +300,7 @@ def load(conn: sqlite3.Connection, sittings: list[dict], decisions: list[dict], 
     }  # fmt: skip
     if not procs:
         return []
+    hib = data.hib_by_drucksache(data.hib_items(conn))
     if has_table(conn, "vorgang_drucksache"):
         for r in conn.execute(
             """SELECT vd.vorgang_id, d.id, d.number, d.type, d.title, d.date, d.pdf_url, d.publisher, d.originators,
@@ -314,7 +316,12 @@ def load(conn: sqlite3.Connection, sittings: list[dict], decisions: list[dict], 
                     "pdf": r["pdf_url"] or (drucksache_pdf(r["number"]) if bt else None),
                     "publisher": r["publisher"] or "BT", "originators": _json_list(r["originators"]),
                     "cite": r["source_document_id"],
+                    "hib": {"url": hib[r["number"]][0]["url"], "number": hib[r["number"]][0]["number"]}
+                    if r["number"] in hib else None,
                 })  # fmt: skip
+                for h in hib.get(r["number"], []):
+                    if h not in procs[r["vorgang_id"]]["hib"]:
+                        procs[r["vorgang_id"]]["hib"].append(h)
     for s in sittings:
         for i in s["items"]:
             where = {"sitting": s["id"], "date": s["date"], "position": i["position"], "label": i["label"]}
@@ -343,12 +350,15 @@ def load(conn: sqlite3.Connection, sittings: list[dict], decisions: list[dict], 
                     "url": r["pdf_url"], "pages": r["pages"], "originators": _json_list(r["originators"]),
                     "decisions": _json_list(r["decisions"]),
                 })  # fmt: skip
-    out = [b for b in procs.values() if b["type"] == GESETZ or b["debates"] or b["decisions"] or b["shared"]]
+    # a Vorgang hib reported on gets a page even before the plenum takes it up (a new Antrag); the Fragen have theirs
+    out = [b for b in procs.values() if b["type"] == GESETZ or b["debates"] or b["decisions"] or b["shared"]
+           or (b["hib"] and VORGANG_GROUP.get(b["type"]) != "fragen")]  # fmt: skip
     for b in out:
         for key in ("decisions", "shared"):
             b[key].sort(key=lambda d: (d["date"], d["order"]))
         b["timeline"] = timeline(b)
         b["latest"], b["in_force"] = dates(b["timeline"], today)
+        b["hib"].sort(key=lambda h: (h["date"], h["id"]), reverse=True)
     out.sort(key=lambda b: (b["latest"], b["id"]), reverse=True)
     return out
 
@@ -596,6 +606,10 @@ def procedure_page(b: dict, have: set[str], members: dict[str, list[list]], rela
                        "aufrufen, mit ihren Reden." if debates else ""))  # fmt: skip
     parts.append(facet("drucksachen", "Drucksachen", facts.drucksache_list(b["docs"], "../", "drs", compact=False,
                                                                            limit=50), len(b["docs"])))  # fmt: skip
+    if b["hib"]:
+        parts.append(facet("hib", "hib-Meldungen", facts.hib_list(b["hib"], "../", "hib-liste"), len(b["hib"]),
+                           facts.HIB_EXPLAIN + " Hier die Meldungen, die eine Drucksache dieses Vorgangs verlinken, "
+                           "die neueste zuerst."))  # fmt: skip
     parts.append(f"<footer>{FOOTER}</footer>")
     charts = any(members.get(d["id"]) or (d.get("fractions") and d.get("house")) for d in b["decisions"])
     head = STYLE + ('<script src="../parliament.js"></script>' if charts else "")

@@ -11,6 +11,7 @@ import sys
 from pathlib import Path
 
 import pytest
+import test_hib
 import test_procedures
 import test_questions
 import test_subjects
@@ -34,6 +35,7 @@ def enrich(c: sqlite3.Connection) -> None:
     test_questions.add_research(c)
     test_procedures.add_missing_debate(c)
     test_subjects.add_subjects(c)
+    test_hib.add_hib(c)
     c.execute("UPDATE agenda_item SET drucksache_numbers = '[\"21/500\", \"21/100\"]' WHERE id = '21/88/2'")
     # a decision on the Anträge' shared Drucksache: on both Vorgänge, so it keeps its own page
     c.execute(
@@ -123,6 +125,17 @@ def test_check_links_passes(site):
                          capture_output=True, text=True)  # fmt: skip
     assert run.returncode == 0, run.stdout
     assert " 0 broken links" in run.stdout
+
+
+def test_no_hib_text_in_any_file(site):
+    """hib texts are protected (bundestag.de Impressum): none reaches a page, the search index or any JSON, while
+    the items themselves are on the Vorgang and Gremium pages."""
+    files = [p for p in site.rglob("*") if p.is_file()]
+    assert files
+    for p in files:
+        assert test_hib.MARKER.encode() not in p.read_bytes(), p
+    assert "hib-Meldungen" in (site / "vorgaenge" / "v2.html").read_text(encoding="utf-8")
+    assert "Sitzungen und Anhörungen laut hib" in (site / "gremien" / "gesundheit.html").read_text(encoding="utf-8")
 
 
 def follow(site: Path, url: str) -> tuple[Path, str]:

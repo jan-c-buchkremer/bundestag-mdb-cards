@@ -13,6 +13,7 @@ MARKERS = {
     "speech": re.compile(r'class="sp[ "]'),
     "decision": re.compile(r'class="dec[ "]'),
     "drucksache": re.compile(r'class="row drs"'),
+    "hib": re.compile(r'class="row hib"'),
     "vote": re.compile(r'class="v-\{|<table class="plenum"><thead><tr><th>Fraktion</th><th>(Ja|Sitze)'),
 }
 OLD = {"count_bar", "hands_bar", "fraction_table_rc", "fraction_table_hands", "drs_links", "speech_row", "vote_row",
@@ -43,7 +44,8 @@ def test_no_script_renders_facts():
 
 
 def test_one_component_per_fact():
-    for name in ("speech", "speech_list", "vote", "decision", "decision_list", "drucksache", "drucksache_list"):
+    for name in ("speech", "speech_list", "vote", "decision", "decision_list", "drucksache", "drucksache_list", "hib",
+                 "hib_list"):  # fmt: skip
         assert callable(getattr(facts, name))
     d = {"id": "21/1/h1", "page": "21-1-h1", "kind": "handzeichen", "title": "Antrag", "result": "angenommen",
          "fractions": {"SPD": "yes"}, "house": {"SPD": 3}, "vorgaenge": ["g1"], "href": "vorgaenge/g1.html#abst-21-1-h1"}  # fmt: skip # noqa: E501

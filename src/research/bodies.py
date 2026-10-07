@@ -57,6 +57,35 @@ _ALIASES = {
     "Sportausschuss": "Ausschuss für Sport und Ehrenamt",
     "Vermittlungsausschuss": "Mitglieder des Ausschusses nach Artikel 77 Abs. 2 des Grundgesetzes (Vermittlungsausschuss)",  # noqa: E501
 }
+# hib names a committee in the short form of its own text ("Innenausschuss", "Forschungsausschuss"), the genitive
+# stripped (`hib_committee`); the short forms whose Stammdaten name differs, short form -> Stammdaten name. A name
+# that is already a Stammdaten name (full or short, "Haushaltsausschuss") needs no row. `hib_unmatched` lists the rest.
+HIB_COMMITTEES = {
+    "Agrarausschuss": "Ausschuss für Landwirtschaft, Ernährung und Heimat",
+    "Arbeitsausschuss": "Ausschuss für Arbeit und Soziales",
+    "Sozialausschuss": "Ausschuss für Arbeit und Soziales",
+    "Bauausschuss": "Ausschuss für Wohnen, Stadtentwicklung, Bauwesen und Kommunen",
+    "Bildungsausschuss": "Ausschuss für Bildung, Familie, Senioren, Frauen und Jugend",
+    "Familienausschuss": "Ausschuss für Bildung, Familie, Senioren, Frauen und Jugend",
+    "Digitalausschuss": "Ausschuss für Digitales und Staatsmodernisierung",
+    "Entwicklungsausschuss": "Ausschuss für wirtschaftliche Zusammenarbeit und Entwicklung",
+    "Europaausschuss": "Ausschuss für die Angelegenheiten der Europäischen Union",
+    "EU-Ausschuss": "Ausschuss für die Angelegenheiten der Europäischen Union",
+    "Forschungsausschuss": "Ausschuss für Forschung, Technologie, Raumfahrt und Technikfolgenabschätzung",
+    "Gesundheitsausschuss": "Ausschuss für Gesundheit",
+    "Innenausschuss": "Ausschuss für Inneres",
+    "Kulturausschuss": "Ausschuss für Kultur und Medien",
+    "Menschenrechtsausschuss": "Ausschuss für Menschenrechte und humanitäre Hilfe",
+    "Rechtsausschuss": "Ausschuss für Recht und Verbraucherschutz",
+    "Sportausschuss": "Ausschuss für Sport und Ehrenamt",
+    "Tourismusausschuss": "Ausschuss für Tourismus",
+    "Umweltausschuss": "Ausschuss für Umwelt, Klimaschutz, Naturschutz und nukleare Sicherheit",
+    "Verkehrsausschuss": "Ausschuss für Verkehr",
+    "Wirtschaftsausschuss": "Ausschuss für Wirtschaft und Energie",
+    "Wahlprüfungsausschuss": "Ausschuss für Wahlprüfung, Immunität u. Geschäftsordnung",
+}
+_HIB_ARTICLE = re.compile(r"^(des|der|dem|den|im|vom|beim)\s+")
+_HIB_GENITIVE = re.compile(r"([Aa]usschuss)es\b")
 _LEAD = careers.CHAIR  # the Rollen section lists the same chairs
 _DEPUTY_LEAD = re.compile(r"^Stellvertretende[rs]?\s+(Vorsitzende[r]?|Delegationsleiter)$")
 _OBLEUTE = re.compile(r"^(Obfrau|Obmann)$")
@@ -153,6 +182,50 @@ def besch_by_committee(docs: list[dict]) -> dict[str, list[dict]]:
     return out
 
 
+def hib_committee(name: str) -> str:
+    """A committee as hib's text names it, in the nominative without its article: "des Innenausschusses" ->
+    "Innenausschuss", "des Auswärtigen Ausschusses" -> "Auswärtiger Ausschuss"."""
+    s = _HIB_ARTICLE.sub("", " ".join(name.split()))
+    s = _HIB_GENITIVE.sub(r"\1", s)
+    return re.sub(r"^Auswärtigen\b", "Auswärtiger", s)
+
+
+def _hib_body(name: str, by_name: dict[str, str]) -> str | None:
+    """The Stammdaten name of the body hib's `name` means, None when it matches none. `by_name`: every body's name
+    and short name -> its name."""
+    s = hib_committee(name)
+    for x in (s, HIB_COMMITTEES.get(s), _ALIASES.get(s), _ALIASES.get(HIB_COMMITTEES.get(s, ""))):
+        if x and x in by_name:
+            return by_name[x]
+    return None
+
+
+def _body_names(groups: list[dict]) -> dict[str, str]:
+    return {**{b["short"]: b["name"] for b in groups}, **{b["name"]: b["name"] for b in groups}}
+
+
+def hib_by_body(items: list[dict], groups: list[dict]) -> dict[str, list[dict]]:
+    """Per body (by name): the hib items of kind Ausschuss and Anhörung whose committee names it, in the order of
+    `items` (newest first)."""
+    names = _body_names(groups)
+    out: dict[str, list[dict]] = defaultdict(list)
+    for h in items:
+        if h["kind"] in ("Ausschuss", "Anhörung") and h.get("committee"):
+            body = _hib_body(h["committee"], names)
+            if body:
+                out[body].append(h)
+    return out
+
+
+def hib_unmatched(items: list[dict], groups: list[dict]) -> list[str]:
+    """The committee names of hib items (Ausschuss, Anhörung) that match no body, in the nominative, so a row for
+    each can be added to HIB_COMMITTEES."""
+    names = _body_names(groups)
+    return sorted({hib_committee(h["committee"]) for h in items
+                   if h["kind"] in ("Ausschuss", "Anhörung") and h.get("committee")
+                   and _hib_body(h["committee"], names) is None})  # fmt: skip
+
+
 def _newest(xs: list[dict], k: int = FACET) -> list[dict]:
     return sorted(xs, key=lambda x: (x["date"] or "", x.get("id") or ""), reverse=True)[:k]
 
@@ -224,7 +297,8 @@ def _stats_section(ms: list[dict]) -> str:
     )
 
 
-def body_page(b: dict, besch: list[dict]) -> str:
+def body_page(b: dict, besch: list[dict], hib: list[dict] | None = None) -> str:
+    """One Gremium; `hib`: its Sitzungen and Anhörungen as hib reports them (hib_by_body), newest first."""
     kind_label = "Ausschuss" if b["kind"] == "committee" else "Gremium"
     head = (
         crumbs(("index.html", "Gremien"), (None, b["short"]))
@@ -247,6 +321,12 @@ def body_page(b: dict, besch: list[dict]) -> str:
                            "beraten und abgestimmt wurde."))  # fmt: skip
     else:
         parts.append(facet("drucksachen", "Drucksachen", "", explain="Keine Drucksachen dieses Gremiums im DIP."))
+    if hib:
+        parts.append(facet("hib", "Sitzungen und Anhörungen laut hib",
+                           facts.hib_list(hib, "../", "hib-liste", drucksachen=True, months=True), len(hib),
+                           facts.HIB_EXPLAIN + " Hier die Meldungen über Sitzungen und öffentliche Anhörungen dieses "
+                           "Ausschusses, nach Monaten, die neueste zuerst, mit den Drucksachen, die sie "
+                           "verlinken."))  # fmt: skip
     parts.append(f"<footer>{FOOTER}</footer>")
     desc = (
         f"{kind_label} des 21. Deutschen Bundestages: {b['short']}, Mitglieder nach Fraktion und Funktion, mit Quelle."
@@ -552,11 +632,13 @@ def write(
     speeches = data.speech_facts(cards)
     bodies = load_bodies(conn, cards)
     besch = besch_by_committee(docs)
+    hib = hib_by_body(data.hib_items(conn), bodies)
     roles = data.government_roles(conn)
     gd = out / "gremien"
     gd.mkdir(parents=True, exist_ok=True)
     for b in bodies:
-        (gd / f"{b['slug']}.html").write_text(body_page(b, besch.get(b["name"], [])), encoding="utf-8")
+        page = body_page(b, besch.get(b["name"], []), hib.get(b["name"]))
+        (gd / f"{b['slug']}.html").write_text(page, encoding="utf-8")
     if roles:
         names = {c["id"]: c["name"] for c in cards}
         (gd / "bundesregierung.html").write_text(government_page(roles, names, speeches, docs), encoding="utf-8")

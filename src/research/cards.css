@@ -180,6 +180,11 @@ a.row:hover .ti { color: var(--accent); }
 .row.v .l { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
 .row.v .l .k, .dec .k { color: var(--faint); font-size: 11.5px; }
 .row.s { grid-template-columns: 92px 1fr; }
+.row.hib { grid-template-columns: 92px 1fr; }
+.row.hib .ti { overflow-wrap: anywhere; }
+h3.hib-m { font-size: 14px; font-weight: 600; margin: 16px 0 6px; }
+h3.hib-m .n { color: var(--faint); font-weight: 400; }
+@media (max-width: 640px) { .row.hib { grid-template-columns: minmax(0, 1fr); } }
 
 .sit-head .links { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 12px; font-size: 13.5px; }
 .prevnext { display: flex; justify-content: space-between; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 13.5px; }

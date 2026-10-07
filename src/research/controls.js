@@ -224,7 +224,7 @@
       for (const k of keys) if (state.f[k] && !singles.has(k)) parts.push(state.f[k].map(v => label(k, v)).join(' oder '));
       if (state.zeit) parts.push(range(state.zeit));
       if (state.q) parts.push(`„${state.q}“`);
-      if (summary) summary.textContent = parts.length ? `Auswahl: ${parts.join(' · ')}` : '';
+      if (summary) summary.title = summary.textContent = parts.length ? `Auswahl: ${parts.join(' · ')}` : '';
       if (reset) reset.disabled = !active(state, singles);
       scope.dispatchEvent(new CustomEvent('controls:change', { detail: { state, api } }));
     }

@@ -9,6 +9,7 @@ not before? If that sentence is hard to write, the release is not a finished ver
   names mid-word on a wide screen.
 - "mehr anzeigen" no longer shows under a list shorter than its limit, where it read "noch -26"; the search's
   "Weitere Treffer" no longer shows without results.
+- Filters: the "Auswahl" line above the charts keeps its place, so a choice no longer moves the page under the cursor.
 
 ## v0.2.2 (2026-10-06)
 

@@ -304,8 +304,8 @@ h1.vh { font-size: 22px; font-weight: 600; letter-spacing: -.01em; margin: 4px 0
 .legend span { display: inline-flex; align-items: center; gap: 5px; }
 .ctl-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 12px; }
 .ctl-bar input[type=search] { flex: 1 1 240px; min-width: 0; background: var(--card); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; font-size: 13.5px; }
-.ctl-sum { flex: 1 1 100%; order: 3; color: var(--muted); font-size: 12.5px; }
-.ctl-sum:empty { display: none; }
+/* always one line, empty without a selection: a choice must not move the charts under the cursor */
+.ctl-sum { flex: 1 1 100%; order: 3; color: var(--muted); font-size: 12.5px; line-height: 18px; height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ctl-bar .reset, .zx { border: 1px solid var(--line); background: var(--card); color: var(--accent); border-radius: 8px; padding: 6px 12px; font-size: 13px; cursor: pointer; }
 .ctl-bar .reset:disabled { color: var(--faint); cursor: default; }
 .zx { padding: 1px 8px; font-size: 12px; }

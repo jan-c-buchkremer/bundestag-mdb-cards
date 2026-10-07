@@ -60,8 +60,13 @@ _ALIASES = {
 # hib names a committee in the short form of its own text ("Innenausschuss", "Forschungsausschuss"), the genitive
 # stripped (`hib_committee`); the short forms whose Stammdaten name differs, short form -> Stammdaten name. A name
 # that is already a Stammdaten name (full or short, "Haushaltsausschuss") needs no row. `hib_unmatched` lists the rest.
+_BEIRAT = "Parlamentarischer Beirat für nachhaltige Entwicklung und Zukunftsfragen"
+_ENQUETE_CORONA = (
+    'Enquete-Kommission "Aufarbeitung der Corona-Pandemie und Lehren für zukünftige pandemische Ereignisse"'
+)
 HIB_COMMITTEES = {
     "Agrarausschuss": "Ausschuss für Landwirtschaft, Ernährung und Heimat",
+    "Landwirtschaftsausschuss": "Ausschuss für Landwirtschaft, Ernährung und Heimat",
     "Arbeitsausschuss": "Ausschuss für Arbeit und Soziales",
     "Sozialausschuss": "Ausschuss für Arbeit und Soziales",
     "Bauausschuss": "Ausschuss für Wohnen, Stadtentwicklung, Bauwesen und Kommunen",
@@ -83,6 +88,9 @@ HIB_COMMITTEES = {
     "Verkehrsausschuss": "Ausschuss für Verkehr",
     "Wirtschaftsausschuss": "Ausschuss für Wirtschaft und Energie",
     "Wahlprüfungsausschuss": "Ausschuss für Wahlprüfung, Immunität u. Geschäftsordnung",
+    # bodies that report under their own name as hib's Ressort (foundation hib_item.committee)
+    "Parlamentarischer Beirat für nachhaltige Entwicklung": _BEIRAT,
+    "Enquete-Kommission Corona": _ENQUETE_CORONA,
 }
 _HIB_ARTICLE = re.compile(r"^(des|der|dem|den|im|vom|beim)\s+")
 _HIB_GENITIVE = re.compile(r"([Aa]usschuss)es\b")

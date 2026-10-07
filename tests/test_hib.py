@@ -133,7 +133,11 @@ def test_hib_by_body_and_the_names_left_over(conn):
 
 
 def test_every_short_form_names_a_full_committee_name():
+    other = {"Parlamentarischer Beirat für nachhaltige Entwicklung", "Enquete-Kommission Corona"}  # their own Ressort
     for short, full in bodies.HIB_COMMITTEES.items():
+        if short in other:
+            assert full.startswith(short.split()[0]), full
+            continue
         assert short.endswith("ausschuss") or short.endswith("Ausschuss"), short
         assert full.startswith("Ausschuss "), full
 

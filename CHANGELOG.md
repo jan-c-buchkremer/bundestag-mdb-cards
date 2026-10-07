@@ -5,6 +5,12 @@ not before? If that sentence is hard to write, the release is not a finished ver
 
 ## Unreleased
 
+- Sachgebiete and Gremien: at most four tiles per row, so no tile is narrower than a readable name; six per row broke
+  names mid-word on a wide screen.
+- "mehr anzeigen" no longer shows under a list shorter than its limit, where it read "noch -26"; the search's
+  "Weitere Treffer" no longer shows without results.
+- Filters: the "Auswahl" line above the charts keeps its place, so a choice no longer moves the page under the cursor.
+
 ## v0.2.2 (2026-10-06)
 
 Readers on a phone can open a Steckbrief from the parliament views with a second tap and reach every section through a

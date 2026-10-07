@@ -97,6 +97,27 @@ def test_tile_rows_fill_the_field_and_never_grow_downwards():
     assert controls.tile_rows(controls.tile_basis([400, 120, 90, 60, 50, 40, 30, 20, 10, 5, 3, 1]))[0] < 3
 
 
+def test_row_splits_keep_tile_min():
+    """No row plan makes a tile narrower than TILE_MIN on a wide screen."""
+    for c in controls.ROW_SPLITS:
+        assert (controls.ROW_WIDTH - (c - 1) * controls.TILE_GAP) / c >= controls.TILE_MIN
+
+
+def test_more_button_obeys_hidden():
+    """.more sets a display, which beats the hidden attribute: a list shorter than the limit showed
+    "mehr anzeigen (noch -26)"."""
+    text = (Path(controls.__file__).parent / "cards.css").read_text(encoding="utf-8")
+    assert ".more[hidden] { display: none; }" in text
+
+
+def test_selection_summary_keeps_its_line():
+    """The "Auswahl: …" line above the charts is always one line high, so a choice does not move the page."""
+    text = (Path(controls.__file__).parent / "cards.css").read_text(encoding="utf-8")
+    assert ".ctl-sum:empty" not in text
+    rule = text.split(".ctl-sum {", 1)[1].split("}", 1)[0]
+    assert "height: 18px" in rule and "white-space: nowrap" in rule
+
+
 def test_strip():
     weeks = controls.weeks_between("2025-12-24", "2026-01-12")
     assert weeks == ["2025-W52", "2026-W01", "2026-W02", "2026-W03"]

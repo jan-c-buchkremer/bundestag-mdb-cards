@@ -5,6 +5,8 @@ not before? If that sentence is hard to write, the release is not a finished ver
 
 ## Unreleased
 
+## v0.3.0 (2026-10-07)
+
 Readers can see on a Vorgang and on an Ausschuss page what the Bundestag's own news service hib reported about it,
 with a link to each Meldung on bundestag.de.
 

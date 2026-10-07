@@ -293,7 +293,9 @@ def tile_basis(counts: list[int], per: float | None = None) -> list[int]:
     return [max(TILE_MIN, round(k * scale)) for k in counts]
 
 
-ROW_SPLITS = (1, 2, 3, 4, 6)  # tiles per row; each splits evenly on a phone (4 -> 2 lines of 2, 6 -> 2 lines of 3)
+ROW_SPLITS = (1, 2, 3, 4)  # tiles per row; each splits evenly on a phone (4 -> 2 lines of 2). Not 6: a sixth of the
+# field is narrower than TILE_MIN, so names broke mid-word (test_row_splits_keep_tile_min)
+TILE_GAP = 4  # px between the tiles of a row (.trow's gap in cards.css)
 
 
 def tile_rows(widths: list[int]) -> list[int]:

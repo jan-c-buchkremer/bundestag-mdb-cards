@@ -208,7 +208,7 @@
       const shown = Math.min(hits, limit);
       if (more) {
         more.hidden = !loaded || hits <= limit;
-        more.textContent = `mehr anzeigen (noch ${n(hits - limit)})`;
+        if (!more.hidden) more.textContent = `mehr anzeigen (noch ${n(hits - limit)})`;
       }
       if (none) none.hidden = !loaded || hits > 0;
       if (count) {

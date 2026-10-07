@@ -84,6 +84,7 @@ table.plenum.subjects th { vertical-align: bottom; }
 .empty { color: var(--faint); font-size: 13px; padding: 14px 16px; }
 .more { display: block; width: 100%; border: 0; border-top: 1px solid var(--line); background: var(--card); color: var(--accent); font-size: 13px; padding: 9px; cursor: pointer; }
 .more:hover { background: var(--bg); }
+.more[hidden] { display: none; }  /* .more's display would beat the hidden attribute */
 
 .vote { display: inline-block; min-width: 72px; text-align: center; font-size: 12px; font-weight: 600; border-radius: 6px; padding: 1px 8px; }
 .vote.yes { color: #1f6b35; background: #e3f3e7; }
@@ -379,7 +380,7 @@ html.js .cv.alt .cv-alt { display: block; }
 .tiles { display: flex; flex-direction: column; gap: 4px; }
 .trow { display: flex; flex-wrap: wrap; gap: 4px; --c: 1; --h: 86px; }
 .trow[data-c="1"] { --h: 120px; } .trow[data-c="2"] { --c: 2; --h: 108px; } .trow[data-c="3"] { --c: 3; --h: 96px; }
-.trow[data-c="4"] { --c: 4; } .trow[data-c="6"] { --c: 6; }
+.trow[data-c="4"] { --c: 4; }
 .trow:not(:has(> .tile:not([hidden]))) { display: none; }
 .tile { flex: 1 1 calc((100% - (var(--c) - 1) * 4px) / var(--c)); min-height: var(--h); display: flex; flex-direction: column; min-width: 0; overflow: hidden; background: var(--accent-soft); border: 1px solid transparent; border-radius: 8px; padding: 7px 9px 8px; color: var(--text); }
 .tile:hover { text-decoration: none; border-color: var(--accent); }
@@ -408,8 +409,8 @@ html.js .cv.alt .cv-alt { display: block; }
   .pipe-main li:not(:last-child)::after { content: "⌄"; right: auto; left: 14px; top: auto; bottom: -15px; transform: none; font-size: 13px; }
   .stage { flex-direction: row; align-items: baseline; justify-content: space-between; padding: 6px 10px 9px; }
   .stage .c { font-size: 15px; }
-  /* a 4-row in two lines of 2, a 6-row in two lines of 3: still equal tiles and full lines */
-  .trow[data-c="4"] { --c: 2; } .trow[data-c="6"] { --c: 3; }
+  /* a 4-row in two lines of 2: still equal tiles and full lines */
+  .trow[data-c="4"] { --c: 2; }
   .srow { grid-template-columns: minmax(0, 1fr) auto; }
   .srow .sb { grid-column: 1 / -1; grid-row: 2; margin: 3px 0 1px; }
   .srow .sx { grid-column: 1 / -1; }

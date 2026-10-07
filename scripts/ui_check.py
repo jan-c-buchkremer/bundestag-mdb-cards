@@ -45,6 +45,7 @@ PAGES = [
     ("startseite", "index.html", 0), ("abgeordnete", "abgeordnete.html", 0), ("steckbrief", "[0-9]*.html", 0),
     ("orte", "orte/index.html", 0), ("land", "orte/bayern.html", 0), ("wahlkreis", "orte/wahlkreis-*.html", 0),
     ("gremien", "gremien/index.html", 0), ("gremium", "gremien/*.html", 0),
+    ("gremium-hib", "gremien/haushaltsausschuss.html", 0),  # a committee with its hib timeline
     ("bundesregierung", "gremien/bundesregierung.html", 0), ("fraktion", "fraktionen/*.html", 0),
     ("vorgaenge", "vorgaenge/index.html", 0), ("vorgang", "vorgaenge/[0-9]*.html", -1),
     ("eu-vorlagen", "vorgaenge/eu-vorlagen.html", 0), ("sachgebiete", "sachgebiete/index.html", 0),

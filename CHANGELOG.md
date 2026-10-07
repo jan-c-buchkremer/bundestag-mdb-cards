@@ -10,14 +10,16 @@ with a link to each Meldung on bundestag.de.
 
 - Vorgang pages: the section "hib-Meldungen" lists every Meldung that links one of the Vorgang's Drucksachen, the
   newest first, with date, kind, title and hib number.
+- A Vorgang hib reported on gets its page even before the plenum takes it up (a new Antrag, a Bericht); Kleine and
+  Große Anfragen keep theirs under Fragen. The Radar's "Diese Woche" links these pages.
 - Drucksache rows: a small "hib" link to the newest Meldung on that Drucksache.
 - Gremium pages: the timeline "Sitzungen und Anhörungen laut hib" by month, each Meldung with the Drucksachen it
   links. hib's committee names (short forms, genitive) map to the Stammdaten names in `bodies.HIB_COMMITTEES`;
   `bodies.hib_unmatched` lists the names still missing.
 - The text of a Meldung is protected and not shown anywhere, nor in the search index or any JSON; a test builds the
   site and checks every file for it.
-- `tests/schema.sql`: the foundation's `hib_item` and `hib_drucksache` (foundation branch `hib`), added by hand until
-  the foundation releases them.
+- `tests/schema.sql`: the foundation's `hib_item` and `hib_drucksache` (foundation branch `hib`), generated from that
+  branch until the foundation releases them.
 
 ## v0.2.2 (2026-10-06)
 

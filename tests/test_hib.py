@@ -82,6 +82,20 @@ def test_vorgang_page_lists_its_hib_items(conn):
     assert MARKER not in html
 
 
+def test_a_vorgang_hib_reported_on_gets_a_page_before_the_plenum(conn):
+    conn.execute(
+        "INSERT INTO vorgang (id, wahlperiode, type, title, status, subjects, initiators, source_url,"
+        " source_document_id, retrieved_at)"
+        " VALUES ('v3', 21, 'Kleine Anfrage', 'Pflege', NULL, '[]', '[]', 'u', 'd', 't')"
+    )
+    conn.execute("INSERT INTO vorgang_drucksache VALUES ('v3', 'd2')")
+    assert "v1" not in _load(conn)  # an Antrag the plenum has not taken up
+    add_hib(conn)
+    loaded = _load(conn)
+    assert [h["id"] for h in loaded["v1"]["hib"]] == ["1223016", "1216000"]
+    assert "v3" not in loaded  # a Kleine Anfrage has its page under Fragen, hib or not
+
+
 def test_vorgang_page_without_hib_items(conn):
     conn.execute("UPDATE agenda_item SET drucksache_numbers = '[\"21/100\"]' WHERE id = '21/88/2'")
     html = procedures.procedure_page(_load(conn)["v2"], set(), {}, facts.relation_counts([]))

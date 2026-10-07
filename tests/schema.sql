@@ -563,8 +563,8 @@ CREATE INDEX IF NOT EXISTS vorgang_position_vorgang ON vorgang_position(vorgang_
 CREATE INDEX IF NOT EXISTS decision_vorgang_vorgang ON decision_vorgang(vorgang_id);
 CREATE INDEX IF NOT EXISTS vorgang_position_date ON vorgang_position(date);
 CREATE INDEX IF NOT EXISTS vorgang_referral_vorgang ON vorgang_referral(vorgang_id);
+CREATE INDEX IF NOT EXISTS hib_item_date ON hib_item(date);
+CREATE INDEX IF NOT EXISTS hib_drucksache_number ON hib_drucksache(drucksache_number);
 CREATE INDEX IF NOT EXISTS candidacy_person ON election_candidacy(person_id);
 CREATE INDEX IF NOT EXISTS municipality_constituency ON constituency_municipality(election, constituency_number);
 CREATE INDEX IF NOT EXISTS government_role_person ON government_role(person_id);
-CREATE INDEX IF NOT EXISTS hib_item_date ON hib_item(date);
-CREATE INDEX IF NOT EXISTS hib_drucksache_number ON hib_drucksache(drucksache_number);

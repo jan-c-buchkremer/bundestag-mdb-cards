@@ -278,9 +278,9 @@ def _json_list(s: str | None) -> list:
 
 
 def load(conn: sqlite3.Connection, sittings: list[dict], decisions: list[dict], today: str | None = None) -> list[dict]:
-    """Every Vorgang of the Wahlperiode that reaches the plenum, with its Drucksachen, debates (agenda items and
-    sub-items that carry one of its Vorlagen, with their speeches), decisions and DIP positions (None when the store
-    has no `vorgang_position`), newest activity first. Empty without the `vorgang` table.
+    """Every Vorgang of the Wahlperiode that reaches the plenum or that hib reported on, with its Drucksachen, debates
+    (agenda items and sub-items that carry one of its Vorlagen, with their speeches), decisions and DIP positions (None
+    when the store has no `vorgang_position`), newest activity first. Empty without the `vorgang` table.
     `latest` is the newest step that has happened by `today` (the build date), so a law that comes into force in 2030
     does not sort first; `in_force` is a later Inkrafttreten, shown as such on the row."""
     if not has_table(conn, "vorgang"):
@@ -350,7 +350,9 @@ def load(conn: sqlite3.Connection, sittings: list[dict], decisions: list[dict], 
                     "url": r["pdf_url"], "pages": r["pages"], "originators": _json_list(r["originators"]),
                     "decisions": _json_list(r["decisions"]),
                 })  # fmt: skip
-    out = [b for b in procs.values() if b["type"] == GESETZ or b["debates"] or b["decisions"] or b["shared"]]
+    # a Vorgang hib reported on gets a page even before the plenum takes it up (a new Antrag); the Fragen have theirs
+    out = [b for b in procs.values() if b["type"] == GESETZ or b["debates"] or b["decisions"] or b["shared"]
+           or (b["hib"] and VORGANG_GROUP.get(b["type"]) != "fragen")]  # fmt: skip
     for b in out:
         for key in ("decisions", "shared"):
             b[key].sort(key=lambda d: (d["date"], d["order"]))
